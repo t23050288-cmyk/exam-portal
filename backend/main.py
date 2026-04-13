@@ -1,0 +1,74 @@
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import logging
+
+from core.config import get_settings
+from routers import auth, exam, violations, admin, ingest, leaderboard
+
+# ── Logging ───────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("examguard")
+
+# ── Rate Limiter ───────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address)
+
+settings = get_settings()
+
+# ── App ───────────────────────────────────────────────────────
+app = FastAPI(
+    title="ExamGuard API",
+    description="Online Exam System for 266 Concurrent Students",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url=None,
+)
+
+# ── CORS ──────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Attach limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── Routers ───────────────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(exam.router)
+app.include_router(violations.router)
+app.include_router(admin.router)
+app.include_router(ingest.router)
+app.include_router(leaderboard.router)
+
+
+# ── Health Check ──────────────────────────────────────────────
+@app.get("/health", tags=["health"])
+async def health():
+    return {"status": "ok", "service": "examguard-api", "version": "1.0.0"}
+
+
+# ── Root ──────────────────────────────────────────────────────
+@app.get("/", tags=["root"])
+async def root():
+    return {"message": "ExamGuard API — Online Exam System", "docs": "/docs"}
+
+
+# ── Global Error Handler ──────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error on {request.url}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )

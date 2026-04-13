@@ -1,0 +1,118 @@
+.card {
+  background: var(--bg-card);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  scroll-margin-top: 80px;
+  box-shadow: var(--shadow-card);
+}
+
+.card:hover { 
+  box-shadow: var(--shadow-elevated); 
+  transform: translateY(-2px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(79, 110, 247, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.marks {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 3px 8px;
+  background: var(--bg-secondary);
+  border-radius: 99px;
+  border: 1px solid var(--border);
+}
+
+.text {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.65;
+  margin-bottom: 18px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.option:hover:not(:disabled) {
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-1px);
+}
+
+.option:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.selected {
+  background: var(--accent) !important;
+  color: #fff !important;
+  box-shadow: var(--shadow-card);
+}
+
+.optionKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.selected .optionKey {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: transparent;
+  color: #fff;
+}
+
+.optionText { flex: 1; }
+
+.check {
+  flex-shrink: 0;
+  margin-left: auto;
+}
