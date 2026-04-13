@@ -120,13 +120,13 @@ export default function LoginPage() {
 
           <div className={styles.field}>
             <label htmlFor="name" className={styles.label}>
-              Full Name
+              Full Name (Optional)
             </label>
             <input
               id="name"
               type="text"
               className="input"
-              placeholder="e.g. Meet Ukani"
+              placeholder="Defaults to USN if left blank"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
@@ -135,13 +135,13 @@ export default function LoginPage() {
 
           <div className={styles.field}>
             <label htmlFor="email" className={styles.label}>
-              Email Address
+              Email Address (Optional)
             </label>
             <input
               id="email"
               type="email"
               className="input"
-              placeholder="e.g. meetukani@gmail.com"
+              placeholder="e.g. name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}

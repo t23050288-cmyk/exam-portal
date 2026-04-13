@@ -44,35 +44,28 @@ async def login(request: LoginRequest):
 
     if not result.data or len(result.data) == 0:
         # ── AUTO-REGISTRATION LOGIC ──
-        # If student not found, but Name and Email are provided, create them.
-        if request.name and request.email:
-            try:
-                # Create the student record
-                new_student_data = {
-                    "usn": request.usn.strip().upper(),
-                    "roll_number": request.usn.strip().upper(), # Sync legacy column
-                    "name": request.name.strip(),
-                    "email": request.email.strip(),
-                    "branch": request.branch or "CS",
-                    "password_hash": hash_password(request.password)
-                }
-                insert_res = db.table("students").insert(new_student_data).execute()
-                if not insert_res.data:
-                    raise HTTPException(status_code=500, detail="Failed to register student")
-                
-                student = insert_res.data[0]
-                # Initialize exam_status for the new student
-                db.table("exam_status").insert({"student_id": student["id"]}).execute()
-                
-            except Exception as e:
-                print(f"[AUTH] Auto-registration failed: {e}")
-                raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-        else:
-            # Not found and no registration data provided
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid USN or password",
-            )
+        # If student not found, create them. USN is used as name if name is missing.
+        try:
+            # Create the student record
+            new_student_data = {
+                "usn": request.usn.strip().upper(),
+                "roll_number": request.usn.strip().upper(), # Sync legacy column
+                "name": request.name.strip() if request.name and request.name.strip() else request.usn.strip().upper(),
+                "email": request.email.strip() if request.email and request.email.strip() else None,
+                "branch": request.branch or "CS",
+                "password_hash": hash_password(request.password)
+            }
+            insert_res = db.table("students").insert(new_student_data).execute()
+            if not insert_res.data:
+                raise HTTPException(status_code=500, detail="Failed to register student")
+            
+            student = insert_res.data[0]
+            # Initialize exam_status for the new student
+            db.table("exam_status").insert({"student_id": student["id"]}).execute()
+            
+        except Exception as e:
+            print(f"[AUTH] Auto-registration failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
     else:
         student = result.data[0]
 

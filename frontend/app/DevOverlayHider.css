@@ -1,0 +1,14 @@
+/* 
+   Hide Next.js Dev Overlay for Students 
+   This hides the "N" button, route info, and dev toasts.
+*/
+
+nextjs-portal, 
+#nextjs-portal, 
+[data-nextjs-portal],
+[data-nextjs-toast-wrapper] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
