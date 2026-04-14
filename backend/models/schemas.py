@@ -124,12 +124,14 @@ class StudentCreate(BaseModel):
     branch: str
     password: str  # Plain text, will be hashed in backend
 
+
 class StudentUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     branch: Optional[str] = None
     password: Optional[str] = None
     is_active_session: Optional[bool] = None
+
 
 class StudentStatus(BaseModel):
     student_id: str
@@ -188,6 +190,10 @@ class ParsedQuestion(BaseModel):
     order_index: int = 0
     exam_name: str = "Initial Assessment"
     image_url: Optional[str] = None
+    # AI Spectral Parser metadata (not persisted to DB)
+    confidence: float = 1.0       # 0.0—1.0 — AI certainty about this extraction
+    needs_review: bool = False    # True if AI flagged ambiguity
+    review_reason: Optional[str] = None  # Human-readable reason
 
 
 
@@ -196,8 +202,17 @@ class IngestPreviewResponse(BaseModel):
     total: int
     source_file: str
     parse_warnings: List[str]
+    ai_powered: bool = False           # True if Gemini AI was used
+    ai_confidence_avg: float = 1.0     # Average confidence across all questions
+    needs_review_count: int = 0        # Number of questions needing admin review
+    finesse_check: Optional[str] = None  # AI self-verification message
 
 
 class BulkImportRequest(BaseModel):
-    questions: List[QuestionCreate]
-    replace_existing: bool = False  # if True wipe branch questions first
+    questions: List[ParsedQuestion]
+    replace_existing: bool = False
+    exam_name: str  # Mandatory for Crystalline Isolation Node anchoring
+
+
+class FolderRenameRequest(BaseModel):
+    new_name: str

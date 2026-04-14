@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import {
@@ -14,6 +14,9 @@ import {
   deleteAdminStudent,
   resetAdminStudent,
   exportResults,
+  deleteAdminFolder,
+  renameAdminFolder,
+  uploadQuestionImage,
   AdminQuestion,
   AdminStudent,
 } from "@/lib/api";
@@ -445,7 +448,8 @@ function QuestionsTab() {
     correct_answer: "", 
     order_index: 0, 
     marks: 1, 
-    exam_name: "General Assessment" 
+    exam_name: "General Assessment",
+    image_url: ""
   });
 
   const load = useCallback(async () => {
@@ -466,14 +470,57 @@ function QuestionsTab() {
       if (editing) await updateAdminQuestion(editing.id, formData);
       else await createAdminQuestion(formData);
       setShowModal(false); setEditing(null);
-      setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment" });
+      setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "" });
       load();
     } catch { alert("Failed to save question"); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this question?")) return;
-    try { await deleteAdminQuestion(id); load(); } catch { alert("Failed to delete"); }
+    if (!confirm("Are you sure you want to delete this question?")) return;
+    try {
+      await deleteAdminQuestion(id);
+      setQuestions(questions.filter((q) => q.id !== id));
+    } catch (error) {
+      console.error("Delete failed:", error);
+    }
+  };
+
+  const handleDeleteFolder = async (folderName: string) => {
+    if (!confirm(`WARNING: This will permanently delete the entire Isolation Node '${folderName}' and ALL questions inside it. Continue?`)) return;
+    try {
+      setLoading(true);
+      await deleteAdminFolder(folderName);
+      setQuestions(questions.filter((q) => q.exam_name !== folderName));
+      setExpandedClusters(prev => ({ ...prev, [folderName]: false }));
+    } catch (error: any) {
+      alert(`Failed to delete folder: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRenameFolder = async (folderName: string) => {
+    const newName = prompt(`Enter new name for Isolation Node '${folderName}':`, folderName);
+    if (!newName || newName.trim() === folderName) return;
+
+    try {
+      setLoading(true);
+      await renameAdminFolder(folderName, newName.trim());
+      // Update local state: find and update all questions in this folder
+      setQuestions(questions.map(q => 
+        q.exam_name === folderName ? { ...q, exam_name: newName.trim() } : q
+      ));
+      setExpandedClusters(prev => {
+        const next = { ...prev };
+        delete next[folderName];
+        next[newName.trim()] = true;
+        return next;
+      });
+    } catch (error: any) {
+      alert(`Failed to rename folder: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredQuestions = selectedBranch === "All" ? questions : questions.filter((q) => q.branch === selectedBranch);
@@ -500,7 +547,7 @@ function QuestionsTab() {
             {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment" }); setShowModal(true); }}>
+        <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "" }); setShowModal(true); }}>
           + Add Question
         </button>
       </div>
@@ -510,63 +557,94 @@ function QuestionsTab() {
       ) : filteredQuestions.length === 0 ? (
         <div className={adminStyles.empty}>No questions found for branch: {selectedBranch}</div>
       ) : (
-        <div className={adminStyles.grid}>
+        <div className={adminStyles.orbGrid}>
           <AnimatePresence>
             {Object.entries(clusters).map(([name, clusterQs]) => (
-              <motion.div
-                layout
-                key={name}
-                className={adminStyles.clusterContainer}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{ width: "100%", marginBottom: 16 }}
-              >
-                <div
-                  className={adminStyles.clusterHeader}
+              <React.Fragment key={name}>
+                <motion.div
+                  layout
+                  className={`${adminStyles.orbNode} ${expandedClusters[name] ? adminStyles.orbActive : ""}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   onClick={() => toggleCluster(name)}
                 >
-                  <div className={adminStyles.clusterHeaderContent}>
-                    <span className={adminStyles.clusterIcon}>{expandedClusters[name] ? "📂" : "📁"}</span>
-                    <div className={adminStyles.clusterText}>
-                      <div className={adminStyles.clusterTitle}>{name}</div>
-                      <div className={adminStyles.clusterSubtitle}>{clusterQs.length} Questions anchored</div>
-                    </div>
+                  <div className={adminStyles.orbCircle}>
+                    <div className={adminStyles.orbCount}>{clusterQs.length}</div>
+                    <span className={adminStyles.orbInsideIcon}>
+                      {name.toLowerCase().includes("final") ? "🏆" : 
+                       name.toLowerCase().includes("mid")   ? "🌓" : "🌌"}
+                    </span>
                   </div>
-                  <div className={adminStyles.clusterArrow} style={{ transform: expandedClusters[name] ? "rotate(180deg)" : "rotate(0deg)" }}>
-                    ▼
+                  <div className={adminStyles.orbDetails}>
+                    <div className={adminStyles.orbTitle}>{name}</div>
+                    <div className={adminStyles.orbSubtitle}>Isolation Node</div>
                   </div>
-                </div>
+                </motion.div>
 
                 <AnimatePresence>
                   {expandedClusters[name] && (
                     <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      style={{ overflow: "hidden", border: "1px solid rgba(139, 92, 246, 0.2)", borderTop: "none", borderRadius: "0 0 16px 16px", background: "rgba(255,255,255,0.02)" }}
+                      className={adminStyles.isolationView}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
                     >
-                      <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+                      <div className={adminStyles.nodeManagementHeader}>
+                        <div className={adminStyles.nodeInfo}>
+                          <h4 style={{ margin: 0, color: '#8b5cf6' }}>Isolation Node: {name}</h4>
+                          <small style={{ color: '#7c3aed', opacity: 0.8 }}>{clusterQs.length} Questions Physically Isolated</small>
+                        </div>
+                        <div className={adminStyles.nodeActions}>
+                          <button 
+                            className="btn btn-outline" 
+                            style={{ fontSize: 12, padding: '4px 12px' }} 
+                            onClick={(e) => { e.stopPropagation(); console.log('Orbital Trigger: Rename', name); handleRenameFolder(name); }}
+                          >
+                            Rename Node
+                          </button>
+                          <button 
+                            className="btn btn-outline btn-danger" 
+                            style={{ fontSize: 12, padding: '4px 12px' }} 
+                            onClick={(e) => { e.stopPropagation(); console.log('Orbital Trigger: Destroy', name); handleDeleteFolder(name); }}
+                          >
+                            Destroy Node
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                         {clusterQs.map((q) => (
                           <div key={q.id} className={adminStyles.card} style={{ margin: 0 }}>
                             <div className={adminStyles.cardHeader}>
-                              <div className={adminStyles.cardIndex}>Q{q.order_index + 1}</div>
+                              <div className={adminStyles.cardIndex} style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa" }}>
+                                Q{q.order_index + 1}
+                              </div>
                               <div style={{ display: "flex", gap: 8 }}>
                                 <button className="btn-icon" onClick={() => { setEditing(q); setFormData({ ...q }); setShowModal(true); }}>✏️</button>
                                 <button className="btn-icon btn-danger" onClick={() => handleDelete(q.id)}>🗑️</button>
                               </div>
                             </div>
-                            <p className={adminStyles.cardText}>{q.text}</p>
-                            <div className={adminStyles.cardFooter}>
-                              <span className="badge badge-neutral">{q.branch}</span>
-                              <span className="badge badge-neutral">{q.marks} Marks</span>
+                            {q.image_url && (
+                              <div className={adminStyles.cardThumbnailContainer}>
+                                <img src={q.image_url} alt="Thumbnail" className={adminStyles.cardThumbnail} />
+                              </div>
+                            )}
+                            <p className={adminStyles.cardText} style={{ fontSize: 14 }}>{q.text}</p>
+                            <div className={adminStyles.cardFooter} style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                              <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.branch}</span>
+                              <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.marks} Marks</span>
                             </div>
                           </div>
                         ))}
                       </div>
+                      <div style={{ marginTop: 20, textAlign: "right" }}>
+                        <button className="btn btn-outline" onClick={() => toggleCluster(name)}>Close Node</button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </motion.div>
+              </React.Fragment>
             ))}
           </AnimatePresence>
         </div>
@@ -618,6 +696,46 @@ function QuestionsTab() {
                   {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div className={adminStyles.formGroup} style={{ marginTop: 16 }}>
+              <label>Media Asset (Optional)</label>
+              {formData.image_url ? (
+                <div className={adminStyles.imagePreviewContainer}>
+                  <img src={formData.image_url} alt="Question" className={adminStyles.imagePreview} />
+                  <button 
+                    className={adminStyles.removeImageBtn}
+                    onClick={() => setFormData({ ...formData, image_url: "" })}
+                    title="Remove Image"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div className={adminStyles.uploadZone}>
+                  <input 
+                    type="file" 
+                    id="question-image-upload" 
+                    style={{ display: "none" }}
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const url = await uploadQuestionImage(file);
+                        setFormData({ ...formData, image_url: url });
+                      } catch (err: any) {
+                        alert(`Upload failed: ${err.message}`);
+                      }
+                    }}
+                  />
+                  <label htmlFor="question-image-upload" style={{ cursor: "pointer", display: "block", padding: "12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to upload image asset</div>
+                  </label>
+                </div>
+              )}
             </div>
             <div className={adminStyles.modalActions}>
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>

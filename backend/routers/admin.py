@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Header, Depends
+from fastapi import APIRouter, HTTPException, status, Header, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from core.config import get_settings
@@ -8,7 +8,7 @@ from models.schemas import (
     AdminQuestionsResponse, AdminQuestionOut,
     QuestionCreate, QuestionUpdate,
     StudentStatus, StudentCreate, StudentUpdate,
-    ExamConfig, ExamConfigUpdate,
+    ExamConfig, ExamConfigUpdate, FolderRenameRequest,
 )
 from datetime import datetime, timezone
 import io
@@ -30,9 +30,36 @@ async def verify_admin(x_admin_secret: str = Header(...)):
 
 @router.get("/questions", response_model=AdminQuestionsResponse)
 async def get_all_questions(_: bool = Depends(verify_admin)):
+    """
+    Retrieve all questions with Spectral Tag parsing for virtual folders.
+    """
     db = get_supabase()
     result = db.table("questions").select("*").order("order_index").execute()
-    return AdminQuestionsResponse(questions=result.data, total=len(result.data))
+    
+    processed_questions = []
+    for q in result.data:
+        text = q.get("text", "")
+        # Default exam name from DB or model default
+        exam_name = q.get("exam_name", "Initial Assessment")
+        
+        # ── Spectral Tag Parser ──
+        # Pattern: ⟦EXAM:My Name⟧
+        if text.startswith("⟦EXAM:"):
+            end_idx = text.find("⟧")
+            if end_idx != -1:
+                # Extract the tag
+                tag_content = text[6:end_idx]
+                # Override exam_name for the response
+                exam_name = tag_content
+                # Strip the tag from the text
+                text = text[end_idx + 1:].strip()
+        
+        # Build the final object
+        q["text"] = text
+        q["exam_name"] = exam_name
+        processed_questions.append(q)
+
+    return AdminQuestionsResponse(questions=processed_questions, total=len(processed_questions))
 
 @router.post("/questions")
 async def create_question(request: QuestionCreate, _: bool = Depends(verify_admin)):
@@ -69,6 +96,49 @@ async def delete_question(question_id: str, _: bool = Depends(verify_admin)):
     db = get_supabase()
     db.table("questions").delete().eq("id", question_id).execute()
     return {"deleted": True}
+
+@router.post("/questions/upload")
+async def upload_question_image(
+    file: UploadFile = File(...),
+    _: bool = Depends(verify_admin)
+):
+    """
+    Upload a question image to Supabase Storage and return the public URL.
+    """
+    import uuid
+    db = get_supabase()
+    
+    # 1. Bucket initialization (Safe-check)
+    bucket_name = "question-images"
+    try:
+        buckets = db.storage.list_buckets()
+        if not any(b.name == bucket_name for b in buckets):
+            db.storage.create_bucket(bucket_name, options={"public": True})
+    except Exception as e:
+        print(f"Bucket init alert: {e}")
+
+    # 2. File preparation
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    unique_name = f"{uuid.uuid4()}.{file_ext}"
+    contents = await file.read()
+
+    # 3. Upload to Supabase Storage
+    try:
+        # Use storage.from_(...).upload pattern
+        res = db.storage.from_(bucket_name).upload(
+            path=unique_name,
+            file=contents,
+            file_options={"content-type": file.content_type or "image/jpeg"}
+        )
+        
+        # 4. Generate Public URL
+        # Format: {BASE_URL}/storage/v1/object/public/{bucket}/{path}
+        public_url = db.storage.from_(bucket_name).get_public_url(unique_name)
+        
+        return {"image_url": public_url}
+    except Exception as e:
+        print(f"CRITICAL image_upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ── Students Management ───────────────────────────────────────
 
@@ -248,6 +318,62 @@ async def get_exam_config_public():
     except Exception:
         pass
     return {"is_active": True, "scheduled_start": None, "duration_minutes": 60, "exam_title": "ExamGuard Assessment"}
+
+
+# ── Orbital Node Management (Folder CRUD) ─────────────────────
+
+@router.delete("/folders/{folder_name}")
+async def delete_folder(folder_name: str, _: bool = Depends(verify_admin)):
+    """
+    Delete an entire Isolation Node (Folder) and all its questions.
+    """
+    db = get_supabase()
+    
+    # Discovery
+    probe = db.table("questions").select("*").limit(1).execute()
+    has_exam_column = False
+    if probe.data and len(probe.data) > 0:
+        has_exam_column = "exam_name" in probe.data[0].keys()
+
+    if has_exam_column:
+        db.table("questions").delete().eq("exam_name", folder_name).execute()
+    else:
+        tag_prefix = f"⟦EXAM:{folder_name}⟧"
+        db.table("questions").delete().like("text", f"{tag_prefix}%").execute()
+
+    return {"status": "success", "deleted_folder": folder_name}
+
+
+@router.patch("/folders/{folder_name}")
+async def rename_folder(folder_name: str, request: FolderRenameRequest, _: bool = Depends(verify_admin)):
+    """
+    Rename an entire Isolation Node (Folder).
+    Updates column or Spectral Tag.
+    """
+    db = get_supabase()
+    new_name = request.new_name.strip()
+    
+    # Discovery
+    probe = db.table("questions").select("*").limit(1).execute()
+    has_exam_column = False
+    if probe.data and len(probe.data) > 0:
+        has_exam_column = "exam_name" in probe.data[0].keys()
+
+    if has_exam_column:
+        db.table("questions").update({"exam_name": new_name}).eq("exam_name", folder_name).execute()
+    else:
+        # Spectral Tag Rename: Fetch and batch update
+        tag_old = f"⟦EXAM:{folder_name}⟧"
+        tag_new = f"⟦EXAM:{new_name}⟧"
+        
+        # Get all relevant questions
+        res = db.table("questions").select("id, text").like("text", f"{tag_old}%").execute()
+        
+        for q in res.data:
+            updated_text = q["text"].replace(tag_old, tag_new, 1)
+            db.table("questions").update({"text": updated_text}).eq("id", q["id"]).execute()
+
+    return {"status": "success", "old_name": folder_name, "new_name": new_name}
 
 
 # ── Crystalline Data Export ───────────────────────────────────

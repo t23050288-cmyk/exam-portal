@@ -78,6 +78,7 @@ export interface Question {
   branch: string;
   order_index: number;
   marks: number;
+  image_url: string | null;
 }
 
 export async function fetchQuestions(): Promise<Question[]> {
@@ -143,6 +144,7 @@ export interface AdminQuestion {
   order_index: number;
   marks: number;
   exam_name: string;
+  image_url: string | null;
 }
 
 export interface AdminStudent {
@@ -259,6 +261,42 @@ export async function deleteAdminStudent(id: string): Promise<void> {
 
 export async function resetAdminStudent(id: string): Promise<void> {
   await adminFetch(`/admin/students/${id}/reset`, { method: "POST" });
+}
+
+// ── Orbital Node Management (Folder CRUD) ─────────────────────
+
+export async function deleteAdminFolder(folderName: string): Promise<void> {
+  await adminFetch(`/admin/folders/${encodeURIComponent(folderName)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
+  await adminFetch(`/admin/folders/${encodeURIComponent(oldName)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ new_name: newName }),
+  });
+}
+
+export async function uploadQuestionImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/admin/questions/upload`, {
+    method: 'POST',
+    headers: {
+      'X-Admin-Secret': ADMIN_SECRET,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || 'Image upload failed');
+  }
+
+  const data = await res.json();
+  return data.image_url;
 }
 
 // ── Exam Config (Orbital Control) ─────────────────────────────

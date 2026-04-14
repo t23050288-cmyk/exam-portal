@@ -31,9 +31,11 @@ CREATE TABLE IF NOT EXISTS questions (
   text           TEXT NOT NULL,
   options        JSONB NOT NULL,     -- ["A) ...", "B) ...", "C) ...", "D) ..."]
   branch         TEXT DEFAULT 'CS',
+  exam_name      TEXT DEFAULT 'Initial Assessment',
   correct_answer TEXT NOT NULL,      -- "A", "B", "C", or "D"
   marks          INTEGER DEFAULT 1,
   order_index    INTEGER NOT NULL,
+  image_url      TEXT,               -- Optional: URL to associated image
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 

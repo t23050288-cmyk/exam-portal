@@ -3,7 +3,7 @@
 import styles from "./QuestionCard.module.css";
 
 interface QuestionCardProps {
-  question: { id: string; text: string; options: string[]; marks: number };
+  question: { id: string; text: string; options: string[]; marks: number; image_url?: string | null };
   questionNumber: number;
   selectedAnswer: string | undefined;
   onSelect: (questionId: string, option: string) => void;
@@ -29,6 +29,13 @@ export default function QuestionCard({
 
       {/* Question text */}
       <p className={styles.text}>{question.text}</p>
+
+      {/* Media asset (optional) */}
+      {question.image_url && (
+        <div className={styles.imageContainer}>
+          <img src={question.image_url} alt="Question Diagram" className={styles.image} />
+        </div>
+      )}
 
       {/* Options */}
       <div className={styles.options}>

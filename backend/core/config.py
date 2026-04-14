@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # Admin
     admin_secret: str = "admin@examguard2024"
 
+    # AI — Inception Spectral Parser
+    inception_api_key: str = ""   # Set INCEPTION_API_KEY in .env to enable AI parsing
+    ai_model: str = "mercury-coder-small"
+
     # Exam
     exam_duration_minutes: int = 60
 
