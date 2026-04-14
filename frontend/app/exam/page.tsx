@@ -43,6 +43,9 @@ export default function ExamPage() {
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
+  // Result Timer (3:00 minutes)
+  const [resultTimerSeconds, setResultTimerSeconds] = useState(180);
+
   // Randomized final theme for this student's session
   const [finalTheme, setFinalTheme] = useState("glass-aura");
 
@@ -170,6 +173,23 @@ export default function ExamPage() {
     handleSubmit(true);
   }, [handleSubmit]);
 
+  // ── Result Countdown Timer ──────────────────────────────
+  useEffect(() => {
+    if (!isSubmitted) return;
+    
+    const interval = setInterval(() => {
+      setResultTimerSeconds(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isSubmitted]);
+
+  const formatResultTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // ── Derived State (must be before early returns) ──────────
   const answeredCount = getAnsweredCount(questions.length);
   const progressPercentage = questions.length > 0 ? (activeQuestionIndex + 1) / questions.length : 0;
@@ -264,7 +284,7 @@ export default function ExamPage() {
             </div>
 
             <div className={styles.resultTimer}>
-              You will get your result in 3:00 minutes
+              You will get your result in {formatResultTime(resultTimerSeconds)} minutes
             </div>
           </div>
         </div>

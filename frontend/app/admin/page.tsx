@@ -237,7 +237,7 @@ export default function AdminPage() {
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>⚡</div>
             <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", color: "#e2e8f0", marginBottom: 8 }}>
-              Antigravity Admin
+              EXAM Admin
             </h1>
             <p style={{ color: "rgba(148,163,184,0.7)", fontSize: 14 }}>ExamGuard Control Node — Staff Only</p>
           </div>
@@ -286,7 +286,7 @@ export default function AdminPage() {
           </svg>
           <div>
             <h1 className={styles.title} style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>
-              Antigravity Admin
+              EXAM Admin
             </h1>
             <p className={styles.subtitle} style={{ fontSize: 11 }}>
               Live Exam Monitor · Updated {timeAgo(lastUpdate.toISOString())}

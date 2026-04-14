@@ -43,7 +43,7 @@
   --shadow-floating: 0 8px 16px rgba(0, 0, 0, 0.12), 0 12px 24px rgba(0, 0, 0, 0.08);
   --shadow-glow: 0 0 16px var(--accent-glow);
 
-  /* Antigravity extended palette */
+  /* EXAM extended palette */
   --violet: #8b5cf6;
   --violet-glow: rgba(139, 92, 246, 0.25);
   --gold: #fbbf24;
@@ -329,7 +329,7 @@ h1, h2, h3, h4 {
   user-select: none;
 }
 
-/* ── Antigravity Utilities ────────────────────────────────── */
+/* ── EXAM Utilities ────────────────────────────────── */
 @keyframes shimmerExport {
   0%   { background-position: 200% center; }
   100% { background-position: -200% center; }
