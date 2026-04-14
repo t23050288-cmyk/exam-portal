@@ -61,20 +61,24 @@ export default function ExamPage() {
 
   // ── Load student + questions ──────────────────────────────
   useEffect(() => {
+    const isPreview = sessionStorage.getItem("exam_preview") === "true";
     const raw = sessionStorage.getItem("exam_student");
     const token = sessionStorage.getItem("exam_token");
 
-    if (!raw || !token) {
+    if (!isPreview && (!raw || !token)) {
       router.replace("/login");
       return;
     }
 
-    const info: StudentInfo = JSON.parse(raw);
+    const info: StudentInfo = raw ? JSON.parse(raw) : { 
+      id: "PREVIEW", name: "Admin Preview", examStartTime: null, examDurationMinutes: 60 
+    };
     setStudent(info);
     
     // Pick random final theme on mount
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
+    // If preview, we might need a different way to fetch questions if the standard one requires a token
     fetchQuestions()
       .then((qs) => {
         setQuestions(qs);

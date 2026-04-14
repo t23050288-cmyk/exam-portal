@@ -5,6 +5,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
+import asyncio
+from datetime import datetime, timezone
+from db.supabase_client import get_supabase
 
 from core.config import get_settings
 from routers import auth, exam, violations, admin, ingest, leaderboard
@@ -50,6 +53,35 @@ app.include_router(violations.router)
 app.include_router(admin.router)
 app.include_router(ingest.router)
 app.include_router(leaderboard.router)
+
+
+# ── Temporal Horizon Evictor ──────────────────────────────────
+async def temporal_evictor_loop():
+    while True:
+        try:
+            db = get_supabase()
+            result = db.table("exam_config").select("id, is_active, scheduled_end").limit(1).execute()
+            if result.data:
+                config = result.data[0]
+                if config.get("is_active") and config.get("scheduled_end"):
+                    end_time_str = config["scheduled_end"]
+                    # Handle "Z" and "+00:00" mapping
+                    if end_time_str.endswith("Z"):
+                        end_time_str = end_time_str[:-1] + "+00:00"
+                    
+                    end_time = datetime.fromisoformat(end_time_str)
+                    if datetime.now(timezone.utc) >= end_time:
+                        # Auto evaporate the exam
+                        db.table("exam_config").update({"is_active": False}).eq("id", config["id"]).execute()
+                        logger.info(f"Temporal Horizon reached for exam_config {config['id']}. Exam is now deactivated.")
+        except Exception as e:
+            logger.error(f"Error in temporal evictor loop: {e}")
+        
+        await asyncio.sleep(15)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(temporal_evictor_loop())
 
 
 # ── Health Check ──────────────────────────────────────────────

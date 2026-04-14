@@ -13,7 +13,7 @@ settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Bearer token extractor
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -47,10 +47,30 @@ def decode_token(token: str) -> dict:
         )
 
 
+from fastapi import Depends, HTTPException, status, Request
+
 async def get_current_student(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> dict:
-    """FastAPI dependency — extracts and validates JWT, returns payload."""
+    """FastAPI dependency — extracts and validates JWT, or allows bypass with admin secret."""
+    
+    # Check for Admin Secret bypass first (for preview purposes)
+    admin_secret = request.headers.get("X-Admin-Secret")
+    if admin_secret == settings.admin_secret:
+            return {
+                "student_id": "ADMIN_PREVIEW",
+                "usn": "ADMIN_PREVIEW",
+                "branch": "CS",
+                "token": "ADMIN_SECRET_BYPASS"
+            }
+
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization credentials missing",
+        )
+
     token = credentials.credentials
     payload = decode_token(token)
 

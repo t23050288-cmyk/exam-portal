@@ -156,6 +156,7 @@ class StudentStatus(BaseModel):
 class ExamConfig(BaseModel):
     is_active: bool = True
     scheduled_start: Optional[str] = None   # ISO timestamp or None
+    scheduled_end: Optional[str] = None     # ISO timestamp for auto-evaporation
     duration_minutes: int = 60
     exam_title: Optional[str] = "ExamGuard Assessment"
 
@@ -163,6 +164,7 @@ class ExamConfig(BaseModel):
 class ExamConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
     scheduled_start: Optional[str] = None
+    scheduled_end: Optional[str] = None
     duration_minutes: Optional[int] = None
     exam_title: Optional[str] = None
 

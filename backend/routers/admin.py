@@ -260,6 +260,7 @@ async def get_exam_config(_: bool = Depends(verify_admin)):
             return ExamConfig(
                 is_active=row.get("is_active", True),
                 scheduled_start=row.get("scheduled_start"),
+                scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
                 exam_title=row.get("exam_title", "ExamGuard Assessment"),
             )
@@ -279,6 +280,8 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["is_active"] = request.is_active
     if request.scheduled_start is not None:
         update_data["scheduled_start"] = request.scheduled_start
+    if request.scheduled_end is not None:
+        update_data["scheduled_end"] = request.scheduled_end
     if request.duration_minutes is not None:
         update_data["duration_minutes"] = request.duration_minutes
     if request.exam_title is not None:
@@ -298,6 +301,7 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
             return ExamConfig(
                 is_active=row.get("is_active", True),
                 scheduled_start=row.get("scheduled_start"),
+                scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
                 exam_title=row.get("exam_title", "ExamGuard Assessment"),
             )
@@ -312,12 +316,12 @@ async def get_exam_config_public():
     """Public exam config endpoint (no auth) — for students to check exam state."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, duration_minutes, exam_title").limit(1).execute()
+        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, exam_title").limit(1).execute()
         if result.data:
             return result.data[0]
     except Exception:
         pass
-    return {"is_active": True, "scheduled_start": None, "duration_minutes": 60, "exam_title": "ExamGuard Assessment"}
+    return {"is_active": True, "scheduled_start": None, "scheduled_end": None, "duration_minutes": 60, "exam_title": "ExamGuard Assessment"}
 
 
 # ── Orbital Node Management (Folder CRUD) ─────────────────────

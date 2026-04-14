@@ -79,6 +79,16 @@ export default function DashboardPage() {
 
   // Load student from session
   useEffect(() => {
+    const isPreview = window.location.search.includes("preview=true");
+    if (isPreview) {
+      const mock: StudentInfo = { id: "PREVIEW", name: "Admin Preview", branch: "ALL", examStartTime: null, examDurationMinutes: 60 };
+      sessionStorage.setItem("exam_student", JSON.stringify(mock));
+      sessionStorage.setItem("exam_preview", "true");
+      setStudent(mock);
+      setSelectedBranch("ALL");
+      return;
+    }
+
     const raw = sessionStorage.getItem("exam_student");
     const token = sessionStorage.getItem("exam_token");
     if (!raw || !token) {
@@ -176,6 +186,17 @@ export default function DashboardPage() {
   // ── Warp Transition: Launch into exam ─────────────────────
   const handleLaunchExam = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
+    
+    // If preview, update the mock student to match the branch of the clicked node
+    if (sessionStorage.getItem("exam_preview") === "true") {
+      const infoStr = sessionStorage.getItem("exam_student");
+      if (infoStr) {
+        const info = JSON.parse(infoStr);
+        info.branch = exam.branch;
+        sessionStorage.setItem("exam_student", JSON.stringify(info));
+      }
+    }
+
     setWarpTarget(exam);
     setWarpActive(true);
     await new Promise(r => setTimeout(r, 1200));

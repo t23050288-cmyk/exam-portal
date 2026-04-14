@@ -10,9 +10,13 @@ async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  const isPreview = typeof window !== "undefined" && sessionStorage.getItem("exam_preview") === "true";
+  const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin@examguard2024";
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(isPreview ? { "X-Admin-Secret": ADMIN_SECRET } : {}),
     ...options.headers,
   };
 
