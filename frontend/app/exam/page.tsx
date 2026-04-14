@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { fetchQuestions, submitExam, fetchPublicExamConfig, type Question } from "@/lib/api";
+import { fetchQuestions, submitExam, fetchPublicExamConfig, type Question, type SubmitResponse } from "@/lib/api";
 import { useExamState, clearExamStorage } from "@/hooks/useExamState";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -74,12 +74,15 @@ export default function ExamPage() {
       id: "PREVIEW", name: "Admin Preview", examStartTime: null, examDurationMinutes: 60 
     };
     setStudent(info);
+
+    const quizTitle = sessionStorage.getItem("exam_selected_title") || "Exam Assessment";
+    setExamTitle(quizTitle);
     
     // Pick random final theme on mount
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
-    // If preview, we might need a different way to fetch questions if the standard one requires a token
-    fetchQuestions()
+    // Fetch questions for the specific exam title
+    fetchQuestions(quizTitle)
       .then((qs) => {
         setQuestions(qs);
         setLoading(false);
@@ -95,9 +98,10 @@ export default function ExamPage() {
   useEffect(() => {
     const checkConfig = async () => {
       try {
-        const cfg = await fetchPublicExamConfig();
-        setExamTitle(cfg.exam_title || "Exam Assessment");
-        if (!cfg.is_active) {
+        const configs = await fetchPublicExamConfig();
+        const cfg = configs.find(c => c.exam_title === examTitle);
+        
+        if (!cfg || !cfg.is_active) {
           setExamInactive(true);
           setExamScheduled(null);
         } else if (cfg.scheduled_start) {
@@ -114,7 +118,7 @@ export default function ExamPage() {
           setExamScheduled(null);
         }
       } catch {
-        // Silently ignore — default to active
+        // Silently ignore — default to last known state
       }
     };
     checkConfig();
@@ -153,7 +157,7 @@ export default function ExamPage() {
 
       try {
         await flush(); // Save any dirty answers first
-        const res = await submitExam(answers);
+        const res = await submitExam(answers, examTitle);
         clearExamStorage();
         sessionStorage.removeItem("exam_token");
         sessionStorage.removeItem("exam_student");

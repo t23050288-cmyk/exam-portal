@@ -120,9 +120,10 @@ export default function OrbitalControlPage() {
   const [violationCount, setViolationCount] = useState(0);
   const [availableExams, setAvailableExams] = useState<string[]>([]);
 
-  const fetchConfig = useCallback(async () => {
+  const fetchConfig = useCallback(async (targetTitle?: string) => {
     try {
-      const res = await fetch(`${API}/admin/exam/config`, {
+      const titleParam = targetTitle || config.exam_title;
+      const res = await fetch(`${API}/admin/exam/config?title=${encodeURIComponent(titleParam)}`, {
         headers: { "x-admin-secret": ADMIN_SECRET },
       });
       if (res.ok) {
@@ -133,20 +134,27 @@ export default function OrbitalControlPage() {
           mappedData.schedule_start_date = d.toISOString().split("T")[0];
           mappedData.schedule_start_time = d.toTimeString().slice(0, 5);
           mappedData.enable_schedule = true;
+        } else {
+          mappedData.schedule_start_date = "";
+          mappedData.schedule_start_time = "";
+          mappedData.enable_schedule = false;
         }
         if (data.scheduled_end) {
           const d = new Date(data.scheduled_end);
           mappedData.schedule_end_date = d.toISOString().split("T")[0];
           mappedData.schedule_end_time = d.toTimeString().slice(0, 5);
+        } else {
+          mappedData.schedule_end_date = "";
+          mappedData.schedule_end_time = "";
         }
-        setConfig((prev) => ({ ...defaultConfig, ...mappedData }));
+        setConfig((prev) => ({ ...defaultConfig, ...mappedData, exam_title: titleParam }));
       }
     } catch {
       // ignore — backend may not have config endpoint yet
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [config.exam_title]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -335,7 +343,11 @@ export default function OrbitalControlPage() {
                   <select 
                     className={styles.quizContextSelect}
                     value={config.exam_title}
-                    onChange={(e) => setConfig((c) => ({ ...c, exam_title: e.target.value }))}
+                    onChange={(e) => {
+                      const newTitle = e.target.value;
+                      setConfig(c => ({ ...c, exam_title: newTitle }));
+                      fetchConfig(newTitle); // Weightlessly shift horizons
+                    }}
                   >
                     <option value="" disabled>Select quiz...</option>
                     {availableExams.map(name => <option key={name} value={name}>{name}</option>)}

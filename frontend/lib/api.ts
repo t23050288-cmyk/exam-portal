@@ -85,9 +85,9 @@ export interface Question {
   image_url: string | null;
 }
 
-export async function fetchQuestions(): Promise<Question[]> {
+export async function fetchQuestions(title: string): Promise<Question[]> {
   const res = await apiFetch<{ questions: Question[]; total: number }>(
-    "/exam/questions"
+    `/exam/questions?title=${encodeURIComponent(title)}`
   );
   return res.questions;
 }
@@ -115,16 +115,18 @@ export interface SubmitResponse {
 }
 
 export async function submitExam(
-  answers: Record<string, string>
+  answers: Record<string, string>,
+  title: string
 ): Promise<SubmitResponse> {
+  const payload = { ...answers, __exam_title: title };
   return apiFetch<SubmitResponse>("/exam/submit-exam", {
     method: "POST",
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ answers: payload }),
   });
 }
 
-export async function startExam(): Promise<{ started_at: string }> {
-  return apiFetch<{ started_at: string }>("/exam/start-exam", {
+export async function startExam(title: string): Promise<{ started_at: string }> {
+  return apiFetch<{ started_at: string }>(`/exam/start-exam?title=${encodeURIComponent(title)}`, {
     method: "POST",
   });
 }
@@ -319,8 +321,9 @@ export interface ExamConfig {
   exam_title: string;
 }
 
-export async function fetchExamConfig(): Promise<ExamConfig> {
-  return adminFetch<ExamConfig>("/admin/exam/config");
+export async function fetchExamConfig(title?: string): Promise<ExamConfig> {
+  const path = title ? `/admin/exam/config?title=${encodeURIComponent(title)}` : "/admin/exam/config";
+  return adminFetch<ExamConfig>(path);
 }
 
 export async function updateExamConfig(data: Partial<ExamConfig>): Promise<ExamConfig> {
@@ -330,10 +333,10 @@ export async function updateExamConfig(data: Partial<ExamConfig>): Promise<ExamC
   });
 }
 
-/** Public endpoint — no admin secret needed */
-export async function fetchPublicExamConfig(): Promise<ExamConfig> {
+/** Public endpoint — no admin secret needed. Returns all active configurations. */
+export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
   const res = await fetch(`${API_BASE}/admin/exam/config/public`);
-  if (!res.ok) return { is_active: true, scheduled_start: null, duration_minutes: 60, exam_title: "ExamGuard Assessment" };
+  if (!res.ok) return [];
   return res.json();
 }
 

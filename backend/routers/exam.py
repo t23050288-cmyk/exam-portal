@@ -13,11 +13,11 @@ from db.supabase_client import get_supabase
 router = APIRouter(prefix="/exam", tags=["exam"])
 
 
-def _check_exam_active():
+def _check_exam_active(title: str):
     """Raises 423 if the exam has been deactivated by admin."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start").limit(1).execute()
+        result = db.table("exam_config").select("is_active, scheduled_start").eq("exam_title", title).limit(1).execute()
         if result.data:
             row = result.data[0]
             if not row.get("is_active", True):
@@ -47,30 +47,54 @@ def update_last_active(student_id: str):
     ).eq("student_id", student_id).execute()
 
 
+@router.post("/start-exam", response_model=StartExamResponse)
+def start_exam(
+    title: str,
+    current: dict = Depends(get_current_student)
+):
+    """
+    Initialize exam session for a student.
+    """
+    _check_exam_active(title)
+    db = get_supabase()
+    student_id = current["student_id"]
+    
+    started_at = datetime.now(timezone.utc).isoformat()
+    
+    # Upsert status
+    db.table("exam_status").upsert({
+        "student_id": student_id,
+        "status": "in_progress",
+        "started_at": started_at,
+        "last_active": started_at
+    }).execute()
+    
+    return StartExamResponse(started_at=started_at)
+
+
 @router.get("/questions", response_model=QuestionsResponse)
 def get_questions(
+    title: str,
     background_tasks: BackgroundTasks,
     current: dict = Depends(get_current_student)
 ):
     """
-    Return all exam questions for authenticated student.
-    Does NOT include correct_answer field.
-    Updates last_active timestamp in background.
-    Blocks with 423 if exam is deactivated.
+    Return all questions for a specific exam title and branch.
     """
-    _check_exam_active()
+    _check_exam_active(title)
     db = get_supabase()
 
     # Update last_active in background
     background_tasks.add_task(update_last_active, current["student_id"])
 
-    # Fetch questions (no correct_answer exposed)
+    # Fetch questions filtered by title AND branch
     result = (
         db.table("questions")
-        .select("id, text, options, branch, order_index, marks")
+        .select("id, text, options, branch, order_index, marks, exam_name")
         .eq("branch", current.get("branch", "CS"))
+        .eq("exam_name", title)
         .order("order_index")
-        .limit(40)
+        .limit(100)
         .execute()
     )
 
@@ -191,24 +215,28 @@ def submit_exam(
             submitted_at=r.get("submitted_at", datetime.now(timezone.utc).isoformat()),
         )
 
-    # 2. Load correct answers
+    # 2. Load correct answers for this specific exam
+    answers = request.answers
+    exam_title = answers.pop("__exam_title", "ExamGuard Assessment")
+
     try:
         questions_result = (
-            db.table("questions").select("id, correct_answer, marks").eq("branch", current.get("branch", "CS")).execute()
+            db.table("questions")
+            .select("id, correct_answer, marks")
+            .eq("branch", current.get("branch", "CS"))
+            .eq("exam_name", exam_title)
+            .execute()
         )
-    except Exception as e:
-        if any(x in str(e) for x in ["does not exist", "42703", "PGRST204", "schema cache"]):
-            questions_result = (
-                db.table("questions").select("id, correct_answer, marks").execute()
-            )
-        else:
-            raise e
+    except Exception:
+        questions_result = (
+            db.table("questions").select("id, correct_answer, marks").execute()
+        )
+    
     correct_map = {
         q["id"]: (q["correct_answer"], q["marks"])
         for q in (questions_result.data or [])
     }
 
-    answers = request.answers
     score = 0
     correct_count = 0
     wrong_count = 0

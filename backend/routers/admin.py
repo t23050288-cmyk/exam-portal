@@ -250,52 +250,16 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
 # ── Exam Config (Orbital Control) ─────────────────────────────
 
 @router.get("/exam/config", response_model=ExamConfig)
-async def get_exam_config(_: bool = Depends(verify_admin)):
-    """Get the current exam activation state and schedule."""
+async def get_exam_config(title: Optional[str] = None, _: bool = Depends(verify_admin)):
+    """Get exam activation state and schedule. If title is provided, fetch specific config."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("*").limit(1).execute()
-        if result.data:
-            row = result.data[0]
-            return ExamConfig(
-                is_active=row.get("is_active", True),
-                scheduled_start=row.get("scheduled_start"),
-                scheduled_end=row.get("scheduled_end"),
-                duration_minutes=row.get("duration_minutes", 60),
-                exam_title=row.get("exam_title", "ExamGuard Assessment"),
-            )
-    except Exception:
-        pass
-    # Default if table doesn't exist yet
-    return ExamConfig()
-
-
-@router.post("/exam/config", response_model=ExamConfig)
-async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify_admin)):
-    """Update exam activation state, schedule, duration."""
-    db = get_supabase()
-
-    update_data: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
-    if request.is_active is not None:
-        update_data["is_active"] = request.is_active
-    if request.scheduled_start is not None:
-        update_data["scheduled_start"] = request.scheduled_start
-    if request.scheduled_end is not None:
-        update_data["scheduled_end"] = request.scheduled_end
-    if request.duration_minutes is not None:
-        update_data["duration_minutes"] = request.duration_minutes
-    if request.exam_title is not None:
-        update_data["exam_title"] = request.exam_title
-
-    try:
-        # Try upsert into exam_config
-        existing = db.table("exam_config").select("id").limit(1).execute()
-        if existing.data:
-            db.table("exam_config").update(update_data).eq("id", existing.data[0]["id"]).execute()
+        query = db.table("exam_config").select("*")
+        if title:
+            result = query.eq("exam_title", title).execute()
         else:
-            db.table("exam_config").insert({**update_data, "is_active": True, "duration_minutes": 60}).execute()
+            result = query.limit(1).execute()
 
-        result = db.table("exam_config").select("*").limit(1).execute()
         if result.data:
             row = result.data[0]
             return ExamConfig(
@@ -306,6 +270,47 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
                 exam_title=row.get("exam_title", "ExamGuard Assessment"),
             )
     except Exception as e:
+        print(f"Error fetching config: {e}")
+    
+    return ExamConfig(exam_title=title) if title else ExamConfig()
+
+
+@router.post("/exam/config", response_model=ExamConfig)
+async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify_admin)):
+    """Update exam activation state, schedule, duration by title (upsert)."""
+    db = get_supabase()
+
+    if not request.exam_title:
+        raise HTTPException(status_code=400, detail="exam_title is required for configuration")
+
+    update_data: dict = {
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "exam_title": request.exam_title
+    }
+    if request.is_active is not None:
+        update_data["is_active"] = request.is_active
+    if request.scheduled_start is not None:
+        update_data["scheduled_start"] = request.scheduled_start
+    if request.scheduled_end is not None:
+        update_data["scheduled_end"] = request.scheduled_end
+    if request.duration_minutes is not None:
+        update_data["duration_minutes"] = request.duration_minutes
+
+    try:
+        # Use upsert based on UNIQUE exam_title
+        result = db.table("exam_config").upsert(update_data, on_conflict="exam_title").execute()
+        
+        if result.data:
+            row = result.data[0]
+            return ExamConfig(
+                is_active=row.get("is_active", True),
+                scheduled_start=row.get("scheduled_start"),
+                scheduled_end=row.get("scheduled_end"),
+                duration_minutes=row.get("duration_minutes", 60),
+                exam_title=row.get("exam_title"),
+            )
+    except Exception as e:
+        print(f"CRITICAL update_exam_config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return ExamConfig(**{k: v for k, v in update_data.items() if k in ExamConfig.model_fields})
@@ -313,15 +318,13 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
 
 @router.get("/exam/config/public")
 async def get_exam_config_public():
-    """Public exam config endpoint (no auth) — for students to check exam state."""
+    """Public exam config endpoint (no auth) — returns all configurations."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, exam_title").limit(1).execute()
-        if result.data:
-            return result.data[0]
+        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, exam_title").execute()
+        return result.data or []
     except Exception:
-        pass
-    return {"is_active": True, "scheduled_start": None, "scheduled_end": None, "duration_minutes": 60, "exam_title": "ExamGuard Assessment"}
+        return []
 
 
 # ── Orbital Node Management (Folder CRUD) ─────────────────────

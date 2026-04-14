@@ -8,14 +8,14 @@ CREATE TABLE IF NOT EXISTS exam_config (
   scheduled_start timestamptz,
   scheduled_end   timestamptz,
   duration_minutes integer NOT NULL DEFAULT 60,
-  exam_title      text NOT NULL DEFAULT 'ExamGuard Assessment',
+  exam_title      text NOT NULL UNIQUE,
   updated_at      timestamptz DEFAULT now()
 );
 
 -- Seed one default row (idempotent)
 INSERT INTO exam_config (is_active, duration_minutes, exam_title)
   SELECT true, 60, 'ExamGuard Assessment'
-  WHERE NOT EXISTS (SELECT 1 FROM exam_config);
+  WHERE NOT EXISTS (SELECT 1 FROM exam_config LIMIT 1);
 
 -- Allow public read (for student exam status check)
 ALTER TABLE exam_config ENABLE ROW LEVEL SECURITY;

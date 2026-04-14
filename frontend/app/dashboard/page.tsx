@@ -103,37 +103,48 @@ export default function DashboardPage() {
   // ── Real-time exam config listener via Supabase ────────────
   const loadExams = useCallback(async () => {
     try {
-      // Fetch from exam_config (the single global exam) + questions count per branch
-      const cfg = await fetchPublicExamConfig();
+      // Fetch all public configs
+      const configs = await fetchPublicExamConfig();
+      const activeConfigs = configs.filter(c => c.is_active);
 
-      // Also get question counts per branch from Supabase directly
+      // Get question distribution
       const { data: qData } = await supabase
         .from("questions")
-        .select("branch, exam_name")
-        .order("branch");
+        .select("branch, exam_name");
 
-      // Build exam nodes from real branch data
-      const branchMap: Record<string, { count: number; exam_name: string }> = {};
-      if (qData) {
-        for (const q of qData) {
-          const br = q.branch || "CS";
-          if (!branchMap[br]) {
-            branchMap[br] = { count: 0, exam_name: q.exam_name || cfg.exam_title || "ExamGuard Assessment" };
-          }
-          branchMap[br].count++;
+      const nodes: ExamNode[] = [];
+      const seen = new Set<string>();
+
+      if (qData && activeConfigs.length > 0) {
+        for (const config of activeConfigs) {
+          // Find branches that have questions for this specific exam_title
+          const relevantQuestions = qData.filter(q => q.exam_name === config.exam_title);
+          
+          // Group by branch for this exam
+          const branchCounts: Record<string, number> = {};
+          relevantQuestions.forEach(q => {
+            const br = q.branch || "CS";
+            branchCounts[br] = (branchCounts[br] || 0) + 1;
+          });
+
+          // Create a node for each branch/exam combo
+          Object.entries(branchCounts).forEach(([branch, count]) => {
+            const nodeId = `${config.exam_title}-${branch}`;
+            if (!seen.has(nodeId)) {
+              nodes.push({
+                id: nodeId,
+                exam_name: config.exam_title,
+                branch,
+                is_active: config.is_active,
+                duration_minutes: config.duration_minutes,
+                scheduled_start: config.scheduled_start,
+                question_count: count,
+              });
+              seen.add(nodeId);
+            }
+          });
         }
       }
-
-      // Create exam nodes — one per branch that has questions
-      const nodes: ExamNode[] = Object.entries(branchMap).map(([branch, info]) => ({
-        id: `exam-${branch}`,
-        exam_name: info.exam_name || cfg.exam_title || "ExamGuard Assessment",
-        branch,
-        is_active: cfg.is_active,
-        duration_minutes: cfg.duration_minutes,
-        scheduled_start: cfg.scheduled_start,
-        question_count: info.count,
-      }));
 
       setAllExams(nodes);
     } catch (e) {
@@ -199,6 +210,10 @@ export default function DashboardPage() {
 
     setWarpTarget(exam);
     setWarpActive(true);
+    
+    // Weightlessly persist exam metadata for the session horizon
+    sessionStorage.setItem("exam_selected_title", exam.exam_name);
+    
     await new Promise(r => setTimeout(r, 1200));
     router.push("/exam");
   }, [router]);
