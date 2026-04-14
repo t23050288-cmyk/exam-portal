@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./instructions.module.css";
 import { startExam } from "@/lib/api";
+import Skeleton from "@/components/Skeleton";
 
 export default function InstructionsPage() {
   const router = useRouter();
@@ -63,7 +64,20 @@ export default function InstructionsPage() {
     router.replace("/login");
   };
 
-  if (!studentInfo) return null; // Wait until auth check completes
+  if (!studentInfo) {
+    return (
+      <div className={styles.wrapper}>
+        <div className="page-skeleton-wrap">
+          <Skeleton height={40} width="60%" borderRadius={12} />
+          <Skeleton height={300} borderRadius={24} />
+          <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+            <Skeleton height={50} width={150} borderRadius={12} />
+            <Skeleton height={50} width={150} borderRadius={12} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wrapper}>
@@ -162,10 +176,10 @@ export default function InstructionsPage() {
               disabled={starting}
             >
               {starting ? (
-                <>
-                  <div className={styles.spinner}></div>
-                  Initializing...
-                </>
+                <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                   <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.2, borderRadius: "12px" }} />
+                   <span>Initializing...</span>
+                </div>
               ) : (
                 <>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

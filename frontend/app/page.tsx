@@ -17,7 +17,7 @@ export default function Home() {
 
   return (
     <div className="page-center">
-      <div className="spinner" style={{ width: 32, height: 32 }} />
+      <div className="skeleton" style={{ width: 64, height: 64, borderRadius: "50%" }} />
     </div>
   );
 }

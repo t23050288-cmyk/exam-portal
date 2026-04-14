@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import styles from "./leaderboard.module.css";
+import Skeleton from "@/components/Skeleton";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/api";
 const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
@@ -101,9 +102,11 @@ export default function LeaderboardPage() {
       </div>
 
       {loading ? (
-        <div className={styles.empty}>
-          <div className="spinner" style={{ width: 36, height: 36, margin: "0 auto 16px" }} />
-          <p>Syncing quantum data…</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 24 }}>
+          <Skeleton height={200} borderRadius={24} />
+          <Skeleton height={80} borderRadius={16} />
+          <Skeleton height={80} borderRadius={16} />
+          <Skeleton height={80} borderRadius={16} />
         </div>
       ) : entries.length === 0 ? (
         <div className={styles.empty}>

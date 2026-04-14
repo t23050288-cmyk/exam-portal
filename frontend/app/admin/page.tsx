@@ -23,6 +23,7 @@ import {
 import { BRANCH_IDS } from "@/lib/constants";
 import styles from "./admin.module.css";
 import adminStyles from "./admin-management.module.css";
+import Skeleton from "@/components/Skeleton";
 
 // ── Lazy-loaded new feature tabs ──────────────────────────────
 import dynamic from "next/dynamic";
@@ -219,7 +220,15 @@ export default function AdminPage() {
     .filter((s) => !search.trim() || s.usn.toLowerCase().includes(search.toLowerCase()) || s.name.toLowerCase().includes(search.toLowerCase()));
 
   if (!initialized) {
-    return (<div className="page-center"><div className="spinner" style={{ width: 32, height: 32 }} /></div>);
+    return (
+      <div className="page-center">
+        <div style={{ width: 400, display: "flex", flexDirection: "column", gap: 16 }}>
+          <Skeleton height={60} borderRadius={12} />
+          <Skeleton height={200} borderRadius={12} />
+          <Skeleton height={50} borderRadius={12} />
+        </div>
+      </div>
+    );
   }
 
   if (!authed) {
@@ -369,8 +378,12 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
-              <div className="spinner" style={{ width: 32, height: 32 }} />
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+              <Skeleton height={40} />
+              <Skeleton height={40} />
+              <Skeleton height={40} />
+              <Skeleton height={40} />
+              <Skeleton height={40} />
             </div>
           ) : (
             <div className={styles.tableWrapper}>

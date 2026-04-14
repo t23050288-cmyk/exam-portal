@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import styles from "./control.module.css";
+import Skeleton from "@/components/Skeleton";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/api";
 const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
@@ -137,8 +138,13 @@ export default function OrbitalControlPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 64 }}>
-        <div className="spinner" style={{ width: 36, height: 36 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: 64, maxWidth: 600, margin: "0 auto" }}>
+        <Skeleton height={200} borderRadius={100} width={200} className="mx-auto" style={{ margin: "0 auto" }} />
+        <Skeleton height={40} width="60%" style={{ margin: "0 auto" }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <Skeleton height={120} borderRadius={20} />
+          <Skeleton height={120} borderRadius={20} />
+        </div>
       </div>
     );
   }
@@ -254,7 +260,10 @@ export default function OrbitalControlPage() {
         disabled={saving}
       >
         {saving ? (
-          <><div className="spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }} /> Saving…</>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="skeleton" style={{ width: 20, height: 20, borderRadius: "50%", opacity: 0.3 }} />
+            Saving…
+          </div>
         ) : saveSuccess ? (
           "✓ Configuration Saved"
         ) : (

@@ -203,10 +203,10 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading ? (
-              <>
-                <span className="spinner" />
-                Signing up...
-              </>
+              <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.2, borderRadius: "12px" }} />
+                <span>Signing up...</span>
+              </div>
             ) : (
               "Sign Up"
             )}

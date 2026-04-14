@@ -9,6 +9,7 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import ExamTimer from "@/components/ExamTimer";
 import QuestionCard from "@/components/QuestionCard";
 import AntiCheat from "@/components/AntiCheat";
+import Skeleton from "@/components/Skeleton";
 import styles from "./exam.module.css";
 
 interface StudentInfo {
@@ -208,10 +209,16 @@ export default function ExamPage() {
   // ── Loading state ─────────────────────────────────────────
   if (loading) {
     return (
-      <div className="page-center">
-        <div className={styles.loadingBox}>
-          <div className="spinner" style={{ width: 36, height: 36 }} />
-          <p>Loading exam...</p>
+      <div className={styles.wrapper} style={{ padding: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+          <Skeleton height={80} borderRadius={20} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20 }}>
+            <Skeleton height={400} borderRadius={28} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Skeleton height={200} borderRadius={20} />
+              <Skeleton height={150} borderRadius={20} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -242,11 +249,13 @@ export default function ExamPage() {
 
   if (submitting) {
     return (
-      <div className="page-center">
-        <div className={styles.loadingBox}>
-          <div className="spinner" style={{ width: 36, height: 36 }} />
-          <p>Submitting exam...</p>
+      <div className={styles.wrapper} style={{ display: "grid", placeItems: "center" }}>
+        <div style={{ textAlign: "center", zIndex: 10 }}>
+          <div className="skeleton" style={{ width: 300, height: 60, borderRadius: 30, marginBottom: 20, margin: "0 auto" }} />
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)" }}>Submitting exam...</h2>
+          <p style={{ opacity: 0.7 }}>Securely uploading your responses</p>
         </div>
+        <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.05 }} />
       </div>
     );
   }
