@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    router.prefetch("/instructions");
+    router.prefetch("/exam");
+  }, [router]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const usnRegex = /^[A-Z0-9]{5}[A-Z]{2}[0-9]{3}$/;
@@ -54,11 +59,11 @@ export default function LoginPage() {
         })
       );
 
+      // Instant push
       router.push("/instructions");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed.";
       setError(msg);
-    } finally {
       setLoading(false);
     }
   }
