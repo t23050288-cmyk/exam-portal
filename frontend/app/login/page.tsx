@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loginStudent } from "@/lib/api";
 import { BRANCHES } from "@/lib/constants";
