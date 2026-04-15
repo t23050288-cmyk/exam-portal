@@ -47,29 +47,6 @@ def update_last_active(student_id: str):
     ).eq("student_id", student_id).execute()
 
 
-@router.post("/start-exam", response_model=StartExamResponse)
-def start_exam(
-    title: str,
-    current: dict = Depends(get_current_student)
-):
-    """
-    Initialize exam session for a student.
-    """
-    _check_exam_active(title)
-    db = get_supabase()
-    student_id = current["student_id"]
-    
-    started_at = datetime.now(timezone.utc).isoformat()
-    
-    # Upsert status
-    db.table("exam_status").upsert({
-        "student_id": student_id,
-        "status": "in_progress",
-        "started_at": started_at,
-        "last_active": started_at
-    }).execute()
-    
-    return StartExamResponse(started_at=started_at)
 
 
 @router.get("/questions", response_model=QuestionsResponse)
@@ -291,13 +268,16 @@ def submit_exam(
 
 
 @router.post("/start-exam", response_model=StartExamResponse)
-async def start_exam(current: dict = Depends(get_current_student)):
+async def start_exam(
+    title: str,
+    current: dict = Depends(get_current_student)
+):
     """
     Officially starts the exam timer for the student.
     Sets status to 'active' and records 'started_at'.
     Returns the start time so the frontend can sync.
     """
-    _check_exam_active()
+    _check_exam_active(title)
     db = get_supabase()
     student_id = current["student_id"]
 

@@ -215,7 +215,10 @@ export default function OrbitalControlPage() {
         },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Save failed" }));
+        throw new Error(err.detail || "Save failed");
+      }
       const data = await res.json();
       
       const mappedData = { ...data };

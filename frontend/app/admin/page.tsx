@@ -17,8 +17,10 @@ import {
   deleteAdminFolder,
   renameAdminFolder,
   uploadQuestionImage,
+  fetchBranchExamSummary,
   AdminQuestion,
   AdminStudent,
+  BranchExamSummary,
 } from "@/lib/api";
 import { BRANCH_IDS } from "@/lib/constants";
 import styles from "./admin.module.css";
@@ -42,6 +44,7 @@ interface StudentRow {
   warnings: number;
   last_active: string | null;
   submitted_at: string | null;
+  started_at: string | null;
   current_question: number | null;
 }
 
@@ -51,6 +54,16 @@ function timeAgo(iso: string | null): string {
   if (secs < 60) return `${secs}s ago`;
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
   return `${Math.floor(secs / 3600)}h ago`;
+}
+
+function getElapsedTime(started: string | null, ended: string | null): string {
+  if (!started) return "—";
+  const t0 = new Date(started).getTime();
+  const t1 = ended ? new Date(ended).getTime() : Date.now();
+  const secs = Math.floor(Math.max(0, t1 - t0) / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}m ${s}s`;
 }
 
 const BRANCHES = BRANCH_IDS;
@@ -63,20 +76,34 @@ function getStoredAuth(): boolean {
 }
 
 // ── Data-Stream Export Animation ──────────────────────────────
-function ExportButton() {
+function ExportButton({ quizzes }: { quizzes: BranchExamSummary[] }) {
   const [phase, setPhase] = useState<"idle" | "streaming" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const doExport = async () => {
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const doExport = async (name?: string) => {
+    setShowMenu(false);
     if (phase === "streaming") return;
     setPhase("streaming");
     setError(null);
     try {
-      const blob = await exportResults();
+      const blob = await exportResults(name === "all" ? undefined : name);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `examguard_results_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `results_${name || "all"}_${dateStr}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       setPhase("done");
@@ -87,49 +114,104 @@ function ExportButton() {
     }
   };
 
+  const quizNames = Array.from(new Set(quizzes.map(q => q.exam_name)));
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-      <button
-        id="export-btn"
-        onClick={doExport}
-        disabled={phase === "streaming"}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 18px",
-          borderRadius: 10,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: phase === "streaming" ? "not-allowed" : "pointer",
-          border: "1px solid rgba(139,92,246,0.35)",
-          background: phase === "done"
-            ? "rgba(16,185,129,0.12)"
-            : "rgba(139,92,246,0.1)",
-          color: phase === "done" ? "#34d399" : "#a78bfa",
-          transition: "all 0.3s ease",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Data-stream shimmer overlay */}
-        {phase === "streaming" && (
-          <span
+    <div style={{ position: "relative" }} ref={menuRef}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+        <button
+          id="export-btn"
+          onClick={() => setShowMenu(!showMenu)}
+          disabled={phase === "streaming"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 18px",
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: phase === "streaming" ? "not-allowed" : "pointer",
+            border: "1px solid rgba(139,92,246,0.35)",
+            background: phase === "done"
+              ? "rgba(16,185,129,0.12)"
+              : "rgba(139,92,246,0.1)",
+            color: phase === "done" ? "#34d399" : "#a78bfa",
+            transition: "all 0.3s ease",
+            position: "relative",
+            overflow: "hidden",
+            zIndex: 1,
+          }}
+        >
+          {phase === "streaming" && (
+            <span
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)",
+                backgroundSize: "200% 100%",
+                animation: "shimmerExport 1s linear infinite",
+              }}
+            />
+          )}
+          <span style={{ fontSize: 16 }}>
+            {phase === "streaming" ? "☁️" : phase === "done" ? "✓" : "📊"}
+          </span>
+          {phase === "streaming" ? "Streaming data…" : phase === "done" ? "Downloaded!" : "Export Results"}
+        </button>
+        {error && <span style={{ fontSize: 11, color: "#f87171" }}>{error}</span>}
+      </div>
+
+      <AnimatePresence>
+        {showMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
             style={{
               position: "absolute",
-              inset: 0,
-              background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)",
-              backgroundSize: "200% 100%",
-              animation: "shimmerExport 1s linear infinite",
+              top: "calc(100% + 8px)",
+              right: 0,
+              width: 240,
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              padding: "8px",
+              zIndex: 100,
+              overflow: "hidden",
             }}
-          />
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", padding: "4px 8px 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Select Quiz to Download
+            </div>
+            <button 
+              className={styles.menuItem} 
+              onClick={() => doExport("all")}
+              style={{ width: "100%", textAlign: "left", padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", display: "flex", gap: 8, alignItems: "center" }}
+            >
+              <span style={{ opacity: 0.6 }}>📦</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>All Results (Universal)</span>
+            </button>
+            <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+            <div style={{ maxHeight: 200, overflowY: "auto" }}>
+              {quizNames.length === 0 ? (
+                <div style={{ padding: "12px", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>No quizzes discovered</div>
+              ) : quizNames.map(name => (
+                <button 
+                  key={name}
+                  className={styles.menuItem}
+                  onClick={() => doExport(name)}
+                  style={{ width: "100%", textAlign: "left", padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", display: "flex", gap: 8, alignItems: "center" }}
+                >
+                  <span style={{ opacity: 0.6 }}>📝</span>
+                  <span style={{ fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
         )}
-        <span style={{ fontSize: 16 }}>
-          {phase === "streaming" ? "☁️" : phase === "done" ? "✓" : "📊"}
-        </span>
-        {phase === "streaming" ? "Streaming data…" : phase === "done" ? "Downloaded!" : "Export Results"}
-      </button>
-      {error && <span style={{ fontSize: 11, color: "#f87171" }}>{error}</span>}
+      </AnimatePresence>
     </div>
   );
 }
@@ -147,6 +229,8 @@ export default function AdminPage() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<Tab>("monitor");
   const [liveStats, setLiveStats] = useState({ answers: 0, violations: 0, submittals: 0 });
+  const [quizzes, setQuizzes] = useState<BranchExamSummary[]>([]);
+  const [quizFilter, setQuizFilter] = useState<string>("all");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -184,6 +268,7 @@ export default function AdminPage() {
         warnings: s.warnings,
         last_active: s.last_active,
         submitted_at: s.submitted_at,
+        started_at: s.started_at,
         current_question: null,
       }));
       setStudents(rows);
@@ -199,6 +284,17 @@ export default function AdminPage() {
     if (!authed) return;
     setLoading(true);
     fetchStudents().finally(() => setLoading(false));
+    fetchAdminQuestions().then(qs => {
+      const list: BranchExamSummary[] = [];
+      qs.forEach(q => {
+        const br = q.branch || "CS";
+        const ex = q.exam_name || "ExamGuard Assessment";
+        if (!list.find(x => x.branch === br && x.exam_name === ex)) {
+          list.push({ branch: br, exam_name: ex, question_count: 1 });
+        }
+      });
+      setQuizzes(list);
+    }).catch(console.error);
 
     const channel = supabase
       .channel("admin-exam-status")
@@ -217,6 +313,7 @@ export default function AdminPage() {
 
   const visible = students
     .filter((s) => filter === "all" || s.status === filter)
+    .filter((s) => quizFilter === "all" || quizzes.some(q => q.exam_name === quizFilter && q.branch === s.branch))
     .filter((s) => !search.trim() || s.usn.toLowerCase().includes(search.toLowerCase()) || s.name.toLowerCase().includes(search.toLowerCase()));
 
   if (!initialized) {
@@ -319,7 +416,7 @@ export default function AdminPage() {
         </nav>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {activeTab === "monitor" && <ExportButton />}
+          {activeTab === "monitor" && <ExportButton quizzes={quizzes} />}
           <button className="btn btn-outline" style={{ fontSize: 12, padding: "6px 12px" }} onClick={() => setAuthed(false)}>
             Logout
           </button>
@@ -329,44 +426,112 @@ export default function AdminPage() {
       {/* ── Monitor Tab ── */}
       {activeTab === "monitor" && (
         <>
-          <div className={styles.statsRow}>
-            {[
-              { value: total,      label: "Total Students",    color: undefined },
-              { value: active,     label: "Active",            color: "var(--success)" },
-              { value: submitted,  label: "Submitted",         color: "var(--accent)" },
-              { value: notStarted, label: "Not Started",       color: "var(--text-muted)" },
-              { value: flagged,    label: "Flagged (2+ warns)", color: "var(--danger)" },
-              { value: total > 0 ? `${Math.round((submitted / total) * 100)}%` : "0%", label: "Completion", color: "var(--warning)" },
-            ].map((s, i) => (
-              <div key={i} className={styles.statCard}>
-                <span className={styles.statValue} style={s.color ? { color: s.color } : {}}>{s.value}</span>
-                <span className={styles.statLabel}>{s.label}</span>
+          {/* ── Canva-Style 3 Hero Stat Cards ── */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 20,
+            padding: "20px 24px 0",
+          }}>
+            {/* Active Students */}
+            <div style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: "22px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              boxShadow: "var(--shadow-card)",
+            }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 14,
+                background: "rgba(25,118,210,0.1)",
+                border: "1px solid rgba(25,118,210,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, flexShrink: 0,
+              }}>👥</div>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text-primary)", lineHeight: 1 }}>
+                  {active}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, fontWeight: 500 }}>Active Students</div>
               </div>
-            ))}
+            </div>
+
+            {/* Total Violations */}
+            <div style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: "22px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              boxShadow: "var(--shadow-card)",
+            }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 14,
+                background: "rgba(237,108,2,0.1)",
+                border: "1px solid rgba(237,108,2,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, flexShrink: 0,
+              }}>⚠️</div>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--warning)", lineHeight: 1 }}>
+                  {students.reduce((sum, s) => sum + (s.warnings || 0), 0)}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, fontWeight: 500 }}>Total Violations</div>
+              </div>
+            </div>
+
+            {/* Completed Quizzes */}
+            <div style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: "22px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              boxShadow: "var(--shadow-card)",
+            }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 14,
+                background: "rgba(46,125,50,0.1)",
+                border: "1px solid rgba(46,125,50,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, flexShrink: 0,
+              }}>✅</div>
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--success)", lineHeight: 1 }}>
+                  {submitted}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, fontWeight: 500 }}>Completed Quizzes</div>
+              </div>
+            </div>
           </div>
 
-          {/* Live stats row */}
-          <div className={styles.statsRow}>
-            <div className={styles.statCard}>
-              <span className={styles.statValue} style={{ fontSize: 20 }}>{liveStats.answers}</span>
-              <span className={styles.statLabel}>Answers Given</span>
-            </div>
-            <div className={styles.statCard}>
-              <span className={styles.statValue} style={{ fontSize: 20, color: liveStats.violations > 0 ? "var(--danger)" : "inherit" }}>
-                {liveStats.violations}
-              </span>
-              <span className={styles.statLabel}>Violations</span>
-            </div>
-            <div className={styles.statCard}>
-              <span className={styles.statValue} style={{ fontSize: 20 }}>{Math.floor((Date.now() / 1000) % 60)}</span>
-              <span className={styles.statLabel}>Live Pulse</span>
-            </div>
-          </div>
+          {/* ── Violation Alerts Feed ── */}
+          <ViolationAlertsFeed students={students} />
 
           {/* Controls */}
           <div className={styles.controls}>
             <input type="text" className={adminStyles.input} placeholder="Search by name or USN…" value={search}
               onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 300 }} />
+            
+            <select 
+              className={adminStyles.input} 
+              style={{ maxWidth: 200, padding: "8px 12px", cursor: "pointer" }}
+              value={quizFilter}
+              onChange={(e) => setQuizFilter(e.target.value)}
+            >
+              <option value="all">All Quizzes</option>
+              {Array.from(new Set(quizzes.map(q => q.exam_name))).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
             <div className={styles.filters}>
               {(["all", "active", "submitted", "not_started"] as const).map((f) => (
                 <button key={f} className={`btn ${filter === f ? "btn-primary" : "btn-outline"}`}
@@ -391,8 +556,8 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th>#</th><th>USN NO.</th><th>Name</th><th>Email</th>
-                    <th>Branch</th><th>Status</th><th>Progress</th><th>Warnings</th>
-                    <th>Last Active</th><th>Submitted At</th>
+                    <th>Branch</th><th>Status</th><th>Start Time</th><th>Total Time</th>
+                    <th>Submitted At</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -406,9 +571,8 @@ export default function AdminPage() {
                       <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.email || "—"}</td>
                       <td><span className="badge badge-neutral">{s.branch}</span></td>
                       <td><StatusBadge status={s.status} lastActive={s.last_active} /></td>
-                      <td style={{ fontSize: 12 }}>{s.status === "active" && s.current_question ? `Q${s.current_question}` : "—"}</td>
-                      <td><WarningBadge count={s.warnings} /></td>
-                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{timeAgo(s.last_active)}</td>
+                      <td style={{ fontSize: 12 }}>{s.started_at ? new Date(s.started_at).toLocaleTimeString() : "—"}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{getElapsedTime(s.started_at, s.submitted_at)}</td>
                       <td style={{ fontSize: 12, color: "var(--text-muted)" }}>
                         {s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString() : "—"}
                       </td>
@@ -427,6 +591,120 @@ export default function AdminPage() {
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}
       {activeTab === "students"    && <StudentsTab />}
+    </div>
+  );
+}
+
+// ── Violation Alerts Feed ─────────────────────────────────────
+const VIOLATION_TYPES = ["Tab switched", "Window focus lost", "Copy/paste detected", "Fullscreen exit"];
+
+function ViolationAlertsFeed({ students }: { students: StudentRow[] }) {
+  // Build a flat list of synthetic violation events from warnings count
+  const alerts: { name: string; usn: string; type: string; badge: number }[] = [];
+  students
+    .filter(s => s.warnings > 0)
+    .sort((a, b) => (b.warnings || 0) - (a.warnings || 0))
+    .forEach(s => {
+      for (let i = 0; i < s.warnings; i++) {
+        alerts.push({
+          name: s.name,
+          usn: s.usn,
+          type: VIOLATION_TYPES[i % VIOLATION_TYPES.length],
+          badge: alerts.length + 1,
+        });
+      }
+    });
+
+  return (
+    <div style={{ padding: "20px 24px" }}>
+      <div style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: 16,
+        boxShadow: "var(--shadow-card)",
+        overflow: "hidden",
+      }}>
+        {/* Panel header */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "16px 20px",
+          borderBottom: "1px solid var(--border)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>Violation Alerts</span>
+          </div>
+          <span style={{
+            fontSize: 12, fontWeight: 600,
+            padding: "2px 10px",
+            borderRadius: 999,
+            background: alerts.length > 0 ? "var(--danger-bg)" : "var(--bg-secondary)",
+            color: alerts.length > 0 ? "var(--danger)" : "var(--text-muted)",
+            border: alerts.length > 0 ? "1px solid rgba(211,47,47,0.2)" : "1px solid var(--border)",
+          }}>
+            {alerts.length} events
+          </span>
+        </div>
+
+        {/* Alert list */}
+        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+          {alerts.length === 0 ? (
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+              ✅ No violations recorded
+            </div>
+          ) : (
+            alerts.reverse().map((alert, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 14,
+                  padding: "14px 20px",
+                  borderBottom: i < alerts.length - 1 ? "1px solid var(--border)" : "none",
+                  background: i % 2 === 0 ? "var(--bg-card)" : "var(--bg-secondary)",
+                  transition: "background 0.2s",
+                }}
+              >
+                {/* Triangle warning icon */}
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: "rgba(211,47,47,0.08)",
+                  border: "1px solid rgba(211,47,47,0.18)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, flexShrink: 0, marginTop: 2,
+                }}>⚠</div>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 2 }}>
+                    {alert.name}
+                    <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>{alert.usn}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--danger)", fontWeight: 500, marginBottom: 2 }}>
+                    {alert.type}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Recorded during active session</div>
+                </div>
+
+                {/* Badge number */}
+                <div style={{
+                  minWidth: 28, height: 28,
+                  borderRadius: 8,
+                  background: "rgba(211,47,47,0.1)",
+                  border: "1px solid rgba(211,47,47,0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 700,
+                  color: "var(--danger)",
+                  flexShrink: 0,
+                }}>#{alert.badge}</div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -549,6 +827,48 @@ function QuestionsTab() {
   const [expandedClusters, setExpandedClusters] = useState<Record<string, boolean>>({});
   const toggleCluster = (name: string) => setExpandedClusters(prev => ({ ...prev, [name]: !prev[name] }));
 
+  // Palette for category cards — cycles through 4 colors
+  const CARD_PALETTE = [
+    { bg: "rgba(25,118,210,0.06)",  border: "rgba(25,118,210,0.25)",  accent: "#1565c0",  icon: "📐", skillColor: "rgba(25,118,210,0.1)",  skillText: "#1565c0" },
+    { bg: "rgba(103,58,183,0.06)",  border: "rgba(103,58,183,0.25)",  accent: "#6a1b9a",  icon: "🧠", skillColor: "rgba(103,58,183,0.1)",  skillText: "#6a1b9a" },
+    { bg: "rgba(27,153,105,0.06)",  border: "rgba(27,153,105,0.25)",  accent: "#1b5e20",  icon: "📖", skillColor: "rgba(27,153,105,0.1)",  skillText: "#1b5e20" },
+    { bg: "rgba(230,119,14,0.06)",  border: "rgba(230,119,14,0.25)",  accent: "#e65100",  icon: "💻", skillColor: "rgba(230,119,14,0.1)",  skillText: "#e65100" },
+  ];
+
+  function inferDifficulty(name: string): "Easy" | "Medium" | "Hard" {
+    const n = name.toLowerCase();
+    if (n.includes("final") || n.includes("advanced") || n.includes("hard") || n.includes("logical") || n.includes("programming")) return "Hard";
+    if (n.includes("mid") || n.includes("aptitude") || n.includes("medium") || n.includes("intermediate")) return "Medium";
+    return "Easy";
+  }
+
+  function inferDescription(name: string): string {
+    const n = name.toLowerCase();
+    if (n.includes("aptitude") || n.includes("quant")) return "Tests mathematical reasoning, numerical ability, and problem-solving skills with numbers, percentages, ratios, and basic arithmetic operations.";
+    if (n.includes("logical") || n.includes("reasoning")) return "Evaluates analytical thinking, pattern recognition, and logical deduction abilities through puzzles, sequences, and reasoning problems.";
+    if (n.includes("english") || n.includes("comprehension") || n.includes("language")) return "Assesses language proficiency, reading comprehension, grammar, vocabulary, and written communication skills.";
+    if (n.includes("program") || n.includes("code") || n.includes("cs") || n.includes("computer")) return "Tests programming concepts, algorithms, data structures, and coding logic across multiple programming languages.";
+    if (n.includes("final")) return "Comprehensive final assessment covering all topics from the semester. Tests deep understanding and application of core concepts.";
+    if (n.includes("mid")) return "Mid-semester evaluation covering syllabus units 1 to 3. Tests understanding of foundational concepts and skill application.";
+    return `Assessment covering key topics in ${name}. Evaluates conceptual understanding and practical application skills.`;
+  }
+
+  function inferSkills(name: string, branches: string[]): string[] {
+    const n = name.toLowerCase();
+    const branchTag = branches[0] || "General";
+    if (n.includes("aptitude") || n.includes("quant")) return ["Arithmetic", "Algebra", "Geometry", "Data Interpretation", "Percentages"];
+    if (n.includes("logical") || n.includes("reasoning")) return ["Pattern Recognition", "Analytical Thinking", "Problem Solving", "Critical Reasoning"];
+    if (n.includes("english") || n.includes("comprehension")) return ["Reading Comprehension", "Grammar", "Vocabulary", "Sentence Formation"];
+    if (n.includes("program") || n.includes("code") || n.includes("computer")) return ["Algorithms", "Data Structures", "Programming Logic", "Code Optimization"];
+    return [branchTag, "Core Concepts", "Application", "Analysis"];
+  }
+
+  const DIFF_COLORS: Record<string, { bg: string; text: string }> = {
+    Easy:   { bg: "rgba(46,125,50,0.1)",  text: "#2e7d32" },
+    Medium: { bg: "rgba(237,108,2,0.1)",  text: "#e65100" },
+    Hard:   { bg: "rgba(211,47,47,0.1)",   text: "#c62828" },
+  };
+
   return (
     <div className={adminStyles.managementPage}>
       <div className={adminStyles.header}>
@@ -570,95 +890,163 @@ function QuestionsTab() {
       ) : filteredQuestions.length === 0 ? (
         <div className={adminStyles.empty}>No questions found for branch: {selectedBranch}</div>
       ) : (
-        <div className={adminStyles.orbGrid}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 20, padding: "8px 0" }}>
           <AnimatePresence>
-            {Object.entries(clusters).map(([name, clusterQs]) => (
-              <React.Fragment key={name}>
-                <motion.div
-                  layout
-                  className={`${adminStyles.orbNode} ${expandedClusters[name] ? adminStyles.orbActive : ""}`}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={() => toggleCluster(name)}
-                >
-                  <div className={adminStyles.orbCircle}>
-                    <div className={adminStyles.orbCount}>{clusterQs.length}</div>
-                    <span className={adminStyles.orbInsideIcon}>
-                      {name.toLowerCase().includes("final") ? "🏆" : 
-                       name.toLowerCase().includes("mid")   ? "🌓" : "🌌"}
-                    </span>
-                  </div>
-                  <div className={adminStyles.orbDetails}>
-                    <div className={adminStyles.orbTitle}>{name}</div>
-                    <div className={adminStyles.orbSubtitle}>Isolation Node</div>
-                  </div>
-                </motion.div>
+            {Object.entries(clusters).map(([name, clusterQs], idx) => {
+              const palette = CARD_PALETTE[idx % CARD_PALETTE.length];
+              const diff = inferDifficulty(name);
+              const diffStyle = DIFF_COLORS[diff];
+              const desc = inferDescription(name);
+              const branchList = [...new Set(clusterQs.map(q => q.branch))];
+              const skills = inferSkills(name, branchList);
 
-                <AnimatePresence>
-                  {expandedClusters[name] && (
-                    <motion.div
-                      className={adminStyles.isolationView}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <div className={adminStyles.nodeManagementHeader}>
-                        <div className={adminStyles.nodeInfo}>
-                          <h4 style={{ margin: 0, color: '#8b5cf6' }}>Isolation Node: {name}</h4>
-                          <small style={{ color: '#7c3aed', opacity: 0.8 }}>{clusterQs.length} Questions Physically Isolated</small>
-                        </div>
-                        <div className={adminStyles.nodeActions}>
-                          <button 
-                            className="btn btn-outline" 
-                            style={{ fontSize: 12, padding: '4px 12px' }} 
-                            onClick={(e) => { e.stopPropagation(); console.log('Orbital Trigger: Rename', name); handleRenameFolder(name); }}
-                          >
-                            Rename Node
-                          </button>
-                          <button 
-                            className="btn btn-outline btn-danger" 
-                            style={{ fontSize: 12, padding: '4px 12px' }} 
-                            onClick={(e) => { e.stopPropagation(); console.log('Orbital Trigger: Destroy', name); handleDeleteFolder(name); }}
-                          >
-                            Destroy Node
-                          </button>
+              return (
+                <React.Fragment key={name}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.35, delay: idx * 0.05 }}
+                    style={{
+                      background: palette.bg,
+                      border: `1.5px solid ${palette.border}`,
+                      borderRadius: 18,
+                      padding: "24px 24px 20px",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                      transition: "box-shadow 0.2s, transform 0.2s",
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                    whileHover={{ y: -3, boxShadow: `0 8px 24px ${palette.border}` }}
+                    onClick={() => toggleCluster(name)}
+                  >
+                    {/* Icon + Title row */}
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                      <span style={{ fontSize: 22 }}>{palette.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: 16, color: palette.accent, letterSpacing: "-0.01em", lineHeight: 1.3 }}>
+                          {name}
                         </div>
                       </div>
+                      {/* Actions (only when not expanded) */}
+                      {!expandedClusters[name] && (
+                        <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <button
+                            style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid ${palette.border}`, background: "transparent", color: palette.accent, cursor: "pointer", fontWeight: 600 }}
+                            onClick={() => handleRenameFolder(name)}
+                          >Rename</button>
+                          <button
+                            style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(211,47,47,0.3)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
+                            onClick={() => handleDeleteFolder(name)}
+                          >Delete</button>
+                        </div>
+                      )}
+                    </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
-                        {clusterQs.map((q) => (
-                          <div key={q.id} className={adminStyles.card} style={{ margin: 0 }}>
-                            <div className={adminStyles.cardHeader}>
-                              <div className={adminStyles.cardIndex} style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa" }}>
-                                Q{q.order_index + 1}
-                              </div>
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button className="btn-icon" onClick={() => { setEditing(q); setFormData({ ...q }); setShowModal(true); }}>✏️</button>
-                                <button className="btn-icon btn-danger" onClick={() => handleDelete(q.id)}>🗑️</button>
-                              </div>
-                            </div>
-                            {q.image_url && (
-                              <div className={adminStyles.cardThumbnailContainer}>
-                                <img src={q.image_url} alt="Thumbnail" className={adminStyles.cardThumbnail} />
-                              </div>
-                            )}
-                            <p className={adminStyles.cardText} style={{ fontSize: 14 }}>{q.text}</p>
-                            <div className={adminStyles.cardFooter} style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                              <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.branch}</span>
-                              <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.marks} Marks</span>
-                            </div>
-                          </div>
+                    {/* Difficulty badge */}
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{
+                        display: "inline-block",
+                        padding: "3px 12px",
+                        borderRadius: 999,
+                        fontSize: 12, fontWeight: 600,
+                        background: diffStyle.bg,
+                        color: diffStyle.text,
+                        border: `1px solid ${diffStyle.bg.replace("0.1", "0.3")}`,
+                      }}>{diff}</span>
+                    </div>
+
+                    {/* Description */}
+                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>
+                      {desc}
+                    </p>
+
+                    {/* Key Skills */}
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: palette.accent, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                        Key Skills Tested:
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {skills.map(skill => (
+                          <span key={skill} style={{
+                            padding: "4px 11px",
+                            borderRadius: 999,
+                            fontSize: 12, fontWeight: 500,
+                            background: palette.skillColor,
+                            color: palette.skillText,
+                            border: `1px solid ${palette.border}`,
+                          }}>{skill}</span>
                         ))}
                       </div>
-                      <div style={{ marginTop: 20, textAlign: "right" }}>
-                        <button className="btn btn-outline" onClick={() => toggleCluster(name)}>Close Node</button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </React.Fragment>
-            ))}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${palette.border}` }}>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+                        📋 {clusterQs.length} question{clusterQs.length !== 1 ? "s" : ""} · {branchList.join(", ")}
+                      </span>
+                      <span style={{ fontSize: 12, color: palette.accent, fontWeight: 700 }}>
+                        {expandedClusters[name] ? "▲ Collapse" : "▼ View Questions"}
+                      </span>
+                    </div>
+                  </motion.div>
+
+                  {/* Expanded question list */}
+                  <AnimatePresence>
+                    {expandedClusters[name] && (
+                      <motion.div
+                        style={{ gridColumn: "1 / -1" }}
+                        className={adminStyles.isolationView}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <div className={adminStyles.nodeManagementHeader}>
+                          <div className={adminStyles.nodeInfo}>
+                            <h4 style={{ margin: 0, color: palette.accent }}>{name}</h4>
+                            <small style={{ color: "var(--text-muted)" }}>{clusterQs.length} Questions</small>
+                          </div>
+                          <div className={adminStyles.nodeActions}>
+                            <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
+                              onClick={() => handleRenameFolder(name)}>Rename</button>
+                            <button className="btn btn-outline btn-danger" style={{ fontSize: 12, padding: "4px 12px" }}
+                              onClick={() => handleDeleteFolder(name)}>Delete Folder</button>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+                          {clusterQs.map((q) => (
+                            <div key={q.id} className={adminStyles.card} style={{ margin: 0 }}>
+                              <div className={adminStyles.cardHeader}>
+                                <div className={adminStyles.cardIndex} style={{ fontSize: 11, fontWeight: 700, color: palette.accent }}>Q{q.order_index + 1}</div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button className="btn-icon" onClick={() => { setEditing(q); setFormData({ ...q }); setShowModal(true); }}>✏️</button>
+                                  <button className="btn-icon btn-danger" onClick={() => handleDelete(q.id)}>🗑️</button>
+                                </div>
+                              </div>
+                              {q.image_url && (
+                                <div className={adminStyles.cardThumbnailContainer}>
+                                  <img src={q.image_url} alt="Thumbnail" className={adminStyles.cardThumbnail} />
+                                </div>
+                              )}
+                              <p className={adminStyles.cardText} style={{ fontSize: 14 }}>{q.text}</p>
+                              <div className={adminStyles.cardFooter} style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                                <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.branch}</span>
+                                <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.marks} Marks</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 20, textAlign: "right" }}>
+                          <button className="btn btn-outline" onClick={() => toggleCluster(name)}>Close</button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

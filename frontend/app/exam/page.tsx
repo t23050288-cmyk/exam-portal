@@ -36,7 +36,7 @@ export default function ExamPage() {
   const [submitting, setSubmitting] = useState(false);
   const [examInactive, setExamInactive] = useState(false);
   const [examScheduled, setExamScheduled] = useState<string | null>(null);
-  const [examTitle, setExamTitle] = useState("Exam Assessment");
+  const [examTitle, setExamTitle] = useState("");
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "saved">("idle");
 
   // Pagination state
@@ -97,14 +97,17 @@ export default function ExamPage() {
   // ── Exam config polling (inactive guard) ──────────────────
   useEffect(() => {
     const checkConfig = async () => {
+      if (!examTitle) return;
       try {
         const configs = await fetchPublicExamConfig();
-        const cfg = configs.find(c => c.exam_title === examTitle);
+        // Fallback to find by case-insensitive name if needed
+        const cfg = configs.find(c => c.exam_title === examTitle) || 
+                    configs.find(c => c.exam_title?.toLowerCase() === examTitle.toLowerCase());
         
-        if (!cfg || !cfg.is_active) {
+        if (cfg && cfg.is_active === false) {
           setExamInactive(true);
           setExamScheduled(null);
-        } else if (cfg.scheduled_start) {
+        } else if (cfg && cfg.scheduled_start) {
           const start = new Date(cfg.scheduled_start);
           if (start > new Date()) {
             setExamScheduled(cfg.scheduled_start);
@@ -114,6 +117,7 @@ export default function ExamPage() {
             setExamScheduled(null);
           }
         } else {
+          // No config found or active, allow entry
           setExamInactive(false);
           setExamScheduled(null);
         }
@@ -124,7 +128,7 @@ export default function ExamPage() {
     checkConfig();
     const id = setInterval(checkConfig, 15_000);
     return () => clearInterval(id);
-  }, []);
+  }, [examTitle]);
 
   // ── Handle answer select (with save indicator) ────────────
   const handleSelect = useCallback(

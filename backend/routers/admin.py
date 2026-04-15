@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Header, Depends, File, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, status, Header, Depends, File, UploadFile, Query
+from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
 from core.config import get_settings
 from db.supabase_client import get_supabase
@@ -162,7 +162,8 @@ async def get_all_students(_: bool = Depends(verify_admin)):
             status=r["status"],
             warnings=r["warnings"],
             last_active=r["last_active"],
-            submitted_at=r["submitted_at"]
+            submitted_at=r["submitted_at"],
+            started_at=r.get("started_at")
         ))
     return rows
 
@@ -268,6 +269,15 @@ async def get_exam_config(title: Optional[str] = None, _: bool = Depends(verify_
                 scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
                 exam_title=row.get("exam_title", "ExamGuard Assessment"),
+                marks_per_question=row.get("marks_per_question", 4),
+                negative_marks=float(row.get("negative_marks") if row.get("negative_marks") is not None else -1.0),
+                shuffle_questions=row.get("shuffle_questions", False),
+                shuffle_options=row.get("shuffle_options", False),
+                max_attempts=row.get("max_attempts", 1),
+                show_answers_after=row.get("show_answers_after", True),
+                total_questions=row.get("total_questions", 30),
+                total_marks=row.get("total_marks", 120),
+                exam_description=row.get("exam_description"),
             )
     except Exception as e:
         print(f"Error fetching config: {e}")
@@ -295,6 +305,24 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["scheduled_end"] = request.scheduled_end
     if request.duration_minutes is not None:
         update_data["duration_minutes"] = request.duration_minutes
+    if request.marks_per_question is not None:
+        update_data["marks_per_question"] = request.marks_per_question
+    if request.negative_marks is not None:
+        update_data["negative_marks"] = request.negative_marks
+    if request.shuffle_questions is not None:
+        update_data["shuffle_questions"] = request.shuffle_questions
+    if request.shuffle_options is not None:
+        update_data["shuffle_options"] = request.shuffle_options
+    if request.max_attempts is not None:
+        update_data["max_attempts"] = request.max_attempts
+    if request.show_answers_after is not None:
+        update_data["show_answers_after"] = request.show_answers_after
+    if request.total_questions is not None:
+        update_data["total_questions"] = request.total_questions
+    if request.total_marks is not None:
+        update_data["total_marks"] = request.total_marks
+    if request.exam_description is not None:
+        update_data["exam_description"] = request.exam_description
 
     try:
         # Use upsert based on UNIQUE exam_title
@@ -308,10 +336,25 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
                 scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
                 exam_title=row.get("exam_title"),
+                marks_per_question=row.get("marks_per_question", 4),
+                negative_marks=float(row.get("negative_marks") if row.get("negative_marks") is not None else -1.0),
+                shuffle_questions=row.get("shuffle_questions", False),
+                shuffle_options=row.get("shuffle_options", False),
+                max_attempts=row.get("max_attempts", 1),
+                show_answers_after=row.get("show_answers_after", True),
+                total_questions=row.get("total_questions", 30),
+                total_marks=row.get("total_marks", 120),
+                exam_description=row.get("exam_description"),
             )
     except Exception as e:
+        err_str = str(e)
+        if "PGRST205" in err_str or "Could not find the table" in err_str:
+            raise HTTPException(
+                status_code=400,
+                detail="Database Table Missing: Please run the SQL script in 'supabase/exam_config.sql' in your Supabase SQL Editor to initialize the multi-quiz system."
+            )
         print(f"CRITICAL update_exam_config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=err_str)
 
     return ExamConfig(**{k: v for k, v in update_data.items() if k in ExamConfig.model_fields})
 
@@ -386,7 +429,10 @@ async def rename_folder(folder_name: str, request: FolderRenameRequest, _: bool 
 # ── Crystalline Data Export ───────────────────────────────────
 
 @router.get("/export")
-async def export_results(_: bool = Depends(verify_admin)):
+async def export_results(
+    quiz_name: Optional[str] = Query(None),
+    _: bool = Depends(verify_admin)
+):
     """
     Export all exam results as a structured Excel file.
     Includes: student info, score, percentage, time taken, submitted_at.
@@ -397,9 +443,34 @@ async def export_results(_: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail="xlsxwriter not installed")
 
     db = get_supabase()
+    
+    # ── Filtering Logic ──
+    student_ids = None
+    if quiz_name:
+        # 1. Find all question IDs for this quiz
+        qs = db.table("questions").select("id").eq("exam_name", quiz_name).execute()
+        q_ids = [str(q["id"]) for q in (qs.data or [])]
+        
+        # 2. Find result records that have at least one answer for these questions
+        # This is a bit tricky with Supabase's JSON filtering, so we'll fetch all and filter in memory
+        # to ensure accuracy across all result formats.
+        all_res = db.table("exam_results").select("student_id, answers").execute()
+        targeted_student_ids = []
+        for r in (all_res.data or []):
+            ans_keys = r.get("answers", {}).keys()
+            if any(str(qid) in ans_keys for qid in q_ids):
+                targeted_student_ids.append(r["student_id"])
+        
+        student_ids = set(targeted_student_ids)
 
     # Gather data
-    results = db.table("exam_results").select("student_id, score, total_marks, submitted_at").execute()
+    results_query = db.table("exam_results").select("student_id, score, total_marks, submitted_at")
+    if student_ids is not None:
+        if not student_ids: # No one took this quiz
+            return JSONResponse(status_code=200, content={"detail": f"No results found for quiz: {quiz_name}"})
+        results_query = results_query.in_("student_id", list(student_ids))
+    
+    results = results_query.execute()
     statuses = db.table("exam_status").select("student_id, started_at, status, warnings").execute()
     students = db.table("students").select("id, usn, name, branch, email").execute()
 
@@ -484,7 +555,8 @@ async def export_results(_: bool = Depends(verify_admin)):
     output.seek(0)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"examguard_results_{timestamp}.xlsx"
+    safe_name = quiz_name.replace(" ", "_").lower() if quiz_name else "all"
+    filename = f"examguard_results_{safe_name}_{timestamp}.xlsx"
 
     return StreamingResponse(
         output,

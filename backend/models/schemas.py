@@ -150,6 +150,7 @@ class StudentStatus(BaseModel):
     warnings: int
     last_active: Optional[str]
     submitted_at: Optional[str]
+    started_at: Optional[str] = None
 
 
 # ── Exam Config ───────────────────────────────────────────────
@@ -159,6 +160,17 @@ class ExamConfig(BaseModel):
     scheduled_end: Optional[str] = None     # ISO timestamp for auto-evaporation
     duration_minutes: int = 60
     exam_title: Optional[str] = "ExamGuard Assessment"
+    
+    # New configuration fields
+    marks_per_question: int = 4
+    negative_marks: float = -1.0
+    shuffle_questions: bool = False
+    shuffle_options: bool = False
+    max_attempts: int = 1
+    show_answers_after: bool = True
+    total_questions: int = 30
+    total_marks: int = 120
+    exam_description: Optional[str] = None
 
 
 class ExamConfigUpdate(BaseModel):
@@ -167,6 +179,17 @@ class ExamConfigUpdate(BaseModel):
     scheduled_end: Optional[str] = None
     duration_minutes: Optional[int] = None
     exam_title: Optional[str] = None
+    
+    # New configuration fields
+    marks_per_question: Optional[int] = None
+    negative_marks: Optional[float] = None
+    shuffle_questions: Optional[bool] = None
+    shuffle_options: Optional[bool] = None
+    max_attempts: Optional[int] = None
+    show_answers_after: Optional[bool] = None
+    total_questions: Optional[int] = None
+    total_marks: Optional[int] = None
+    exam_description: Optional[str] = None
 
 
 # ── Leaderboard ───────────────────────────────────────────────

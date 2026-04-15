@@ -171,6 +171,7 @@ export interface AdminStudent {
   warnings: number;
   last_active: string | null;
   submitted_at: string | null;
+  started_at: string | null;
 }
 
 const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin@examguard2024";
@@ -317,8 +318,18 @@ export async function uploadQuestionImage(file: File): Promise<string> {
 export interface ExamConfig {
   is_active: boolean;
   scheduled_start: string | null;
+  scheduled_end: string | null;
   duration_minutes: number;
   exam_title: string;
+  marks_per_question: number;
+  negative_marks: number;
+  shuffle_questions: boolean;
+  shuffle_options: boolean;
+  max_attempts: number;
+  show_answers_after: boolean;
+  total_questions: number;
+  total_marks: number;
+  exam_description: string | null;
 }
 
 export async function fetchExamConfig(title?: string): Promise<ExamConfig> {
@@ -400,9 +411,13 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
 
 // ── Export (Crystalline Data) ─────────────────────────────────
 /** Returns a Blob of the Excel file */
-export async function exportResults(): Promise<Blob> {
-  const url = `${API_BASE}/admin/export`;
-  const res = await fetch(url, {
+export async function exportResults(quizName?: string): Promise<Blob> {
+  // Construct URL correctly even if API_BASE is relative
+  const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const url = new URL(`${API_BASE}/admin/export`.replace("//", "/"), base);
+  if (quizName) url.searchParams.append("quiz_name", quizName);
+  
+  const res = await fetch(url.toString(), {
     headers: { "X-Admin-Secret": ADMIN_SECRET },
   });
   if (!res.ok) {

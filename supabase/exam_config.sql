@@ -9,6 +9,18 @@ CREATE TABLE IF NOT EXISTS exam_config (
   scheduled_end   timestamptz,
   duration_minutes integer NOT NULL DEFAULT 60,
   exam_title      text NOT NULL UNIQUE,
+  
+  -- New configuration clusters
+  marks_per_question integer NOT NULL DEFAULT 4,
+  negative_marks      numeric NOT NULL DEFAULT -1,
+  shuffle_questions   boolean NOT NULL DEFAULT false,
+  shuffle_options     boolean NOT NULL DEFAULT false,
+  max_attempts        integer NOT NULL DEFAULT 1,
+  show_answers_after  boolean NOT NULL DEFAULT true,
+  total_questions     integer NOT NULL DEFAULT 30,
+  total_marks         integer NOT NULL DEFAULT 120,
+  exam_description    text,
+
   updated_at      timestamptz DEFAULT now()
 );
 
