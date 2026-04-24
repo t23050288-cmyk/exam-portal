@@ -12,12 +12,13 @@
   ],
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/:match*",
       "destination": "/backend/main.py"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/frontend/$1"
     }
   ]
+
 }

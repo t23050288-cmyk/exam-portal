@@ -31,7 +31,9 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url=None,
+    root_path="/api"
 )
+
 
 # ── CORS ──────────────────────────────────────────────────────
 app.add_middleware(
@@ -41,6 +43,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/api/health")
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "version": "1.0.0", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 
 # Attach limiter
 app.state.limiter = limiter
