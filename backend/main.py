@@ -51,8 +51,9 @@ async def health_check():
 
 
 # Attach limiter
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # ── Routers ───────────────────────────────────────────────────
 app.include_router(auth.router)
