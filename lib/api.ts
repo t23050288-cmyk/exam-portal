@@ -24,7 +24,7 @@ async function apiFetch<T>(
   if (!token && !path.includes("/auth/login")) {
     console.warn(`[API] Warning: Fetching ${url} without token.`);
   }
-  
+
   console.log(`[API] Fetching: ${options.method || 'GET'} ${url}`);
 
   try {
@@ -189,7 +189,7 @@ const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin@examguard2
 function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
   console.log(`[ADMIN API] Fetching: ${options.method || 'GET'} ${url}`);
-  
+
   return fetch(url, {
     ...options,
     headers: {
@@ -434,7 +434,7 @@ export async function exportResults(quizName?: string): Promise<Blob> {
   const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
   const url = new URL(`${API_BASE}/admin/export`.replace("//", "/"), base);
   if (quizName) url.searchParams.append("quiz_name", quizName);
-  
+
   const res = await fetch(url.toString(), {
     headers: { "X-Admin-Secret": ADMIN_SECRET },
   });
