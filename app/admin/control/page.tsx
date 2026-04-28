@@ -36,7 +36,7 @@ interface ExamConfig {
 const defaultConfig: ExamConfig = {
   is_active: false,
   scheduled_start: null,
-  duration_minutes: 30,
+  duration_minutes: 20,
   exam_title: "ExamGuard Assessment",
   marks_per_question: 4,
   negative_marks: -1,
