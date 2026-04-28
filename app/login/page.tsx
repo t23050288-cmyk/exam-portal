@@ -35,12 +35,8 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!usn.trim() || !password.trim()) {
-      setError("Please enter both USN NO and password.");
-      return;
-    }
-    if (!name.trim() || !email.trim()) {
-      setError("Please provide your Full Name and Email Address.");
+    if (!usn.trim() || !password.trim() || !name.trim() || !email.trim() || !branch) {
+      setError("Please fill in all mandatory details to continue.");
       return;
     }
 
@@ -111,6 +107,7 @@ export default function LoginPage() {
               onChange={(e) => setUsn(e.target.value.toUpperCase())}
               disabled={loading}
               autoFocus
+              required
             />
           </div>
 
@@ -161,6 +158,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
+              required
             />
             <button 
               type="button" 
