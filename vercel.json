@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "python_server/index.py": {
+      "runtime": "@vercel/python"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/python_server/index.py"
+    }
+  ]
+}
