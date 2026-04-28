@@ -55,22 +55,22 @@ try:
         allow_headers=["*"],
     )
 
-    @app.get("/api/health")
     @app.get("/health")
     async def health_check():
         return {"status": "ok", "version": "1.0.0", "timestamp": datetime.now(timezone.utc).isoformat()}
 
     # ── Routers ───────────────────────────────────────────────────
-    # Mount all routers under /api prefix so they match the full Vercel URL path
-    app.include_router(auth.router,        prefix="/api")
-    app.include_router(exam.router,        prefix="/api")
-    app.include_router(violations.router,  prefix="/api")
-    app.include_router(admin.router,       prefix="/api")
-    app.include_router(ingest.router,      prefix="/api")
-    app.include_router(leaderboard.router, prefix="/api")
+    # On Vercel, requests to /api/* are routed to api/index.py.
+    # The ASGI app receives the path relative to /api (e.g. /auth/login).
+    app.include_router(auth.router)
+    app.include_router(exam.router)
+    app.include_router(violations.router)
+    app.include_router(admin.router)
+    app.include_router(ingest.router)
+    app.include_router(leaderboard.router)
 
     # ── Cron Endpoint ──────────────────────────────────────────────
-    @app.get("/api/cron/evict", tags=["cron"])
+    @app.get("/cron/evict", tags=["cron"])
     async def cron_evict():
         try:
             db = get_supabase()
@@ -91,7 +91,6 @@ try:
             return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
     # ── Root ──────────────────────────────────────────────────────
-    @app.get("/api", tags=["root"])
     @app.get("/", tags=["root"])
     async def root():
         return {"message": "ExamGuard API — Online Exam System", "docs": "/api/docs"}
