@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { loginStudent } from "@/lib/api";
 import { BRANCHES } from "@/lib/constants";
 import styles from "./login.module.css";
@@ -10,27 +11,26 @@ export default function LoginPage() {
   const router = useRouter();
   const [usn, setUsn] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [branch, setBranch] = useState("CS");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectOpen, setSelectOpen] = useState(false);
+  const selectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     router.prefetch("/instructions");
     router.prefetch("/exam");
 
-    // Camera Access "Bluff" for anti-cheating
-    async function requestCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // We just keep the stream active to trigger the browser's "Camera in Use" dot.
-        // We don't need to store or render it.
-      } catch (err) {
-        console.warn("Camera access denied or not available. (Anti-cheat indicator inactive)");
+    const handleClickOutside = (e: MouseEvent) => {
+      if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
+        setSelectOpen(false);
       }
-    }
-    requestCamera();
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [router]);
 
   async function handleSubmit(e: FormEvent) {
@@ -59,7 +59,6 @@ export default function LoginPage() {
         branch
       });
 
-      // Store session
       sessionStorage.setItem("exam_token", data.access_token);
       sessionStorage.setItem(
         "exam_student",
@@ -73,7 +72,6 @@ export default function LoginPage() {
         })
       );
 
-      // Instant push
       router.push("/instructions");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed.";
@@ -82,22 +80,19 @@ export default function LoginPage() {
     }
   }
 
+  const selectedBranchName = BRANCHES.find(b => b.id === branch)?.name || branch;
+
   return (
     <div className={styles.container}>
-
       <div className={styles.card}>
-        {/* ── IP NEXUS Header ── */}
         <div className={styles.header}>
           <div className={styles.logo}>
-            {/* 3D Cube Logo matching IP NEXUS mockup */}
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
               <rect width="48" height="48" rx="12" fill="#1e1b4b" opacity="0.9"/>
-              {/* 3D cube faces */}
               <path d="M24 10L36 17V31L24 38L12 31V17L24 10Z" stroke="#818cf8" strokeWidth="1.5" fill="none"/>
               <path d="M24 10L36 17L24 24L12 17L24 10Z" fill="#6366f1" opacity="0.5"/>
               <path d="M24 24L36 17V31L24 38V24Z" fill="#4338ca" opacity="0.4"/>
               <path d="M24 24L12 17V31L24 38V24Z" fill="#818cf8" opacity="0.3"/>
-              {/* Inner cube detail */}
               <path d="M24 16L30 19.5V26.5L24 30L18 26.5V19.5L24 16Z" stroke="#c7d2fe" strokeWidth="1" fill="none" opacity="0.7"/>
             </svg>
           </div>
@@ -106,40 +101,34 @@ export default function LoginPage() {
           <p className={styles.subtitleSmall}>Sign up to continue</p>
         </div>
 
-        {/* ── Form ── */}
         <form onSubmit={handleSubmit} className={styles.form} autoComplete="off">
-
           {/* USN */}
           <div className={styles.inputWrap}>
             <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="M7 8h4M7 12h6M7 16h5"/>
-              <circle cx="17" cy="13" r="2.5"/>
+              <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 8h4M7 12h6M7 16h5"/><circle cx="17" cy="13" r="2.5"/>
             </svg>
             <input
               id="usn"
               type="text"
               className={styles.inputField}
-              placeholder="USN"
+              placeholder="USN (e.g. 1RM25XY000)"
               value={usn}
               onChange={(e) => setUsn(e.target.value.toUpperCase())}
               disabled={loading}
               autoFocus
-              spellCheck={false}
             />
           </div>
 
           {/* Name */}
           <div className={styles.inputWrap}>
             <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
             <input
               id="name"
               type="text"
               className={styles.inputField}
-              placeholder="Name"
+              placeholder="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
@@ -150,8 +139,7 @@ export default function LoginPage() {
           {/* Email */}
           <div className={styles.inputWrap}>
             <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <polyline points="22,6 12,13 2,6"/>
+              <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22,6 12,13 2,6"/>
             </svg>
             <input
               id="email"
@@ -168,87 +156,96 @@ export default function LoginPage() {
           {/* Password */}
           <div className={styles.inputWrap}>
             <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
             <input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               className={styles.inputField}
-              placeholder="Password"
+              placeholder="Access Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
+            <button 
+              type="button" 
+              className={styles.passToggle}
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? "👁️" : "👁️‍🗨️"}
+            </button>
           </div>
 
-          {/* Branch Dropdown */}
-          <div className={styles.selectWrap}>
-            <select
-              id="branch"
-              className={styles.selectField}
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              disabled={loading}
+          {/* Custom Branch Select */}
+          <div className={styles.selectContainer} ref={selectRef}>
+            <div 
+              className={`${styles.selectTrigger} ${selectOpen ? styles.selectTriggerOpen : ""}`}
+              onClick={() => !loading && setSelectOpen(!selectOpen)}
             >
-              {BRANCHES.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <svg className={styles.selectChevron} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+              <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span className={styles.selectedText}>{selectedBranchName}</span>
+              <motion.svg 
+                animate={{ rotate: selectOpen ? 180 : 0 }}
+                className={styles.selectChevron} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </motion.svg>
+            </div>
+
+            <AnimatePresence>
+              {selectOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className={styles.dropdown}
+                >
+                  {BRANCHES.map((b) => (
+                    <div 
+                      key={b.id} 
+                      className={`${styles.option} ${branch === b.id ? styles.optionActive : ""}`}
+                      onClick={() => {
+                        setBranch(b.id);
+                        setSelectOpen(false);
+                      }}
+                    >
+                      {b.name}
+                      {branch === b.id && <span className={styles.optionCheck}>✓</span>}
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {error && (
-            <div className={styles.error} role="alert">
+            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className={styles.error}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle cx="8" cy="8" r="7" stroke="#ef4444" strokeWidth="1.5" />
                 <path d="M8 5v3M8 10.5v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <button
-            id="login-submit"
-            type="submit"
-            className={styles.submitBtn}
-            disabled={loading}
-          >
-            {loading ? (
-              <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.2, borderRadius: "12px" }} />
-                <span>Signing up...</span>
-              </div>
-            ) : (
-              "Sign Up"
-            )}
+          <button id="login-submit" type="submit" className={styles.submitBtn} disabled={loading}>
+            {loading ? "Signing up..." : "Sign Up"}
           </button>
         </form>
 
-        {/* Info */}
         <div className={styles.info}>
-          <div className={styles.infoItem}>
-            <span className={styles.dot} style={{ background: "#22c55e" }} />
-            Secure encrypted connection
-          </div>
-          <div className={styles.infoItem}>
-            <span className={styles.dot} style={{ background: "#eab308" }} />
-            Single device only
-          </div>
+          <div className={styles.infoItem}><span className={styles.dot} style={{ background: "#22c55e" }} /> Secure Connection</div>
+          <div className={styles.infoItem}><span className={styles.dot} style={{ background: "#eab308" }} /> Single Device</div>
         </div>
       </div>
 
-      {/* Sparkle decoration (bottom-right corner like mockup) */}
       <svg className={styles.sparkle} viewBox="0 0 40 40" fill="none">
         <path d="M20 0L23 17L40 20L23 23L20 40L17 23L0 20L17 17L20 0Z" fill="rgba(255,255,255,0.6)"/>
       </svg>
-
-      {/* Footer */}
-      <p className={styles.footer}>
-        ExamGuard v1.0 · Secured Portal
-      </p>
+      <p className={styles.footer}>ExamGuard v1.0 · Secured Portal</p>
     </div>
   );
 }
