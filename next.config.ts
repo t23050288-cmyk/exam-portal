@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: '/python_backend/index.py',
+        destination: '/api/index.py',
       },
     ];
   },
