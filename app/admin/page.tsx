@@ -1219,7 +1219,7 @@ function StudentsTab() {
   const handleSave = async () => {
     const usnRegex = /^[A-Z0-9]{5}[A-Z]{2}[0-9]{3}$/;
     if (!formData.usn) return alert("USN is required");
-    if (!usnRegex.test(formData.usn)) return alert("Invalid USN format. Required: 1RM25XY000 (5 chars, 2 letters, 3 digits)");
+    // Unrestricted USN
     if (!formData.name) return alert("Name is required");
     if (!formData.branch) return alert("Branch is required");
     if (!editing && !formData.password) return alert("Password is required for new students");
