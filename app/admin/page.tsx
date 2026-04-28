@@ -1134,12 +1134,34 @@ function QuestionsTab() {
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Exam Identity (Anchor)</label>
-                <input
-                  type="text"
+                <select 
                   className={adminStyles.input}
-                  value={formData.exam_name}
-                  onChange={(e) => setFormData({ ...formData, exam_name: e.target.value })}
-                />
+                  value={Array.from(new Set(questions.map(q => q.exam_name))).includes(formData.exam_name) ? formData.exam_name : "NEW_IDENTITY"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "NEW_IDENTITY") {
+                      setFormData({ ...formData, exam_name: "" });
+                    } else {
+                      setFormData({ ...formData, exam_name: val });
+                    }
+                  }}
+                >
+                  <option value="">Select Identity...</option>
+                  {Array.from(new Set(questions.map(q => q.exam_name))).filter(Boolean).sort().map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                  <option value="NEW_IDENTITY">+ Add New Identity</option>
+                </select>
+                {(formData.exam_name === "" || !Array.from(new Set(questions.map(q => q.exam_name))).includes(formData.exam_name)) && (
+                  <input
+                    type="text"
+                    className={adminStyles.input}
+                    placeholder="Enter New Identity Name..."
+                    style={{ marginTop: 8 }}
+                    value={formData.exam_name}
+                    onChange={(e) => setFormData({ ...formData, exam_name: e.target.value })}
+                  />
+                )}
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Branch</label>
