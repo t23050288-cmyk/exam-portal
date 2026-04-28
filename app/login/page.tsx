@@ -35,17 +35,12 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const usnRegex = /^[A-Z0-9]{5}[A-Z]{2}[0-9]{3}$/;
     if (!usn.trim() || !password.trim()) {
       setError("Please enter both USN NO and password.");
       return;
     }
     if (!name.trim() || !email.trim()) {
       setError("Please provide your Full Name and Email Address.");
-      return;
-    }
-    if (!usnRegex.test(usn.trim())) {
-      setError("Invalid USN format. Example: 1RM25XY000 (5 chars, 2 letters, 3 digits)");
       return;
     }
 
