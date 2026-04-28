@@ -1,13 +1,19 @@
 {
-  "functions": {
-    "backend/**/*.py": {
-      "runtime": "@vercel/python"
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/index.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
     }
-  },
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/backend/index.py"
+      "destination": "backend/index.py"
     }
   ]
 }
