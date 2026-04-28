@@ -58,7 +58,11 @@ try:
     @app.get("/api/health")
     @app.get("/health")
     async def health_check():
-        return {"status": "ok", "version": "1.0.0", "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {"status": "ok", "version": "1.0.1-stable", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+    @app.get("/api")
+    async def root_api():
+        return {"message": "ExamGuard API Active", "version": "1.0.1-stable"}
 
     # ── Routers ───────────────────────────────────────────────────
     # We mount routers twice (with and without /api prefix) to ensure 
