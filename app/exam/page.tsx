@@ -74,7 +74,7 @@ export default function ExamPage() {
       id: "PREVIEW", 
       name: "Admin Preview", 
       examStartTime: null, 
-      examDurationMinutes: 60,
+      examDurationMinutes: 20,
       examTitle: "Online Assessment"
     };
     setStudent(info);

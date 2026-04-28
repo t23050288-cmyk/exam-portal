@@ -33,8 +33,8 @@ export default function InstructionsPage() {
           name: parsed.name || "Student",
           usn: parsed.usn || "Candidate",
           examTitle: parsed.examTitle || "Online Assessment",
-          duration: parsed.examDurationMinutes || 60,
-          totalQuestions: parsed.totalQuestions || 40,
+          duration: parsed.examDurationMinutes || 20,
+          totalQuestions: parsed.totalQuestions || 30,
         });
       } catch (err) {
         console.error("Could not parse student data", err);
@@ -45,8 +45,8 @@ export default function InstructionsPage() {
         name: "Student", 
         usn: "Candidate", 
         examTitle: "Online Assessment", 
-        duration: 60,
-        totalQuestions: 40 
+        duration: 20,
+        totalQuestions: 30 
       });
     }
   }, [router]);
