@@ -61,13 +61,24 @@ try:
         return {"status": "ok", "version": "1.0.0", "timestamp": datetime.now(timezone.utc).isoformat()}
 
     # ── Routers ───────────────────────────────────────────────────
-    # Mount all routers under /api prefix so they match the full Vercel URL path
+    # We mount routers twice (with and without /api prefix) to ensure 
+    # compatibility with different Vercel rewrite behaviors.
+    
+    # 1. With /api prefix (for standard rewrites)
     app.include_router(auth.router,        prefix="/api")
     app.include_router(exam.router,        prefix="/api")
     app.include_router(violations.router,  prefix="/api")
     app.include_router(admin.router,       prefix="/api")
     app.include_router(ingest.router,      prefix="/api")
     app.include_router(leaderboard.router, prefix="/api")
+
+    # 2. Without /api prefix (fallback for relative path passing)
+    app.include_router(auth.router)
+    app.include_router(exam.router)
+    app.include_router(violations.router)
+    app.include_router(admin.router)
+    app.include_router(ingest.router)
+    app.include_router(leaderboard.router)
 
     # ── Cron Endpoint ──────────────────────────────────────────────
     @app.get("/api/cron/evict", tags=["cron"])
