@@ -72,11 +72,41 @@ Here is the High-Fidelity Scan of the document:
 Output JSON only:"""
 
 
+def _sanitize_text_for_ai(text: str) -> str:
+    """
+    Remove image references from text to prevent multimodal AI models from
+    rejecting the request when they don't support image input.
+    Strips markdown image syntax, HTML img tags, and bare image filenames/URLs.
+    """
+    # Remove markdown images: ![alt](url) or ![alt][ref]
+    text = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', text)
+    text = re.sub(r'!\[[^\]]*\]\[[^\]]*\]', '', text)
+    
+    # Remove HTML img tags
+    text = re.sub(r'<img[^>]*>', '', text, flags=re.IGNORECASE)
+    
+    # Remove bare image file references (.png, .jpg, .jpeg, .gif, .webp, .svg)
+    # These might appear as "image.png", "diagram.jpg", etc.
+    text = re.sub(r'\b[\w\-/\\]+\.(png|jpe?g|gif|webp|svg|bmp)\b', '', text, flags=re.IGNORECASE)
+    
+    # Remove data URIs for images
+    text = re.sub(r'data:image/[^;]+;base64,[^\s]+', '', text, flags=re.IGNORECASE)
+    
+    # Clean up extra whitespace left by removals
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    
+    return text.strip()
+
+
 async def _call_inception_api(raw_text: str, chunk_index: int = 0) -> dict:
     """Call Inception AI API for AI-powered spectral parsing (OpenAI-compatible)."""
     settings = get_settings()
     if not settings.inception_api_key:
         raise ValueError("INCEPTION_API_KEY not configured")
+
+    # Sanitize text to remove any image references that could cause errors
+    raw_text = _sanitize_text_for_ai(raw_text)
 
     prompt = _SPECTRAL_PROMPT.replace("{raw_text}", raw_text)
 
@@ -101,10 +131,6 @@ async def _call_inception_api(raw_text: str, chunk_index: int = 0) -> dict:
         "top_p": 0.95,
         "max_tokens": 16384
     }
-
-    # Add thinking/reasoning if it's the deepseek-ai/deepseek-v4-pro model or enabled
-    if "deepseek-v4" in settings.ai_model or settings.ai_thinking:
-        payload["chat_template_kwargs"] = {"thinking": True, "reasoning_effort": "high"}
 
     max_retries = 3
     for attempt in range(max_retries):
