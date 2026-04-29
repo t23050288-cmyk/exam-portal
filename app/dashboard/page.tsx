@@ -373,7 +373,7 @@ export default function DashboardPage() {
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>ExamGuard</div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>IP NEXUS EXAM</div>
             <div style={{ fontSize: 11, color: "rgba(148,163,184,0.6)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Student Node
             </div>

@@ -447,7 +447,7 @@ export default function ExamPage() {
              border: "1px solid rgba(255,255,255,0.7)",
           }}>
              <h1 style={{ margin: 0, fontSize: "20px", color: "#1e293b", fontWeight: 700 }}>
-               {examTitle}
+               IP NEXUS EXAM
              </h1>
              {student && (
                <ExamTimer

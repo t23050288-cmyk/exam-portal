@@ -88,7 +88,7 @@ export default function LoginPage() {
               <path d="M24 16L30 19.5V26.5L24 30L18 26.5V19.5L24 16Z" stroke="#c7d2fe" strokeWidth="1" fill="none" opacity="0.7"/>
             </svg>
           </div>
-          <h1 className={styles.title}>ExamGuard</h1>
+          <h1 className={styles.title}>IP NEXUS EXAM</h1>
           <p className={styles.subtitle}>Secure Online Examination Portal</p>
           <p className={styles.subtitleSmall}>Sign up to continue</p>
         </div>

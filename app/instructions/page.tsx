@@ -124,7 +124,7 @@ export default function InstructionsPage() {
       {/* ── Main Instructions ── */}
       <main className={styles.main}>
         <div className={styles.card}>
-          <h1 className={styles.title}>{studentInfo.examTitle} Instructions</h1>
+          <h1 className={styles.title}>IP NEXUS EXAM Instructions</h1>
 
           <div className={styles.detailsBox}>
             <h2 className={styles.detailsTitle}>Exam Details</h2>
