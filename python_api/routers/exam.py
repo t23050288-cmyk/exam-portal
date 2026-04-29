@@ -76,33 +76,12 @@ def get_questions(
         .execute()
     )
 
-    # ── Strategy 2: Fallback to Branch Only (User's primary request for flexible matching) ──
+    # ── Strategy 2: Fallback to Spectral Tags + Branch (Legacy format) ──
     if not result.data:
         result = (
             db.table("questions")
             .select("id, text, options, branch, order_index, marks, exam_name")
             .eq("branch", branch)
-            .order("order_index")
-            .limit(100)
-            .execute()
-        )
-
-    # ── Strategy 3: Fallback to Exam Title only ──
-    if not result.data:
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
-            .eq("exam_name", title)
-            .order("order_index")
-            .limit(100)
-            .execute()
-        )
-
-    # ── Strategy 4: Fallback to Spectral Tags ──
-    if not result.data:
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
             .ilike("text", f"%⟦EXAM:{title}⟧%")
             .order("order_index")
             .limit(100)
