@@ -569,9 +569,9 @@ async def upload_and_parse(
                     f"Spectral AI parse: {len(questions)} questions from '{filename}' | "
                     f"Finesse Check: {ai_meta.get('finesse_check', 'n/a')}"
                 )
-            except Exception as e:
-                logger.warning(f"AI parse failed ({e}), falling back to regex harvester.")
-                warnings.append(f"⚠ AI spectral parser unavailable ({e}). Using legacy regex mode.")
+            except Exception as ai_err:
+                logger.warning(f"Spectral AI failed, falling back to regex: {ai_err}")
+                warnings.append(f"AI spectral parsing failed: {str(ai_err)}. Falling back to legacy mode.")
                 questions, regex_warns = _extract_questions_from_text(raw_text)
                 warnings += regex_warns
         else:

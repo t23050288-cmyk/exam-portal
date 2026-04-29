@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./ingest.module.css";
 
@@ -164,6 +164,27 @@ export default function IngestPage() {
   const [showGatekeeperAlert, setShowGatekeeperAlert] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [existingExamNames, setExistingExamNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Fetch unique exam names (folders) from existing questions
+    const fetchExams = async () => {
+      try {
+        const res = await fetch(`${API}/admin/questions`, {
+          headers: { "x-admin-secret": ADMIN_SECRET },
+        });
+        const data = await res.json();
+        if (data && Array.isArray(data)) {
+          const names = Array.from(new Set(data.map((q: any) => q.exam_name))).filter(Boolean) as string[];
+          setExistingExamNames(names.sort());
+        }
+      } catch (e) {
+        console.error("Failed to fetch existing exam names:", e);
+      }
+    };
+    fetchExams();
+  }, []);
+
   const uploadFile = useCallback(async (f: File) => {
     setFile(f);
     setError(null);
@@ -297,14 +318,38 @@ export default function IngestPage() {
         <>
           {/* Exam Identity Orb */}
           <div className={styles.orbContainer}>
-            <label className={styles.orbLabel}>Exam Identity</label>
-            <input
-              type="text"
-              placeholder="Enter Exam Name to Begin..."
+            <label className={styles.orbLabel}>Exam Identity (Folder)</label>
+            <select 
               className={`${styles.orbInput} ${examName ? styles.orbActive : ""}`}
-              value={examName}
-              onChange={(e) => { setExamName(e.target.value); setShowGatekeeperAlert(false); }}
-            />
+              style={{ cursor: "pointer" }}
+              value={existingExamNames.includes(examName) ? examName : (examName ? "NEW_IDENTITY" : "")}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "NEW_IDENTITY") {
+                  setExamName("");
+                } else {
+                  setExamName(val);
+                }
+                setShowGatekeeperAlert(false);
+              }}
+            >
+              <option value="">Select Existing Folder...</option>
+              {existingExamNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+              <option value="NEW_IDENTITY">+ Create New Folder / Identity</option>
+            </select>
+            
+            {(examName === "" || !existingExamNames.includes(examName)) && (
+              <input
+                type="text"
+                placeholder="Enter New Identity Name..."
+                className={`${styles.orbInput} ${examName ? styles.orbActive : ""}`}
+                style={{ marginTop: 8 }}
+                value={examName}
+                onChange={(e) => { setExamName(e.target.value); setShowGatekeeperAlert(false); }}
+              />
+            )}
           </div>
 
           {/* Question Count Orb */}

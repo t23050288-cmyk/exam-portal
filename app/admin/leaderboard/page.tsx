@@ -41,6 +41,8 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
+  const [selectedExam, setSelectedExam] = useState<string>("ALL");
+  const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
   const prevRanks = useRef<Map<string, number>>(new Map());
 
   const fetchLeaderboard = useCallback(async () => {
@@ -81,23 +83,54 @@ export default function LeaderboardPage() {
     };
   }, [fetchLeaderboard]);
 
-  const top3 = entries.slice(0, 3);
-  const rest = entries.slice(3);
+  // Derive unique exams and branches for filters
+  const exams = Array.from(new Set(entries.map(e => (e as any).exam_name))).filter(Boolean).sort();
+  const branches = Array.from(new Set(entries.map(e => e.branch))).filter(Boolean).sort();
+
+  // Filter and RE-RANK
+  const filteredEntries = entries
+    .filter(e => (selectedExam === "ALL" || (e as any).exam_name === selectedExam))
+    .filter(e => (selectedBranch === "ALL" || e.branch === selectedBranch))
+    .map((e, index) => ({ ...e, rank: index + 1 }));
+
+  const top3 = filteredEntries.slice(0, 3);
+  const rest = filteredEntries.slice(3);
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className={styles.title}>
             ⚡ Quantum Leaderboard
           </div>
           <div className={styles.subtitle}>
-            Ranked by Accuracy × Velocity · {entries.length} students submitted
+            Ranked by Accuracy × Velocity · {filteredEntries.length} matches
           </div>
         </div>
-        <div className={styles.liveIndicator}>
-          <div className={styles.liveDot} />
-          LIVE
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <select 
+            className={styles.filterSelect}
+            value={selectedExam}
+            onChange={(e) => setSelectedExam(e.target.value)}
+          >
+            <option value="ALL">All Quizzes</option>
+            {exams.map(ex => <option key={ex as string} value={ex as string}>{ex as string}</option>)}
+          </select>
+
+          <select 
+            className={styles.filterSelect}
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+          >
+            <option value="ALL">All Branches</option>
+            {branches.map(br => <option key={br} value={br}>{br}</option>)}
+          </select>
+
+          <div className={styles.liveIndicator}>
+            <div className={styles.liveDot} />
+            LIVE
+          </div>
         </div>
       </div>
 

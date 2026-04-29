@@ -49,8 +49,8 @@ class Settings(BaseSettings):
         return list(final)
 
     model_config = SettingsConfigDict(
-        # Look for .env file relative to this file's directory AND project root
-        env_file=(".env", "../.env"),
+        # Look for .env file in multiple possible locations relative to the package
+        env_file=(".env", "../.env", "../../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         # Extra: ignore missing .env files (critical for Vercel where env vars

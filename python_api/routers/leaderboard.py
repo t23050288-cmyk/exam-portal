@@ -18,7 +18,7 @@ def _compute_leaderboard() -> LeaderboardResponse:
     # Fetch all submitted results with student info
     results = (
         db.table("exam_results")
-        .select("student_id, score, total_marks, submitted_at")
+        .select("student_id, score, total_marks, submitted_at, answers")
         .execute()
     )
 
@@ -33,6 +33,19 @@ def _compute_leaderboard() -> LeaderboardResponse:
     # Fetch student profiles
     students = db.table("students").select("id, usn, name, branch").execute()
     student_map = {s["id"]: s for s in (students.data or [])}
+
+    # Fetch question IDs to map results to exams (Virtual Folder Logic)
+    all_question_ids = []
+    for r in (results.data or []):
+        ans = r.get("answers") or {}
+        if ans:
+            all_question_ids.extend(list(ans.keys()))
+    
+    q_map = {}
+    if all_question_ids:
+        unique_q_ids = list(set(all_question_ids))
+        qs = db.table("questions").select("id, exam_name").in_("id", unique_q_ids[:500]).execute()
+        q_map = {q["id"]: q["exam_name"] for q in (qs.data or [])}
 
     entries: list[LeaderboardEntry] = []
 
@@ -61,6 +74,14 @@ def _compute_leaderboard() -> LeaderboardResponse:
             except Exception:
                 pass
 
+        # Resolve exam name from answers
+        ans = r.get("answers") or {}
+        resolved_exam_name = "Initial Assessment"
+        for qid in ans.keys():
+            if qid in q_map:
+                resolved_exam_name = q_map[qid]
+                break
+
         entries.append(
             LeaderboardEntry(
                 rank=0,  # assigned below
@@ -73,6 +94,7 @@ def _compute_leaderboard() -> LeaderboardResponse:
                 percentage=pct,
                 time_taken_seconds=time_taken,
                 submitted_at=r.get("submitted_at"),
+                exam_name=resolved_exam_name
             )
         )
 
