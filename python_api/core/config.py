@@ -3,10 +3,14 @@ from functools import lru_cache
 import os
 
 
-class Settings(BaseSettings):
     # Supabase
     supabase_url: str = ""
-    supabase_service_key: str = ""  # service_role key for backend
+    supabase_service_key: str = ""  # primary service_role key
+    
+    # Fallback/Alternate names for convenience
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+    SUPABASE_ANON_KEY: str = ""     # Some users use anon key as service key in dev
 
     # JWT
     jwt_secret: str = ""

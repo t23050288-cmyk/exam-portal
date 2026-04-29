@@ -10,7 +10,10 @@ def get_supabase() -> Client:
     """
     Singleton Supabase client using the service_role key.
     """
-    if not settings.supabase_url or not settings.supabase_service_key:
+    url = settings.supabase_url or settings.SUPABASE_URL
+    key = settings.supabase_service_key or settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_ANON_KEY
+    
+    if not url or not key:
         print("CRITICAL: Supabase environment variables are MISSING!")
-        raise ValueError("Supabase configuration is incomplete. Check Vercel environment variables.")
-    return create_client(settings.supabase_url, settings.supabase_service_key)
+        raise ValueError("Supabase configuration is incomplete. Check environment variables.")
+    return create_client(url, key)
