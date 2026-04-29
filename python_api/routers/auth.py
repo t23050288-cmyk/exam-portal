@@ -169,6 +169,26 @@ async def login(request: LoginRequest):
         current_duration = exam_conf.data[0].get("duration_minutes") or 20
         current_total_questions = exam_conf.data[0].get("total_questions", current_total_questions)
 
+    # ── DYNAMIC QUESTION COUNT ──
+    # Calculate how many questions actually exist for THIS branch and THIS exam title
+    try:
+        # Strategy 1: Strict Branch + Title
+        q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).eq("exam_name", current_exam_title).execute()
+        
+        # Strategy 2: Strict Branch + Fuzzy Title
+        if not q_count.count:
+            q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).ilike("exam_name", f"%{current_exam_title}%").execute()
+            
+        # Strategy 3: Absolute Branch Fallback
+        if not q_count.count:
+            q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).execute()
+            
+        if q_count.count and q_count.count > 0:
+            current_total_questions = q_count.count
+    except Exception as e:
+        print(f"[AUTH] Error counting questions: {e}")
+        # Keep config default on error
+
     return LoginResponse(
         access_token=token,
         student_id=student["id"],
