@@ -64,55 +64,45 @@ def get_questions(
     # Update last_active in background
     background_tasks.add_task(update_last_active, current["student_id"])
 
-    # ── Strategy 1: Strict Branch + Title Match ──
-    branch = current.get("branch", "CS")
-    result = (
-        db.table("questions")
-        .select("id, text, options, branch, order_index, marks, exam_name")
-        .eq("branch", branch)
-        .eq("exam_name", title)
-        .order("order_index")
-        .limit(100)
-        .execute()
-    )
-
-    # ── Strategy 2: Fuzzy Branch + Title Match (Handles Full Names vs IDs) ──
-    if not result.data:
-        # Try matching if the DB has the full name and student has ID, or vice versa
+    try:
+        # ── Strategy 1: Strict Branch + Title Match ──
+        branch = current.get("branch", "CS")
         result = (
             db.table("questions")
             .select("id, text, options, branch, order_index, marks, exam_name")
-            .ilike("branch", f"%{branch}%")
+            .eq("branch", branch)
             .eq("exam_name", title)
             .order("order_index")
             .limit(100)
             .execute()
         )
 
-    # ── Strategy 3: Fallback to Spectral Tags + Branch ──
-    if not result.data:
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
-            .ilike("branch", f"%{branch}%")
-            .ilike("text", f"%⟦EXAM:{title}⟧%")
-            .order("order_index")
-            .limit(100)
-            .execute()
-        )
-
-    # ── Strategy 4: Absolute Fallback (Only if no branch-specific questions exist for this title) ──
-    # This ensures that if the admin hasn't properly tagged ANY questions with a branch yet, 
-    # the exam isn't completely broken, but it prioritizes branch-specific data if it exists.
-    if not result.data:
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
-            .eq("exam_name", title)
-            .order("order_index")
-            .limit(100)
-            .execute()
-        )
+        # ── Strategy 2: Title-only Fallback ──
+        # (This is safe because we check result.data first)
+        if not result.data:
+            result = (
+                db.table("questions")
+                .select("id, text, options, branch, order_index, marks, exam_name")
+                .eq("exam_name", title)
+                .order("order_index")
+                .limit(100)
+                .execute()
+            )
+            
+        # ── Strategy 3: Legacy Spectral Tag Fallback ──
+        if not result.data:
+            result = (
+                db.table("questions")
+                .select("id, text, options, branch, order_index, marks, exam_name")
+                .ilike("text", f"%{title}%")
+                .order("order_index")
+                .limit(100)
+                .execute()
+            )
+    except Exception as e:
+        print(f"[EXAM] DB Error during question fetch: {e}")
+        # Return empty list instead of 500 to keep UI stable
+        return QuestionsResponse(questions=[], total=0)
 
     questions = [
         QuestionOut(
