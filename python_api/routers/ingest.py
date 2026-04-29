@@ -672,14 +672,13 @@ async def commit_questions(
 
     # ── Step 3: Deployment & Node Clearing ──
     if request.replace_existing:
-        # CRITICAL FIX: Only delete within this SPECIFIC isolation node + branch.
-        # This prevents accidental deletion of other folders in the same branch.
-        target_branch = request.questions[0].branch if request.questions else "CS"
-        db.table("questions").delete().eq("exam_name", safe_exam_name).eq("branch", target_branch).execute()
+        # CRITICAL FIX: Clear this isolation node across ALL branches to ensure data purity.
+        # This prevents "ghost" questions from previous incorrect branch mappings from sticking around.
+        db.table("questions").delete().eq("exam_name", safe_exam_name).execute()
         
         # Also clear Spectral Tag legacy format for this folder
         db.table("questions").delete().like("text", f"{tag_prefix}%").execute()
-        logger.info(f"Isolation Node '{safe_exam_name}' reset for branch '{target_branch}' for fresh harvest.")
+        logger.info(f"Isolation Node '{safe_exam_name}' purged across all branches for fresh harvest.")
 
     # ── Step 3: Schema-Safe Payload Refinement ──
     rows_to_insert = []

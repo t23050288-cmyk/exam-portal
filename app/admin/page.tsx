@@ -889,19 +889,20 @@ function QuestionsTab() {
       setLoading(false);
     }
   };
-
   const filteredQuestions = selectedBranch === "All" ? questions : questions.filter((q) => q.branch === selectedBranch);
 
-  // Group by exam_name
+  // Group by exam_name and branch
   const clusters: Record<string, AdminQuestion[]> = {};
   filteredQuestions.forEach(q => {
     const name = q.exam_name || "Uncategorized";
-    if (!clusters[name]) clusters[name] = [];
-    clusters[name].push(q);
+    const branch = q.branch || "CS";
+    const clusterKey = `${name}|${branch}`;
+    if (!clusters[clusterKey]) clusters[clusterKey] = [];
+    clusters[clusterKey].push(q);
   });
 
   const [expandedClusters, setExpandedClusters] = useState<Record<string, boolean>>({});
-  const toggleCluster = (name: string) => setExpandedClusters(prev => ({ ...prev, [name]: !prev[name] }));
+  const toggleCluster = (key: string) => setExpandedClusters(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Palette for category cards — cycles through 4 colors
   const CARD_PALETTE = [
@@ -966,23 +967,25 @@ function QuestionsTab() {
       ) : filteredQuestions.length === 0 ? (
         <div className={adminStyles.empty}>No questions found for branch: {selectedBranch}</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 20, padding: "8px 0" }}>
-          <AnimatePresence>
-            {Object.entries(clusters).map(([name, clusterQs], idx) => {
+        <div className={adminStyles.managementGrid}>
+          <AnimatePresence mode="popLayout">
+            {Object.entries(clusters).map(([clusterKey, clusterQuestions], idx) => {
+              const [name, branch] = clusterKey.split("|");
               const palette = CARD_PALETTE[idx % CARD_PALETTE.length];
               const diff = inferDifficulty(name);
               const diffStyle = DIFF_COLORS[diff];
               const desc = inferDescription(name);
-              const branchList = [...new Set(clusterQs.map(q => q.branch))];
+              const branchList = [branch];
               const skills = inferSkills(name, branchList);
 
               return (
-                <React.Fragment key={name}>
+                <React.Fragment key={clusterKey}>
                   <motion.div
+                    layout
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.35, delay: idx * 0.05 }}
+                    transition={{ duration: 0.35 }}
                     style={{
                       background: palette.bg,
                       border: `1.5px solid ${palette.border}`,
@@ -995,36 +998,33 @@ function QuestionsTab() {
                       overflow: "hidden",
                     }}
                     whileHover={{ y: -3, boxShadow: `0 8px 24px ${palette.border}` }}
-                    onClick={() => toggleCluster(name)}
+                    onClick={() => toggleCluster(clusterKey)}
                   >
-                    {/* Icon + Title row */}
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                       <span style={{ fontSize: 22 }}>{palette.icon}</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 800, fontSize: 16, color: palette.accent, letterSpacing: "-0.01em", lineHeight: 1.3 }}>
-                          {name}
+                          {name} <small style={{ fontWeight: 400, opacity: 0.7 }}>({branch})</small>
                         </div>
                       </div>
-                      {/* Actions (only when not expanded) */}
-                      {!expandedClusters[name] && (
+                      {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid ${palette.border}`, background: "transparent", color: palette.accent, cursor: "pointer", fontWeight: 600 }}
-                            onClick={() => handleRenameFolder(name)}
+                            onClick={(e) => { e.stopPropagation(); handleRenameFolder(name); }}
                           >Rename</button>
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid ${palette.border}`, background: "transparent", color: palette.accent, cursor: "pointer", fontWeight: 600 }}
-                            onClick={() => handleEditBranchFolder(name)}
+                            onClick={(e) => { e.stopPropagation(); handleEditBranchFolder(name); }}
                           >Edit Branch</button>
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(211,47,47,0.3)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
-                            onClick={() => handleDeleteFolder(name)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteFolder(name); }}
                           >Delete</button>
                         </div>
                       )}
                     </div>
 
-                    {/* Difficulty badge */}
                     <div style={{ marginBottom: 12 }}>
                       <span style={{
                         display: "inline-block",
@@ -1037,12 +1037,10 @@ function QuestionsTab() {
                       }}>{diff}</span>
                     </div>
 
-                    {/* Description */}
                     <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>
                       {desc}
                     </p>
 
-                    {/* Key Skills */}
                     <div style={{ marginBottom: 14 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: palette.accent, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
                         Key Skills Tested:
@@ -1061,20 +1059,18 @@ function QuestionsTab() {
                       </div>
                     </div>
 
-                    {/* Footer */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${palette.border}` }}>
                       <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
-                        📋 {clusterQs.length} question{clusterQs.length !== 1 ? "s" : ""} · {branchList.join(", ")}
+                        📋 {clusterQuestions.length} question{clusterQuestions.length !== 1 ? "s" : ""}
                       </span>
                       <span style={{ fontSize: 12, color: palette.accent, fontWeight: 700 }}>
-                        {expandedClusters[name] ? "▲ Collapse" : "▼ View Questions"}
+                        {expandedClusters[clusterKey] ? "▲ Collapse" : "▼ View Questions"}
                       </span>
                     </div>
                   </motion.div>
 
-                  {/* Expanded question list */}
                   <AnimatePresence>
-                    {expandedClusters[name] && (
+                    {expandedClusters[clusterKey] && (
                       <motion.div
                         style={{ gridColumn: "1 / -1" }}
                         className={adminStyles.isolationView}
@@ -1084,8 +1080,8 @@ function QuestionsTab() {
                       >
                         <div className={adminStyles.nodeManagementHeader}>
                           <div className={adminStyles.nodeInfo}>
-                            <h4 style={{ margin: 0, color: palette.accent }}>{name}</h4>
-                            <small style={{ color: "var(--text-muted)" }}>{clusterQs.length} Questions</small>
+                            <h4 style={{ margin: 0, color: palette.accent }}>{name} ({branch})</h4>
+                            <small style={{ color: "var(--text-muted)" }}>{clusterQuestions.length} Questions</small>
                           </div>
                           <div className={adminStyles.nodeActions}>
                             <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
@@ -1098,7 +1094,7 @@ function QuestionsTab() {
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
-                          {clusterQs.map((q) => (
+                          {clusterQuestions.map((q) => (
                             <div key={q.id} className={adminStyles.card} style={{ margin: 0 }}>
                               <div className={adminStyles.cardHeader}>
                                 <div className={adminStyles.cardIndex} style={{ fontSize: 11, fontWeight: 700, color: palette.accent }}>Q{q.order_index + 1}</div>

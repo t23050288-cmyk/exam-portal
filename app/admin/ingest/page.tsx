@@ -6,8 +6,6 @@ import styles from "./ingest.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/api";
 const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
-import { BRANCHES } from "@/lib/constants";
-
 
 interface ParsedQuestion {
   text: string;
@@ -37,7 +35,20 @@ interface ParseResult {
 
 type Phase = "idle" | "uploading" | "previewing" | "committing" | "done";
 
-
+const BRANCHES = [
+  { id: "CS", name: "CS(Cyber Security)" },
+  { id: "DS", name: "DS(Data Science)" },
+  { id: "CSE", name: "CSE(Computer Science & Engineering)" },
+  { id: "ISE", name: "ISE(Information Science & Engineering)" },
+  { id: "ECE", name: "ECE(Electronics & Communication Engineering)" },
+  { id: "AI-ML", name: "AI-ML(Artificial Intelligence & Machine Learning)" },
+  { id: "BCA-1", name: "BCA(Bachelor of Computer Applications)-1 year" },
+  { id: "BCA-2", name: "BCA(Bachelor of Computer Applications)-2 year" },
+  { id: "MBA-1", name: "MBA(Master of Business Administration)-1 year" },
+  { id: "MBA-2", name: "MBA(Master of Business Administration)-2 year" },
+  { id: "MCA-2", name: "MCA(Master of Computer Applications)-2 year" },
+  { id: "BBA-2", name: "BBA(Bachelor of Business Administration)-2 year" },
+];
 
 const FILE_ICONS: Record<string, string> = {
   pdf: "📄", docx: "📝", xlsx: "📊", xls: "📊", txt: "📃",
@@ -58,8 +69,8 @@ function ConfidenceOrb({ confidence }: { confidence: number }) {
   const pct = Math.round(confidence * 100);
   const color =
     pct >= 90 ? "#10b981" :
-    pct >= 70 ? "#f59e0b" :
-    "#ef4444";
+      pct >= 70 ? "#f59e0b" :
+        "#ef4444";
   return (
     <span
       className={styles.confidenceOrb}
@@ -116,27 +127,27 @@ function MolecularizeAnimation() {
     <div className={styles.molecularizeContainer} aria-hidden>
       {particles.map((i) => (
         <motion.div
-           key={i}
-           className={styles.particle}
-           initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-           animate={{
-             x: (Math.random() - 0.5) * 160,
-             y: (Math.random() - 0.5) * 160,
-             opacity: [1, 0.6, 0],
-             scale: [1, 1.5, 0],
-           }}
-           transition={{
-             duration: 1.2,
-             repeat: Infinity,
-             delay: i * 0.06,
-             repeatType: "reverse",
-             ease: "easeInOut",
-           }}
-         />
-       ))}
-     </div>
-   );
- }
+          key={i}
+          className={styles.particle}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          animate={{
+            x: (Math.random() - 0.5) * 160,
+            y: (Math.random() - 0.5) * 160,
+            opacity: [1, 0.6, 0],
+            scale: [1, 1.5, 0],
+          }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            delay: i * 0.06,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function IngestPage() {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -192,9 +203,9 @@ export default function IngestPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        const msg = typeof err.detail === "string" 
-          ? err.detail 
-          : Array.isArray(err.detail) 
+        const msg = typeof err.detail === "string"
+          ? err.detail
+          : Array.isArray(err.detail)
             ? err.detail.map((d: any) => d.msg).join(", ")
             : JSON.stringify(err.detail);
         throw new Error(msg || "Upload failed");
@@ -255,9 +266,9 @@ export default function IngestPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        const msg = typeof err.detail === "string" 
-          ? err.detail 
-          : Array.isArray(err.detail) 
+        const msg = typeof err.detail === "string"
+          ? err.detail
+          : Array.isArray(err.detail)
             ? err.detail.map((d: any) => d.msg).join(", ")
             : JSON.stringify(err.detail);
         throw new Error(msg || "Crystallization failed");
@@ -308,7 +319,7 @@ export default function IngestPage() {
           {/* Exam Identity Orb */}
           <div className={styles.orbContainer}>
             <label className={styles.orbLabel}>Exam Identity (Folder)</label>
-            <select 
+            <select
               className={`${styles.orbInput} ${examName ? styles.orbActive : ""}`}
               style={{ cursor: "pointer" }}
               value={existingExamNames.includes(examName) ? examName : (examName ? "NEW_IDENTITY" : "")}
@@ -328,7 +339,7 @@ export default function IngestPage() {
               ))}
               <option value="NEW_IDENTITY">+ Create New Folder / Identity</option>
             </select>
-            
+
             {(examName === "" || !existingExamNames.includes(examName)) && (
               <input
                 type="text"
@@ -433,12 +444,11 @@ export default function IngestPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`${styles.aiBanner} ${
-              !aiPowered ? styles.aiBannerLegacy :
-              avgConf >= 0.9 ? styles.aiBannerSuccess :
-              avgConf >= 0.7 ? styles.aiBannerWarning :
-              styles.aiBannerDanger
-            }`}
+            className={`${styles.aiBanner} ${!aiPowered ? styles.aiBannerLegacy :
+                avgConf >= 0.9 ? styles.aiBannerSuccess :
+                  avgConf >= 0.7 ? styles.aiBannerWarning :
+                    styles.aiBannerDanger
+              }`}
           >
             <span className={styles.aiBannerIcon}>
               {!aiPowered ? "🔧" : avgConf >= 0.9 ? "✦" : avgConf >= 0.7 ? "⚡" : "⚠️"}
@@ -497,8 +507,8 @@ export default function IngestPage() {
                   style={{
                     animationDelay: `${Math.min(i * 40, 600)}ms`,
                     "--conf-glow": conf >= 0.9 ? "rgba(16,185,129,0.15)" :
-                                   conf >= 0.7 ? "rgba(245,158,11,0.15)" :
-                                   "rgba(239,68,68,0.15)",
+                      conf >= 0.7 ? "rgba(245,158,11,0.15)" :
+                        "rgba(239,68,68,0.15)",
                   } as React.CSSProperties}
                   whileHover={{ scale: 1.01 }}
                 >
@@ -567,9 +577,9 @@ export default function IngestPage() {
       {/* ── Committing loader ── */}
       {phase === "committing" && (
         <div className={styles.driftOverlay}>
-          <TetheredDriftAnimation 
-            count={result?.total || 0} 
-            examName={examName || "Isolation Node"} 
+          <TetheredDriftAnimation
+            count={result?.total || 0}
+            examName={examName || "Isolation Node"}
           />
         </div>
       )}
