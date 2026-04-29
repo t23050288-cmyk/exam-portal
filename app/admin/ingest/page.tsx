@@ -174,8 +174,8 @@ export default function IngestPage() {
           headers: { "x-admin-secret": ADMIN_SECRET },
         });
         const data = await res.json();
-        if (data && Array.isArray(data)) {
-          const names = Array.from(new Set(data.map((q: any) => q.exam_name))).filter(Boolean) as string[];
+        if (data && Array.isArray(data.questions)) {
+          const names = Array.from(new Set(data.questions.map((q: any) => q.exam_name))).filter(Boolean) as string[];
           setExistingExamNames(names.sort());
         }
       } catch (e) {
