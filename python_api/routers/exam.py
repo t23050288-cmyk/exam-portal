@@ -17,7 +17,8 @@ def _check_exam_active(title: str):
     """Raises 423 if the exam has been deactivated by admin."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start").eq("exam_title", title).limit(1).execute()
+        # FIX: Use 'title' column instead of 'exam_title'
+        result = db.table("exam_config").select("is_active, scheduled_start").eq("title", title).limit(1).execute()
         if result.data:
             row = result.data[0]
             if not row.get("is_active", True):
@@ -116,10 +117,6 @@ def get_questions(
             )
     except Exception as e:
         print(f"[EXAM] DB Error during question fetch: {e}")
-        return QuestionsResponse(questions=[], total=0)
-    except Exception as e:
-        print(f"[EXAM] DB Error during question fetch: {e}")
-        # Return empty list instead of 500 to keep UI stable
         return QuestionsResponse(questions=[], total=0)
 
     questions = [
