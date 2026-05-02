@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+const API_BASE = "/api"; // Always use relative path — avoids CORS across deployments
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -459,3 +459,4 @@ export async function exportResults(quizName?: string): Promise<Blob> {
   }
   return res.blob();
 }
+
