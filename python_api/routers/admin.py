@@ -397,6 +397,10 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["exam_description"] = request.exam_description
 
     try:
+        # If activating this exam, deactivate all others first
+        if request.is_active is True:
+            db.table("exam_config").update({"is_active": False}).neq("exam_title", request.exam_title).execute()
+
         result = db.table("exam_config").upsert(update_data, on_conflict="exam_title").execute()
         
         if result.data:

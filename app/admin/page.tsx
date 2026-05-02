@@ -21,6 +21,7 @@ import {
   editAdminFolderBranch,
   uploadQuestionImage,
   fetchBranchExamSummary,
+  updateExamConfig,
   AdminQuestion,
   AdminStudent,
   BranchExamSummary,
@@ -792,11 +793,23 @@ function QuestionsTab() {
     image_url: ""
   });
   const [folderBranchModal, setFolderBranchModal] = useState<{ name: string, branches: string[] } | null>(null);
+  const [activeExamTitle, setActiveExamTitle] = useState<string | null>(null);
 
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { const data = await fetchAdminQuestions(); setQuestions(data); }
+    try { 
+      const data = await fetchAdminQuestions(); 
+      setQuestions(data); 
+      
+      const configRes = await fetch('/api/admin/exam/config/public').then(r => r.json());
+      const activeConfig = configRes.find((c: any) => c.is_active);
+      if (activeConfig) {
+        setActiveExamTitle(activeConfig.exam_title);
+      } else {
+        setActiveExamTitle(null);
+      }
+    }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -894,6 +907,20 @@ function QuestionsTab() {
       setLoading(false);
     }
   };
+
+  const handleActivateFolder = async (folderName: string) => {
+    try {
+      setLoading(true);
+      await updateExamConfig({ exam_title: folderName, is_active: true });
+      setActiveExamTitle(folderName);
+      alert(`Successfully activated exam: ${folderName}`);
+    } catch (error: any) {
+      alert(`Failed to activate exam: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredQuestions = selectedBranch === "All" ? questions : questions.filter((q) => q.branch === selectedBranch);
 
   // Group by exam_name and branch
@@ -1014,6 +1041,16 @@ function QuestionsTab() {
                       </div>
                       {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
+                          {activeExamTitle === name ? (
+                            <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                              ✅ Active Exam
+                            </span>
+                          ) : (
+                            <button
+                              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid var(--success)`, background: "transparent", color: "var(--success)", cursor: "pointer", fontWeight: 700 }}
+                              onClick={(e) => { e.stopPropagation(); handleActivateFolder(name); }}
+                            >Activate</button>
+                          )}
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid ${palette.border}`, background: "transparent", color: palette.accent, cursor: "pointer", fontWeight: 600 }}
                             onClick={(e) => { e.stopPropagation(); handleRenameFolder(name); }}
@@ -1089,6 +1126,14 @@ function QuestionsTab() {
                             <small style={{ color: "var(--text-muted)" }}>{clusterQuestions.length} Questions</small>
                           </div>
                           <div className={adminStyles.nodeActions}>
+                            {activeExamTitle === name ? (
+                              <span style={{ fontSize: 12, padding: "4px 12px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                                ✅ Active Exam
+                              </span>
+                            ) : (
+                              <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px", color: "var(--success)", borderColor: "var(--success)" }}
+                                onClick={() => handleActivateFolder(name)}>Activate</button>
+                            )}
                             <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
                               onClick={() => handleRenameFolder(name)}>Rename</button>
                             <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
