@@ -96,6 +96,22 @@ def get_questions(
 
     return QuestionsResponse(questions=questions, total=len(questions))
 
+@router.get("/test-branch")
+def test_branch(branch: str):
+    db = get_supabase()
+    try:
+        result = (
+            db.table("questions")
+            .select("id, text, options, branch, order_index, marks, exam_name")
+            .ilike("branch", f"%{branch}%")
+            .order("order_index")
+            .limit(100)
+            .execute()
+        )
+        return {"success": True, "data": result.data}
+    except Exception as e:
+        return {"success": False, "error": str(e), "type": str(type(e))}
+
 
 @router.post("/save-answer", response_model=SaveAnswerResponse)
 def save_answer(
