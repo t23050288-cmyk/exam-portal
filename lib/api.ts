@@ -439,7 +439,15 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
 export async function exportResults(quizName?: string): Promise<Blob> {
   // Construct URL correctly even if API_BASE is relative
   const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const url = new URL(`${API_BASE}/admin/export`.replace("//", "/"), base);
+  
+  // Robustly join API_BASE and the path without breaking protocol slashes
+  let fullPath = `${API_BASE}/admin/export`;
+  if (API_BASE.startsWith("/")) {
+    // If relative, ensure no double slashes at the start
+    fullPath = (API_BASE + "/admin/export").replace(/\/+/g, "/");
+  }
+
+  const url = new URL(fullPath, base);
   if (quizName) url.searchParams.append("quiz_name", quizName);
 
   const res = await fetch(url.toString(), {
@@ -451,4 +459,3 @@ export async function exportResults(quizName?: string): Promise<Blob> {
   }
   return res.blob();
 }
-
