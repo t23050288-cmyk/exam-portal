@@ -43,42 +43,46 @@ async def report_violation(
             detail=f"Unknown violation type: {request.type}",
         )
 
-    # Check not already submitted
-    exam_status = (
-        db.table("exam_status")
-        .select("status, warnings")
-        .eq("student_id", student_id)
-        .single()
-        .execute()
-    )
-
-    if exam_status.data and exam_status.data["status"] == "submitted":
-        return ReportViolationResponse(
-            warning_count=exam_status.data.get("warnings", 0),
-            auto_submitted=False,
-            message="Exam already submitted.",
+    try:
+        # Check not already submitted
+        exam_status = (
+            db.table("exam_status")
+            .select("status, warnings")
+            .eq("student_id", student_id)
+            .limit(1)
+            .execute()
         )
 
-    current_warnings = (exam_status.data or {}).get("warnings", 0)
-    new_warnings = current_warnings + 1
+        if exam_status.data and exam_status.data[0]["status"] == "submitted":
+            return ReportViolationResponse(
+                warning_count=exam_status.data[0].get("warnings", 0),
+                auto_submitted=False,
+                message="Exam already submitted.",
+            )
 
-    # Log violation event
-    db.table("violations").insert(
-        {
-            "student_id": student_id,
-            "type": request.type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "metadata": request.metadata or {},
-        }
-    ).execute()
+        current_warnings = (exam_status.data[0] if exam_status.data else {}).get("warnings", 0)
+        new_warnings = current_warnings + 1
 
-    # Increment warnings in exam_status
-    db.table("exam_status").update(
-        {
-            "warnings": new_warnings,
-            "last_active": datetime.now(timezone.utc).isoformat(),
-        }
-    ).eq("student_id", student_id).execute()
+        # Log violation event
+        db.table("violations").insert(
+            {
+                "student_id": student_id,
+                "type": request.type,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metadata": request.metadata or {},
+            }
+        ).execute()
+
+        # Increment warnings in exam_status
+        db.table("exam_status").update(
+            {
+                "warnings": new_warnings,
+                "last_active": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("student_id", student_id).execute()
+    except Exception as e:
+        print(f"[VIOLATION] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     # Auto-submit trigger
     auto_submitted = False
