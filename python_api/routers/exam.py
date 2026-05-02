@@ -67,17 +67,25 @@ def get_questions(
 
     try:
         branch = current.get("branch", "CS")
-        # ── Branch-Only Matching ──
-        # The user specifically requested that branch should be the main connector
-        # between student and questions, completely ignoring exam_name mismatches.
+        # ── Branch-Only Matching (Python-side filtering) ──
+        # To avoid Supabase PostgREST URL encoding crashes with `%`, we fetch 
+        # questions and filter them securely in Python.
         result = (
             db.table("questions")
             .select("id, text, options, branch, order_index, marks, exam_name")
-            .ilike("branch", f"%{branch}%")
             .order("order_index")
-            .limit(100)
+            .limit(200)
             .execute()
         )
+        
+        all_questions = result.data or []
+        filtered_data = []
+        for q in all_questions:
+            q_branch = q.get("branch") or ""
+            # Match exact or partial if it's a comma-separated list like ',CS,CSE,'
+            if branch == q_branch or branch in q_branch:
+                filtered_data.append(q)
+                
     except Exception as e:
         print(f"[EXAM] DB Error during question fetch: {e}")
         return QuestionsResponse(questions=[], total=0)
@@ -91,7 +99,7 @@ def get_questions(
             order_index=q["order_index"],
             marks=q["marks"],
         )
-        for q in (result.data or [])
+        for q in filtered_data
     ]
 
     return QuestionsResponse(questions=questions, total=len(questions))
