@@ -40,22 +40,15 @@ async def get_all_questions(_: bool = Depends(verify_admin)):
     processed_questions = []
     for q in result.data:
         text = q.get("text", "")
-        # Default exam name from DB or model default
         exam_name = q.get("exam_name", "Initial Assessment")
         
-        # ── Spectral Tag Parser ──
-        # Pattern: ⟦EXAM:My Name⟧
         if text.startswith("⟦EXAM:"):
             end_idx = text.find("⟧")
             if end_idx != -1:
-                # Extract the tag
                 tag_content = text[6:end_idx]
-                # Override exam_name for the response
                 exam_name = tag_content
-                # Strip the tag from the text
                 text = text[end_idx + 1:].strip()
         
-        # Build the final object
         q["text"] = text
         q["exam_name"] = exam_name
         processed_questions.append(q)
@@ -109,7 +102,6 @@ async def upload_question_image(
     import uuid
     db = get_supabase()
     
-    # 1. Bucket initialization (Safe-check)
     bucket_name = "question-images"
     try:
         buckets = db.storage.list_buckets()
@@ -118,24 +110,17 @@ async def upload_question_image(
     except Exception as e:
         print(f"Bucket init alert: {e}")
 
-    # 2. File preparation
     file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     unique_name = f"{uuid.uuid4()}.{file_ext}"
     contents = await file.read()
 
-    # 3. Upload to Supabase Storage
     try:
-        # Use storage.from_(...).upload pattern
         res = db.storage.from_(bucket_name).upload(
             path=unique_name,
             file=contents,
             file_options={"content-type": file.content_type or "image/jpeg"}
         )
-        
-        # 4. Generate Public URL
-        # Format: {BASE_URL}/storage/v1/object/public/{bucket}/{path}
         public_url = db.storage.from_(bucket_name).get_public_url(unique_name)
-        
         return {"image_url": public_url}
     except Exception as e:
         print(f"CRITICAL image_upload: {e}")
@@ -183,7 +168,6 @@ async def create_student(request: StudentCreate, _: bool = Depends(verify_admin)
 
     student_data = {
         "usn": request.usn.upper(),
-        "roll_number": request.usn.upper(),
         "name": request.name,
         "email": request.email,
         "branch": request.branch,
@@ -257,19 +241,16 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
 @router.post("/students/cleanup-stale")
 async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
     """Bulk move sessions idle for > 4h to 'submitted' (force-submit) or reset them."""
-    # For now, we'll reset them to prevent infinite 'Active' state
     from datetime import timedelta
     db = get_supabase()
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat()
     
-    # 1. Find stale IDs
     stale_res = db.table("exam_status").select("student_id").eq("status", "active").lt("last_active", cutoff).execute()
     stale_ids = [r["student_id"] for r in (stale_res.data or [])]
     
     if not stale_ids:
         return {"count": 0}
 
-    # 2. Reset status
     db.table("exam_status").update({
         "status": "not_started",
         "started_at": None,
@@ -277,10 +258,8 @@ async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
         "warnings": 0
     }).in_("student_id", stale_ids).execute()
 
-    # 3. Clear results to keep it clean
     db.table("exam_results").delete().in_("student_id", stale_ids).execute()
 
-    # 4. Clear active sessions
     db.table("students").update({
         "is_active_session": False,
         "current_token": None
@@ -293,18 +272,14 @@ async def force_submit_student(student_id: str, _: bool = Depends(verify_admin))
     """Admin tool to force submission of a student session using current saved answers."""
     db = get_supabase()
     
-    # 1. Fetch student for context (branch)
     student_res = db.table("students").select("branch").eq("id", student_id).single().execute()
     if not student_res.data:
         raise HTTPException(status_code=404, detail="Student not found")
     branch = student_res.data["branch"]
 
-    # 2. Get saved answers
     results_res = db.table("exam_results").select("answers").eq("student_id", student_id).single().execute()
     answers = results_res.data.get("answers") or {} if results_res.data else {}
     
-    # 3. Calculate Score
-    # Fetch questions for this branch
     qs_res = db.table("questions").select("id, correct_answer, marks").eq("branch", branch).execute()
     correct_map = {q["id"]: (q["correct_answer"], q["marks"]) for q in (qs_res.data or [])}
 
@@ -318,7 +293,6 @@ async def force_submit_student(student_id: str, _: bool = Depends(verify_admin))
 
     submitted_at = datetime.now(timezone.utc).isoformat()
     
-    # 4. Finalize session
     if results_res.data:
         db.table("exam_results").update({
             "score": score,
@@ -423,7 +397,6 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["exam_description"] = request.exam_description
 
     try:
-        # Use upsert based on UNIQUE exam_title
         result = db.table("exam_config").upsert(update_data, on_conflict="exam_title").execute()
         
         if result.data:
@@ -472,12 +445,8 @@ async def get_exam_config_public():
 
 @router.delete("/folders/{folder_name}")
 async def delete_folder(folder_name: str, _: bool = Depends(verify_admin)):
-    """
-    Delete an entire Isolation Node (Folder) and all its questions.
-    """
+    """Delete an entire Isolation Node (Folder) and all its questions."""
     db = get_supabase()
-    
-    # Discovery
     probe = db.table("questions").select("*").limit(1).execute()
     has_exam_column = False
     if probe.data and len(probe.data) > 0:
@@ -494,14 +463,9 @@ async def delete_folder(folder_name: str, _: bool = Depends(verify_admin)):
 
 @router.patch("/folders/{folder_name}")
 async def rename_folder(folder_name: str, request: FolderRenameRequest, _: bool = Depends(verify_admin)):
-    """
-    Rename an entire Isolation Node (Folder).
-    Updates column or Spectral Tag.
-    """
+    """Rename an entire Isolation Node (Folder)."""
     db = get_supabase()
     new_name = request.new_name.strip()
-    
-    # Discovery
     probe = db.table("questions").select("*").limit(1).execute()
     has_exam_column = False
     if probe.data and len(probe.data) > 0:
@@ -510,13 +474,9 @@ async def rename_folder(folder_name: str, request: FolderRenameRequest, _: bool 
     if has_exam_column:
         db.table("questions").update({"exam_name": new_name}).eq("exam_name", folder_name).execute()
     else:
-        # Spectral Tag Rename: Fetch and batch update
         tag_old = f"⟦EXAM:{folder_name}⟧"
         tag_new = f"⟦EXAM:{new_name}⟧"
-        
-        # Get all relevant questions
         res = db.table("questions").select("id, text").like("text", f"{tag_old}%").execute()
-        
         for q in res.data:
             updated_text = q["text"].replace(tag_old, tag_new, 1)
             db.table("questions").update({"text": updated_text}).eq("id", q["id"]).execute()
@@ -526,13 +486,9 @@ async def rename_folder(folder_name: str, request: FolderRenameRequest, _: bool 
 
 @router.patch("/folders/{folder_name}/branch")
 async def edit_folder_branch(folder_name: str, request: FolderEditBranchRequest, _: bool = Depends(verify_admin)):
-    """
-    Update the branch for an entire Isolation Node (Folder).
-    """
+    """Update the branch for an entire Isolation Node (Folder)."""
     db = get_supabase()
     new_branch = request.new_branch.strip()
-    
-    # Discovery
     probe = db.table("questions").select("*").limit(1).execute()
     has_exam_column = False
     if probe.data and len(probe.data) > 0:
@@ -541,7 +497,6 @@ async def edit_folder_branch(folder_name: str, request: FolderEditBranchRequest,
     if has_exam_column:
         db.table("questions").update({"branch": new_branch}).eq("exam_name", folder_name).execute()
     else:
-        # Spectral Tag Rename: Fetch and batch update
         tag_prefix = f"⟦EXAM:{folder_name}⟧"
         res = db.table("questions").select("id").like("text", f"{tag_prefix}%").execute()
         for q in res.data:
@@ -557,40 +512,28 @@ async def export_results(
     quiz_name: Optional[str] = Query(None),
     _: bool = Depends(verify_admin)
 ):
-    """
-    Export all exam results as a structured Excel file.
-    Includes: student info, score, percentage, time taken, submitted_at.
-    """
+    """Export all exam results as a structured Excel file."""
     try:
-        import xlsxwriter  # type: ignore
+        import xlsxwriter
     except ImportError:
         raise HTTPException(status_code=500, detail="xlsxwriter not installed")
 
     db = get_supabase()
-    
-    # ── Filtering Logic ──
     student_ids = None
     if quiz_name:
-        # 1. Find all question IDs for this quiz
         qs = db.table("questions").select("id").eq("exam_name", quiz_name).execute()
         q_ids = [str(q["id"]) for q in (qs.data or [])]
-        
-        # 2. Find result records that have at least one answer for these questions
-        # This is a bit tricky with Supabase's JSON filtering, so we'll fetch all and filter in memory
-        # to ensure accuracy across all result formats.
         all_res = db.table("exam_results").select("student_id, answers").execute()
         targeted_student_ids = []
         for r in (all_res.data or []):
             ans_keys = r.get("answers", {}).keys()
             if any(str(qid) in ans_keys for qid in q_ids):
                 targeted_student_ids.append(r["student_id"])
-        
         student_ids = set(targeted_student_ids)
 
-    # Gather data
     results_query = db.table("exam_results").select("student_id, score, total_marks, submitted_at")
     if student_ids is not None:
-        if not student_ids: # No one took this quiz
+        if not student_ids:
             return JSONResponse(status_code=200, content={"detail": f"No results found for quiz: {quiz_name}"})
         results_query = results_query.in_("student_id", list(student_ids))
     
@@ -601,17 +544,14 @@ async def export_results(
     status_map = {s["student_id"]: s for s in (statuses.data or [])}
     student_map = {s["id"]: s for s in (students.data or [])}
 
-    # Build rows
     rows = []
     for r in (results.data or []):
         sid = r["student_id"]
         student = student_map.get(sid, {})
         exam_st = status_map.get(sid, {})
-
         score = r.get("score") or 0
         total = r.get("total_marks") or 0
         pct = round(score / total * 100, 1) if total else 0.0
-
         time_taken = ""
         if r.get("submitted_at") and exam_st.get("started_at"):
             try:
@@ -636,15 +576,11 @@ async def export_results(
             "Submitted At": r.get("submitted_at", ""),
         })
 
-    # Sort by percentage descending
     rows.sort(key=lambda x: -x["Percentage (%)"])
-
-    # Build Excel in memory
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     worksheet = workbook.add_worksheet("Results")
 
-    # Formats
     header_fmt = workbook.add_format({
         "bold": True, "bg_color": "#1a1a2e", "font_color": "#e0aaff",
         "border": 1, "align": "center", "valign": "vcenter", "font_size": 11,
@@ -677,7 +613,6 @@ async def export_results(
 
     workbook.close()
     output.seek(0)
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = quiz_name.replace(" ", "_").lower() if quiz_name else "all"
     filename = f"examguard_results_{safe_name}_{timestamp}.xlsx"

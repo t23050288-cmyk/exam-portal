@@ -20,9 +20,8 @@ async def login(request: LoginRequest):
     """
     db = get_supabase()
 
-    # 1. Find student by USN (with fallback for roll_number)
+    # 1. Find student by USN
     try:
-        # Try new 'usn' column first
         result = (
             db.table("students")
             .select("id, usn, email, name, branch, password_hash, is_active_session, current_token")
@@ -31,17 +30,8 @@ async def login(request: LoginRequest):
             .execute()
         )
     except Exception as e:
-        # Fallback to old 'roll_number' column if 'usn' doesn't exist yet
-        try:
-            result = (
-                db.table("students")
-                .select("*") 
-                .eq("roll_number", request.usn.strip().upper())
-                .limit(1)
-                .execute()
-            )
-        except Exception:
-            raise e
+        print(f"[AUTH] Database query failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     if not result.data or len(result.data) == 0:
         # ── AUTO-REGISTRATION LOGIC ──
@@ -55,7 +45,6 @@ async def login(request: LoginRequest):
             # Create the student record
             new_student_data = {
                 "usn": request.usn.strip().upper(),
-                "roll_number": request.usn.strip().upper(), # Sync legacy column
                 "name": request.name.strip(),
                 "email": request.email.strip(),
                 "branch": request.branch or "CS",
@@ -79,10 +68,10 @@ async def login(request: LoginRequest):
     if not verify_password(request.password, student["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid roll number or password",
+            detail="Invalid USN or password",
         )
 
-    # 3. Check for duplicate active session (safe get for legacy schemas)
+    # 3. Check for duplicate active session
     is_active = student.get("is_active_session", False)
     current_tok = student.get("current_token")
     if is_active and current_tok:
@@ -102,7 +91,6 @@ async def login(request: LoginRequest):
         )
         exam_status_data = exam_status_res.data[0] if exam_status_res.data and len(exam_status_res.data) > 0 else None
     except Exception as e:
-        # Gracefully handle if some other issue occurs, though limit(1) won't throw on empty
         exam_status_data = None
 
     if exam_status_data and exam_status_data.get("status") == "submitted":
@@ -112,8 +100,7 @@ async def login(request: LoginRequest):
         )
 
     # 5. Create JWT token
-    student_id_val = student.get("usn") or student.get("roll_number") or ""
-    # Use branch from request if provided, else fallback to DB value or "CS"
+    student_id_val = student.get("usn", "")
     current_branch = request.branch or student.get("branch", "CS")
     current_name = request.name or student.get("name", "Student")
     token = create_access_token(
@@ -125,8 +112,7 @@ async def login(request: LoginRequest):
         }
     )
 
-    # 6. Mark session active + record token (safe update for legacy schemas)
-    # Also update profile info if provided in LoginRequest
+    # 6. Mark session active + record token
     try:
         update_student_data: Dict[str, Any] = {"is_active_session": True, "current_token": token}
         if request.name: update_student_data["name"] = request.name
@@ -135,17 +121,14 @@ async def login(request: LoginRequest):
 
         db.table("students").update(update_student_data).eq("id", student["id"]).execute()
     except Exception as e:
-        # If columns missing, just skip (log for debug)
         print(f"[AUTH] Optional student update failed: {e}")
 
-    # 7. Ensure exam_status row exists, but DO NOT start it here unless already active.
+    # 7. Ensure exam_status row exists
     started_at = None
     if exam_status_data:
-        # If already active, return the existing start time
         if exam_status_data.get("status") == "active":
             started_at = exam_status_data.get("started_at")
     else:
-        # Create exam_status row for fresh student
         db.table("exam_status").insert(
             {"student_id": student["id"], "status": "not_started"}
         ).execute()
@@ -155,13 +138,13 @@ async def login(request: LoginRequest):
         db.table("exam_config")
         .select("exam_title, duration_minutes, total_questions")
         .eq("is_active", True)
-        .order("updated_at", desc=True) # Get the most recent one!
+        .order("updated_at", desc=True)
         .limit(1)
         .execute()
     )
     
     current_exam_title = "Initial Assessment"
-    current_duration = 20 # Default to 20 as requested
+    current_duration = 20
     current_total_questions = 30
     
     if exam_conf.data:
@@ -169,17 +152,11 @@ async def login(request: LoginRequest):
         current_duration = exam_conf.data[0].get("duration_minutes") or 20
         current_total_questions = exam_conf.data[0].get("total_questions", current_total_questions)
 
-    # ── DYNAMIC QUESTION COUNT ──
-    # Calculate how many questions actually exist for THIS branch and THIS exam title
+    # Calculate how many questions actually exist
     try:
-        # Strategy 1: Strict Branch + Title
         q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).eq("exam_name", current_exam_title).execute()
-        
-        # Strategy 2: Strict Branch + Fuzzy Title
         if not q_count.count:
             q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).ilike("exam_name", f"%{current_exam_title}%").execute()
-            
-        # Strategy 3: Absolute Branch Fallback
         if not q_count.count:
             q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).execute()
             
@@ -187,7 +164,6 @@ async def login(request: LoginRequest):
             current_total_questions = q_count.count
     except Exception as e:
         print(f"[AUTH] Error counting questions: {e}")
-        # Keep config default on error
 
     return LoginResponse(
         access_token=token,
@@ -203,7 +179,7 @@ async def login(request: LoginRequest):
 
 
 @router.post("/logout")
-async def logout(current: dict = Depends(get_current_student)):
+async def logout(current: dict = Depends(get_current_student)) :
     """Clear session flag so student can log in from another device if needed."""
     db = get_supabase()
     db.table("students").update(
