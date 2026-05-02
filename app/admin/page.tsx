@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = 'force-dynamic';
+
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,10 +33,10 @@ import adminStyles from "./admin-management.module.css";
 import Skeleton from "@/components/Skeleton";
 
 // ── Lazy-loaded new feature tabs ──────────────────────────────
-import dynamic from "next/dynamic";
-const LeaderboardPage = dynamic(() => import("./leaderboard/page"), { ssr: false });
-const IngestPage      = dynamic(() => import("./ingest/page"),      { ssr: false });
-const OrbitalControl  = dynamic(() => import("./control/page"),     { ssr: false });
+import nextDynamic from "next/dynamic";
+const LeaderboardPage = nextDynamic(() => import("@/components/admin/leaderboard/LeaderboardPage"), { ssr: false });
+const IngestPage      = nextDynamic(() => import("@/components/admin/ingest/IngestPage"),      { ssr: false });
+const OrbitalControl  = nextDynamic(() => import("@/components/admin/control-panel/ControlPage"),     { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────
 interface StudentRow {
@@ -227,6 +229,7 @@ function ExportButton({ quizzes }: { quizzes: BranchExamSummary[] }) {
 
 // ── Main Component ────────────────────────────────────────────
 export default function AdminPage() {
+  const [mounted, setMounted] = useState(false);
   const [authed, setAuthed] = useState<boolean>(false);
   const [initialized, setInitialized] = useState(false);
   const [pass, setPass] = useState("");
@@ -240,6 +243,10 @@ export default function AdminPage() {
   const [liveStats, setLiveStats] = useState({ answers: 0, violations: 0, submittals: 0 });
   const [quizzes, setQuizzes] = useState<BranchExamSummary[]>([]);
   const [quizFilter, setQuizFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -350,17 +357,7 @@ export default function AdminPage() {
     .filter((s) => quizFilter === "all" || quizzes.some(q => q.exam_name === quizFilter && q.branch === s.branch))
     .filter((s) => !search.trim() || s.usn.toLowerCase().includes(search.toLowerCase()) || s.name.toLowerCase().includes(search.toLowerCase()));
 
-  if (!initialized) {
-    return (
-      <div className="page-center">
-        <div style={{ width: 400, display: "flex", flexDirection: "column", gap: 16 }}>
-          <Skeleton height={60} borderRadius={12} />
-          <Skeleton height={200} borderRadius={12} />
-          <Skeleton height={50} borderRadius={12} />
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   if (!authed) {
     return (
@@ -1224,8 +1221,8 @@ function QuestionsTab() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
-                        const url = await uploadQuestionImage(file);
-                        setFormData({ ...formData, image_url: url });
+                        const res = await uploadQuestionImage(file);
+                        setFormData({ ...formData, image_url: res.url });
                       } catch (err: any) {
                         alert(`Upload failed: ${err.message}`);
                       }

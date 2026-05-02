@@ -4,7 +4,9 @@ import { useEffect, useCallback, useState } from "react";
 import { reportViolation } from "@/lib/api";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import WarningModal from "./WarningModal";
-import FaceMonitor from "./FaceMonitor";
+import dynamic from "next/dynamic";
+
+const FaceMonitor = dynamic(() => import("./FaceMonitor"), { ssr: false });
 
 interface AntiCheatProps {
   isSubmitted: boolean;

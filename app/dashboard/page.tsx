@@ -118,11 +118,11 @@ export default function DashboardPage() {
       if (qData && activeConfigs.length > 0) {
         for (const config of activeConfigs) {
           // Find branches that have questions for this specific exam_title
-          const relevantQuestions = qData.filter(q => q.exam_name === config.exam_title);
+          const relevantQuestions = (qData || []).filter((q: any) => q.exam_name === config.exam_title);
           
           // Group by branch for this exam
           const branchCounts: Record<string, number> = {};
-          relevantQuestions.forEach(q => {
+          relevantQuestions.forEach((q: any) => {
             const br = q.branch || "CS";
             branchCounts[br] = (branchCounts[br] || 0) + 1;
           });

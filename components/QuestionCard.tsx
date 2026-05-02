@@ -4,7 +4,7 @@ import styles from "./QuestionCard.module.css";
 import { ReactNode } from "react";
 
 interface QuestionCardProps {
-  question: { id: string; text: string; options: string[]; marks: number; image_url?: string | null };
+  question: { id: string; text: string; options: string[]; marks?: number; image_url?: string | null };
   questionNumber: number;
   totalQuestions: number;
   selectedAnswer: string | undefined;
@@ -30,7 +30,7 @@ export default function QuestionCard({
       <div className={styles.header}>
         <span className={styles.numberText}>Question {questionNumber} of {totalQuestions}</span>
         {/* We can put the marks over to the right or omit it if not needed, but let's keep it aligned right */}
-        {question.marks > 0 && (
+        {question.marks !== undefined && question.marks > 0 && (
           <span className={styles.marks}>{question.marks} mark{question.marks !== 1 ? "s" : ""}</span>
         )}
       </div>

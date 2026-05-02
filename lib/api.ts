@@ -1,467 +1,324 @@
-export const API_BASE = "/api"; // Always use relative path — avoids CORS across deployments
+/**
+ * Centralized API utility for the Exam Portal.
+ * Uses relative paths (/api) to ensure seamless operation on Vercel.
+ */
+
+// SSR Polyfills to prevent build-time ReferenceErrors
+if (typeof window === "undefined") {
+  (global as any).sessionStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  };
+  (global as any).localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  };
+}
+
+export const API_BASE = "/api";
 export const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
 
+// --- Types ---
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return sessionStorage.getItem("exam_token");
-}
-
-async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getToken();
-  const isPreview = typeof window !== "undefined" && sessionStorage.getItem("exam_preview") === "true";
-  const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
-
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(isPreview ? { "X-Admin-Secret": ADMIN_SECRET } : {}),
-    ...options.headers,
-  };
-
-  const url = `${API_BASE}${path}`;
-  if (!token && !path.includes("/auth/login")) {
-    console.warn(`[API] Warning: Fetching ${url} without token.`);
-  }
-
-  console.log(`[API] Fetching: ${options.method || 'GET'} ${url}`);
-
-  try {
-    const res = await fetch(url, { ...options, headers });
-
-    if (res.status === 401) {
-      console.error(`[API] 401 Unauthorized for ${url}. Clearing session.`);
-      sessionStorage.removeItem("exam_token");
-      sessionStorage.removeItem("exam_student");
-      // Use window.location for hard redirect to clear state
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      throw new Error("Unauthorized");
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Request failed" }));
-      console.error(`[API] Error response for ${url}:`, err);
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-
-    return res.json();
-  } catch (err) {
-    console.error(`[API] Network error for ${url}:`, err);
-    throw err;
-  }
-}
-
-// ── Auth ──────────────────────────────────────────────────────
-export interface LoginResponse {
-  access_token: string;
-  student_id: string;
-  student_name: string;
-  email?: string;
-  branch: string;
-  exam_start_time: string | null;
-  exam_duration_minutes: number;
+export interface ExamConfig {
+  id: string;
   exam_title: string;
-  total_questions: number;
+  duration_minutes: number;
+  is_active: boolean;
+  scheduled_start: string | null;
+  scheduled_end?: string | null;
+  total_questions?: number;
+  total_marks?: number;
+  // UI mapping fields used in control panel
+  schedule_start_date?: string;
+  schedule_start_time?: string;
+  enable_schedule?: boolean;
+  schedule_end_date?: string;
+  schedule_end_time?: string;
+  enable_end_schedule?: boolean;
 }
 
-export async function loginStudent(
-  usn: string,
-  password: string,
-  metadata?: { name?: string; email?: string; branch?: string }
-): Promise<LoginResponse> {
-  return apiFetch<LoginResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ usn, password, ...metadata }),
-  });
-}
-
-export async function logoutStudent(): Promise<void> {
-  await apiFetch("/auth/logout", { method: "POST" }).catch(() => { });
-  sessionStorage.removeItem("exam_token");
-  sessionStorage.removeItem("exam_student");
-}
-
-// ── Questions ─────────────────────────────────────────────────
 export interface Question {
   id: string;
   text: string;
   options: string[];
-  branch: string;
-  order_index: number;
-  marks: number;
-  image_url: string | null;
+  image_url?: string;
+  marks?: number;
 }
 
-export async function fetchQuestions(title: string): Promise<Question[]> {
-  const res = await apiFetch<{ questions: Question[]; total: number }>(
-    `/exam/questions?title=${encodeURIComponent(title)}`
-  );
-  return res.questions;
-}
-
-// ── Save Answer ───────────────────────────────────────────────
-export async function saveAnswer(
-  question_id: string,
-  selected_option: string
-): Promise<void> {
-  await apiFetch("/exam/save-answer", {
-    method: "POST",
-    body: JSON.stringify({ question_id, selected_option }),
-  });
-}
-
-// ── Submit ────────────────────────────────────────────────────
-export interface SubmitResponse {
-  submitted: boolean;
-  score: number;
-  total_marks: number;
-  correct_count: number;
-  wrong_count: number;
-  percentage: number;
-  submitted_at: string;
-}
-
-export async function submitExam(
-  answers: Record<string, string>,
-  title: string
-): Promise<SubmitResponse> {
-  const payload = { ...answers, __exam_title: title };
-  return apiFetch<SubmitResponse>("/exam/submit-exam", {
-    method: "POST",
-    body: JSON.stringify({ answers: payload }),
-  });
-}
-
-export async function startExam(title: string): Promise<{ started_at: string }> {
-  return apiFetch<{ started_at: string }>(`/exam/start-exam?title=${encodeURIComponent(title)}`, {
-    method: "POST",
-  });
-}
-
-// ── Violations ────────────────────────────────────────────────
-export interface ViolationResponse {
-  warning_count: number;
-  auto_submitted: boolean;
-  message: string;
-}
-
-export async function reportViolation(
-  type: string,
-  metadata: Record<string, unknown> = {}
-): Promise<ViolationResponse> {
-  return apiFetch<ViolationResponse>("/exam/report-violation", {
-    method: "POST",
-    body: JSON.stringify({ type, metadata }),
-  });
-}
-
-// ── Admin Management ───────────────────────────────────────
-export interface AdminQuestion {
-  id: string;
-  text: string;
-  options: string[];
+export interface AdminQuestion extends Question {
   branch: string;
   correct_answer: string;
   order_index: number;
-  marks: number;
-  exam_name: string;
-  image_url: string | null;
+  exam_name?: string;
 }
 
 export interface AdminStudent {
   student_id: string;
-  usn: string;
   name: string;
   email: string | null;
+  usn: string;
   branch: string;
   status: "not_started" | "active" | "submitted";
   warnings: number;
   last_active: string | null;
   submitted_at: string | null;
-  started_at: string | null;
+  password?: string;
 }
 
-export function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${path}`;
-  console.log(`[ADMIN API] Fetching: ${options.method || 'GET'} ${url}`);
-
-  const headers: HeadersInit = {
-    "X-Admin-Secret": ADMIN_SECRET,
-    ...options.headers,
-  };
-
-  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
-    (headers as any)["Content-Type"] = "application/json";
-  }
-
-  return fetch(url, {
-    ...options,
-    headers,
-  }).then(async (res) => {
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Admin request failed" }));
-      console.error(`[ADMIN API] Error for ${url}:`, err);
-      throw new Error(err.detail || `Admin API error: ${res.status}`);
-    }
-    return res.json();
-  }).catch(err => {
-    console.error(`[ADMIN API] Network error for ${url}:`, err);
-    throw err;
-  });
-}
-
-export async function fetchAdminQuestions(): Promise<AdminQuestion[]> {
-  return adminFetch<{ questions: AdminQuestion[]; total: number }>("/admin/questions").then(
-    (r) => r.questions
-  );
-}
-
-export async function createAdminQuestion(data: {
-  text: string;
-  options: string[];
-  branch: string;
-  correct_answer: string;
-  order_index: number;
-  marks: number;
-  exam_name: string;
-}): Promise<AdminQuestion> {
-  return adminFetch<AdminQuestion>("/admin/questions", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateAdminQuestion(
-  id: string,
-  data: Partial<{
-    text: string;
-    options: string[];
-    branch: string;
-    correct_answer: string;
-    order_index: number;
-    marks: number;
-    exam_name: string;
-  }>
-): Promise<AdminQuestion> {
-  return adminFetch<AdminQuestion>(`/admin/questions/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteAdminQuestion(id: string): Promise<void> {
-  await adminFetch(`/admin/questions/${id}`, { method: "DELETE" });
-}
-
-export async function fetchAdminStudents(): Promise<AdminStudent[]> {
-  return adminFetch<AdminStudent[]>("/admin/students");
-}
-
-export async function createAdminStudent(data: {
-  usn: string;
-  name: string;
-  email?: string;
-  branch: string;
-  password: string;
-}): Promise<{ id: string }> {
-  return adminFetch<{ id: string }>("/admin/students", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateAdminStudent(
-  id: string,
-  data: { name?: string; email?: string; branch?: string; password?: string; is_active_session?: boolean }
-): Promise<{ updated: boolean }> {
-  return adminFetch<{ updated: boolean }>(`/admin/students/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteAdminStudent(id: string): Promise<void> {
-  await adminFetch(`/admin/students/${id}`, { method: "DELETE" });
-}
-
-export async function resetAdminStudent(id: string): Promise<void> {
-  await adminFetch(`/admin/students/${id}/reset`, { method: "POST" });
-}
-
-export async function forceSubmitAdminStudent(id: string): Promise<{ score: number }> {
-  return adminFetch<{ score: number }>(`/admin/students/${id}/force-submit`, { method: "POST" });
-}
-
-export async function cleanupStaleSessions(): Promise<{ count: number }> {
-  return adminFetch<{ count: number }>("/admin/students/cleanup-stale", { method: "POST" });
-}
-
-// ── Orbital Node Management (Folder CRUD) ─────────────────────
-
-export async function deleteAdminFolder(folderName: string): Promise<void> {
-  await adminFetch(`/admin/folders/${encodeURIComponent(folderName)}`, {
-    method: "DELETE",
-  });
-}
-
-export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
-  await adminFetch(`/admin/folders/${encodeURIComponent(oldName)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ new_name: newName }),
-  });
-}
-
-export async function editAdminFolderBranch(folderName: string, newBranch: string): Promise<void> {
-  await adminFetch(`/admin/folders/${encodeURIComponent(folderName)}/branch`, {
-    method: "PATCH",
-    body: JSON.stringify({ new_branch: newBranch }),
-  });
-}
-
-export async function uploadQuestionImage(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const res = await fetch(`${API_BASE}/admin/questions/upload`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Secret': ADMIN_SECRET,
-    },
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Image upload failed');
-  }
-
-  const data = await res.json();
-  return data.image_url;
-}
-
-// ── Exam Config (Orbital Control) ─────────────────────────────
-export interface ExamConfig {
-  is_active: boolean;
-  scheduled_start: string | null;
-  scheduled_end: string | null;
-  duration_minutes: number;
-  exam_title: string;
-  marks_per_question: number;
-  negative_marks: number;
-  shuffle_questions: boolean;
-  shuffle_options: boolean;
-  max_attempts: number;
-  show_answers_after: boolean;
-  total_questions: number;
-  total_marks: number;
-  exam_description: string | null;
-}
-
-export async function fetchExamConfig(title?: string): Promise<ExamConfig> {
-  const path = title ? `/admin/exam/config?title=${encodeURIComponent(title)}` : "/admin/exam/config";
-  return adminFetch<ExamConfig>(path);
-}
-
-export async function updateExamConfig(data: Partial<ExamConfig>): Promise<ExamConfig> {
-  return adminFetch<ExamConfig>("/admin/exam/config", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-/** Public endpoint — no admin secret needed. Returns all active configurations. */
-export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  const res = await fetch(`${API_BASE}/admin/exam/config/public`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
-/**
- * Fetch question counts grouped by branch for the student dashboard.
- * Returns a summary of available exam nodes.
- */
 export interface BranchExamSummary {
   branch: string;
   exam_name: string;
   question_count: number;
 }
 
-export async function fetchBranchExamSummary(): Promise<BranchExamSummary[]> {
-  try {
-    // Use the public questions endpoint — reading branch distribution
-    const res = await fetch(`${API_BASE}/exam/questions`, {
-      headers: {
-        Authorization: `Bearer ${typeof window !== "undefined" ? sessionStorage.getItem("exam_token") || "" : ""}`,
-      },
-    });
-    if (!res.ok) return [];
-    const data: { questions: Array<{ branch: string; exam_name?: string }> } = await res.json();
-    const branchMap: Record<string, { count: number; exam_name: string }> = {};
-    for (const q of data.questions) {
-      const br = q.branch || "CS";
-      if (!branchMap[br]) branchMap[br] = { count: 0, exam_name: q.exam_name || "ExamGuard Assessment" };
-      branchMap[br].count++;
-    }
-    return Object.entries(branchMap).map(([branch, info]) => ({
-      branch,
-      exam_name: info.exam_name,
-      question_count: info.count,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-
-// ── Leaderboard ───────────────────────────────────────────────
-export interface LeaderboardEntry {
-  rank: number;
-  student_id: string;
-  usn: string;
-  name: string;
-  branch: string;
+export interface SubmitResponse {
   score: number;
   total_marks: number;
-  percentage: number;
-  time_taken_seconds: number | null;
-  submitted_at: string | null;
+  correct_count: number;
+  wrong_count: number;
 }
 
-export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-  const data = await adminFetch<{ entries: LeaderboardEntry[]; total_submitted: number; updated_at: string }>(
-    "/leaderboard/admin"
-  );
-  return data.entries;
+export interface LoginResponse {
+  access_token: string;
+  student_id: string;
+  student_name: string;
+  exam_start_time: string | null;
+  exam_title: string;
+  total_questions: number;
 }
 
-// ── Export (Crystalline Data) ─────────────────────────────────
-/** Returns a Blob of the Excel file */
-export async function exportResults(quizName?: string): Promise<Blob> {
-  // Construct URL correctly even if API_BASE is relative
-  const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+export interface ViolationResponse {
+  warning_count: number;
+  message: string;
+  auto_submitted: boolean;
+}
+
+// --- Centralized Fetch Wrapper ---
+
+async function baseFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
   
-  // Robustly join API_BASE and the path without breaking protocol slashes
-  let fullPath = `${API_BASE}/admin/export`;
-  if (API_BASE.startsWith("/")) {
-    // If relative, ensure no double slashes at the start
-    fullPath = (API_BASE + "/admin/export").replace(/\/+/g, "/");
+  const headers = new Headers(options.headers || {});
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
   }
 
-  const url = new URL(fullPath, base);
-  if (quizName) url.searchParams.append("quiz_name", quizName);
-
-  const res = await fetch(url.toString(), {
-    headers: { "X-Admin-Secret": ADMIN_SECRET },
+  const response = await fetch(url, {
+    ...options,
+    headers,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Export failed" }));
-    throw new Error(err.detail || "Export failed");
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "Unknown error");
+    throw new Error(`API Error (${response.status}): ${errorBody || response.statusText}`);
   }
-  return res.blob();
+
+  // Handle binary data for export
+  if (path.includes("/export") || path.includes("/download")) {
+    return (await response.blob()) as unknown as T;
+  }
+
+  return response.json();
 }
 
+// Helper to safely access storage on client-only
+const getSafeToken = () => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    return window.sessionStorage.getItem("exam_token");
+  }
+  return null;
+};
+
+/**
+ * Enhanced fetch for admin endpoints that injects the secret header.
+ */
+export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = { ...(options.headers as any) };
+  headers["X-Admin-Secret"] = ADMIN_SECRET;
+  
+  const token = getSafeToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  return baseFetch<T>(path, { ...options, headers });
+}
+
+// --- Public Endpoints ---
+
+export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
+  return baseFetch<ExamConfig[]>("/admin/config");
+}
+
+export async function fetchQuestions(examTitle: string): Promise<Question[]> {
+  const token = getSafeToken();
+  return baseFetch<Question[]>(`/exam/questions?exam_title=${encodeURIComponent(examTitle)}`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+}
+
+
+export async function submitExam(answers: Record<string, string>, examTitle: string): Promise<SubmitResponse> {
+  const token = getSafeToken();
+  return baseFetch<SubmitResponse>("/exam/submit-exam", {
+    method: "POST",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    body: JSON.stringify({ answers, exam_title: examTitle }),
+  });
+}
+
+export async function loginStudent(usn: string, pass: string, meta: { name: string, email: string, branch: string }): Promise<LoginResponse> {
+  return baseFetch<LoginResponse>("/auth/student/login", {
+    method: "POST",
+    body: JSON.stringify({ usn, password: pass, ...meta }),
+  });
+}
+
+export async function startExam(examTitle: string): Promise<{ started_at: string }> {
+  const token = getSafeToken();
+  return baseFetch<{ started_at: string }>("/exam/start", {
+    method: "POST",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    body: JSON.stringify({ exam_title: examTitle }),
+  });
+}
+
+export async function saveAnswer(questionId: string, answer: string): Promise<void> {
+  const token = getSafeToken();
+  return baseFetch<void>("/exam/save-answer", {
+    method: "POST",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    body: JSON.stringify({ question_id: questionId, selected_option: answer }),
+  });
+}
+
+export async function reportViolation(type: string, metadata?: Record<string, any>): Promise<ViolationResponse> {
+  const token = getSafeToken();
+  return baseFetch<ViolationResponse>("/exam/violation", {
+    method: "POST",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    body: JSON.stringify({ type, metadata }),
+  });
+}
+
+// --- Admin Question Endpoints ---
+
+export async function fetchAdminQuestions(): Promise<AdminQuestion[]> {
+  return adminFetch<AdminQuestion[]>("/admin/questions");
+}
+
+export async function createAdminQuestion(q: Omit<AdminQuestion, "id">): Promise<AdminQuestion> {
+  return adminFetch<AdminQuestion>("/admin/questions", {
+    method: "POST",
+    body: JSON.stringify(q),
+  });
+}
+
+export async function updateAdminQuestion(id: string, q: Partial<AdminQuestion>): Promise<AdminQuestion> {
+  return adminFetch<AdminQuestion>(`/admin/questions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(q),
+  });
+}
+
+export async function deleteAdminQuestion(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/questions/${id}`, { method: "DELETE" });
+}
+
+export async function uploadQuestionImage(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return adminFetch<{ url: string }>("/admin/upload", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+// --- Admin Student Endpoints ---
+
+export async function fetchAdminStudents(): Promise<AdminStudent[]> {
+  return adminFetch<AdminStudent[]>("/admin/students");
+}
+
+export async function createAdminStudent(s: Partial<AdminStudent>): Promise<AdminStudent> {
+  return adminFetch<AdminStudent>("/admin/students", {
+    method: "POST",
+    body: JSON.stringify(s),
+  });
+}
+
+export async function updateAdminStudent(id: string, s: Partial<AdminStudent>): Promise<AdminStudent> {
+  return adminFetch<AdminStudent>(`/admin/students/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(s),
+  });
+}
+
+export async function deleteAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}`, { method: "DELETE" });
+}
+
+export async function resetAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}/reset`, { method: "POST" });
+}
+
+export async function forceSubmitAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}/force-submit`, { method: "POST" });
+}
+
+// --- Admin Folder/Branch Endpoints ---
+
+export async function deleteAdminFolder(examName: string): Promise<void> {
+  return adminFetch<void>(`/admin/questions/folder/${encodeURIComponent(examName)}`, { method: "DELETE" });
+}
+
+export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
+  return adminFetch<void>(`/admin/questions/folder/rename`, {
+    method: "POST",
+    body: JSON.stringify({ old_name: oldName, new_name: newName }),
+  });
+}
+
+export async function editAdminFolderBranch(examName: string, newBranch: string): Promise<void> {
+  return adminFetch<void>(`/admin/questions/folder/branch`, {
+    method: "POST",
+    body: JSON.stringify({ exam_name: examName, new_branch: newBranch }),
+  });
+}
+
+// --- Exam Configuration Endpoints ---
+
+export async function fetchExamConfig(examTitle: string) {
+  return adminFetch<ExamConfig>(`/admin/config?exam_title=${encodeURIComponent(examTitle)}`);
+}
+
+export async function updateExamConfig(config: Partial<ExamConfig>) {
+  return adminFetch<ExamConfig>("/admin/config", {
+    method: "POST",
+    body: JSON.stringify(config),
+  });
+}
+
+// --- Specialized Admin Endpoints ---
+
+export async function fetchBranchExamSummary(branch: string): Promise<BranchExamSummary[]> {
+  return adminFetch<BranchExamSummary[]>(`/admin/summary?branch=${encodeURIComponent(branch)}`);
+}
+
+export async function exportResults(examName?: string): Promise<Blob> {
+  const path = examName 
+    ? `/admin/export?exam_name=${encodeURIComponent(examName)}` 
+    : "/admin/export";
+  return adminFetch<Blob>(path);
+}
+
+export async function cleanupStaleSessions(): Promise<{ count: number }> {
+  return adminFetch<{ count: number }>("/admin/cleanup", { method: "POST" });
+}

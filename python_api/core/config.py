@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     # AI — Inception Spectral Parser
     inception_api_key: str = ""  # Set INCEPTION_API_KEY in .env to enable AI parsing
 
-    ai_model: str = "deepseek-ai/deepseek-v4-pro"
-    ai_base_url: str = "https://integrate.api.nvidia.com/v1"
+    ai_model: str = "mercury-coder-small"
+    ai_base_url: str = "https://api.inceptionlabs.ai/v1"
     ai_thinking: bool = True
 
     # Exam

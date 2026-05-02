@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import styles from "./leaderboard.module.css";
@@ -37,6 +38,7 @@ function pctColor(pct: number): string {
 const CROWNS = ["🥇", "🥈", "🥉"];
 
 export default function LeaderboardPage() {
+  const [mounted, setMounted] = useState(false);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>("");
@@ -44,17 +46,22 @@ export default function LeaderboardPage() {
   const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
   const prevRanks = useRef<Map<string, number>>(new Map());
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const fetchLeaderboard = useCallback(async () => {
     try {
       const data = await adminFetch<{ entries: LeaderboardEntry[]; updated_at: string }>("/leaderboard/admin", {
         cache: "no-store",
       });
+      const entriesArr = Array.isArray(data?.entries) ? data.entries : [];
       // Track rank deltas
       const newMap = new Map<string, number>();
-      (data.entries as LeaderboardEntry[]).forEach((e) => newMap.set(e.student_id, e.rank));
+      (entriesArr as LeaderboardEntry[]).forEach((e) => newMap.set(e.student_id, e.rank));
       prevRanks.current = newMap;
-      setEntries(data.entries);
-      setUpdatedAt(data.updated_at);
+      setEntries(entriesArr);
+      setUpdatedAt(data?.updated_at || "");
     } catch {
       // swallow network errors silently
     } finally {
@@ -91,6 +98,8 @@ export default function LeaderboardPage() {
 
   const top3 = filteredEntries.slice(0, 3);
   const rest = filteredEntries.slice(3);
+
+  if (!mounted) return null;
 
   return (
     <div className={styles.page}>

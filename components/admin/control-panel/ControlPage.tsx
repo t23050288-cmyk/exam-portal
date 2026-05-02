@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./control.module.css";
@@ -109,8 +110,13 @@ function ActionCard({
 }
 
 export default function OrbitalControlPage() {
+  const [mounted, setMounted] = useState(false);
   const [config, setConfig] = useState<ExamConfig>(defaultConfig);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<"dashboard" | "settings">("dashboard");
@@ -236,6 +242,8 @@ export default function OrbitalControlPage() {
   const marksOptions = [1, 2, 3, 4, 5, 6, 10];
   const negativeOptions = [0, -0.25, -0.5, -1, -2];
   const attemptOptions = [1, 2, 3, 5, 10];
+
+  if (!mounted) return null;
 
   if (loading) {
     return (

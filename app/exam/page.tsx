@@ -8,7 +8,8 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import ExamTimer from "@/components/ExamTimer";
 import QuestionCard from "@/components/QuestionCard";
-import AntiCheat from "@/components/AntiCheat";
+import nextDynamic from "next/dynamic";
+const AntiCheat = nextDynamic(() => import("@/components/AntiCheat"), { ssr: false });
 import Skeleton from "@/components/Skeleton";
 import styles from "./exam.module.css";
 
