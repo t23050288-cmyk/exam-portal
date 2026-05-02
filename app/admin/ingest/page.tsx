@@ -4,8 +4,7 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./ingest.module.css";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/api";
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
+import { API_BASE, ADMIN_SECRET, adminFetch } from "@/lib/api";
 
 interface ParsedQuestion {
   text: string;
@@ -170,10 +169,7 @@ export default function IngestPage() {
     // Fetch unique exam names (folders) from existing questions
     const fetchExams = async () => {
       try {
-        const res = await fetch(`${API}/admin/questions`, {
-          headers: { "x-admin-secret": ADMIN_SECRET },
-        });
-        const data = await res.json();
+        const data = await adminFetch<{ questions: any[] }>("/admin/questions");
         if (data && Array.isArray(data.questions)) {
           const names = Array.from(new Set(data.questions.map((q: any) => q.exam_name))).filter(Boolean) as string[];
           setExistingExamNames(names.sort());
@@ -196,21 +192,10 @@ export default function IngestPage() {
     formData.append("file", f);
 
     try {
-      const res = await fetch(`${API}/admin/ingest/upload`, {
+      const data: ParseResult = await adminFetch("/admin/ingest/upload", {
         method: "POST",
-        headers: { "x-admin-secret": ADMIN_SECRET },
         body: formData,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        const msg = typeof err.detail === "string"
-          ? err.detail
-          : Array.isArray(err.detail)
-            ? err.detail.map((d: any) => d.msg).join(", ")
-            : JSON.stringify(err.detail);
-        throw new Error(msg || "Upload failed");
-      }
-      const data: ParseResult = await res.json();
       setTimeout(() => {
         setResult(data);
         setPhase("previewing");
@@ -251,12 +236,8 @@ export default function IngestPage() {
     }));
 
     try {
-      const res = await fetch(`${API}/admin/ingest/commit`, {
+      const data = await adminFetch<{ committed: number }>("/admin/ingest/commit", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-secret": ADMIN_SECRET,
-        },
         body: JSON.stringify({
           questions: questionsWithTether,
           replace_existing: replaceExisting,
@@ -264,16 +245,6 @@ export default function IngestPage() {
           max_questions: maxQuestions === "" ? null : maxQuestions,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        const msg = typeof err.detail === "string"
-          ? err.detail
-          : Array.isArray(err.detail)
-            ? err.detail.map((d: any) => d.msg).join(", ")
-            : JSON.stringify(err.detail);
-        throw new Error(msg || "Crystallization failed");
-      }
-      const data = await res.json();
       setCommitted(data.committed);
       setPhase("done");
     } catch (e: any) {

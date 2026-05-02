@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import styles from "./control.module.css";
 import Skeleton from "@/components/Skeleton";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/api";
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
+import { fetchExamConfig, updateExamConfig, fetchAdminQuestions, fetchAdminStudents } from "@/lib/api";
 
 type ExamState = "active" | "inactive";
 
@@ -123,11 +122,8 @@ export default function OrbitalControlPage() {
   const fetchConfig = useCallback(async (targetTitle?: string) => {
     try {
       const titleParam = targetTitle || config.exam_title;
-      const res = await fetch(`${API}/admin/exam/config?title=${encodeURIComponent(titleParam)}`, {
-        headers: { "x-admin-secret": ADMIN_SECRET },
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await fetchExamConfig(targetTitle || config.exam_title);
+      if (data) {
         const mappedData = { ...data };
         if (data.scheduled_start) {
           const d = new Date(data.scheduled_start);
@@ -147,7 +143,7 @@ export default function OrbitalControlPage() {
           mappedData.schedule_end_date = "";
           mappedData.schedule_end_time = "";
         }
-        setConfig((prev) => ({ ...defaultConfig, ...mappedData, exam_title: titleParam }));
+        setConfig((prev) => ({ ...defaultConfig, ...mappedData, exam_title: targetTitle || config.exam_title }));
       }
     } catch {
       // ignore — backend may not have config endpoint yet
@@ -158,27 +154,22 @@ export default function OrbitalControlPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const [qRes, sRes] = await Promise.all([
-        fetch(`${API}/admin/questions`, { headers: { "x-admin-secret": ADMIN_SECRET } }),
-        fetch(`${API}/admin/students`, { headers: { "x-admin-secret": ADMIN_SECRET } }),
+      const [qData, sData] = await Promise.all([
+        fetchAdminQuestions(),
+        fetchAdminStudents(),
       ]);
-      if (qRes.ok) {
-        const qData = await qRes.json();
-        const questionsArray = Array.isArray(qData) ? qData : (qData.questions || []);
-        setQuestionCount(questionsArray.length);
-        const nameSet = new Set<string>();
-        questionsArray.forEach((q: any) => {
-          if (q.exam_name) nameSet.add(q.exam_name);
-        });
-        setAvailableExams(nameSet.size > 0 ? Array.from(nameSet) : ["ExamGuard Assessment"]);
-      }
-      if (sRes.ok) {
-        const sData = await sRes.json();
-        const students = Array.isArray(sData) ? sData : [];
-        setStudentCount(students.length);
-        const violations = students.reduce((sum: number, s: any) => sum + (s.warnings || 0), 0);
-        setViolationCount(violations);
-      }
+      const questionsArray = Array.isArray(qData) ? qData : ((qData as any).questions || []);
+      setQuestionCount(questionsArray.length);
+      const nameSet = new Set<string>();
+      questionsArray.forEach((q: any) => {
+        if (q.exam_name) nameSet.add(q.exam_name);
+      });
+      setAvailableExams(nameSet.size > 0 ? Array.from(nameSet) : ["ExamGuard Assessment"]);
+
+      const students = Array.isArray(sData) ? sData : [];
+      setStudentCount(students.length);
+      const violations = students.reduce((sum: number, s: any) => sum + (s.warnings || 0), 0);
+      setViolationCount(violations);
     } catch {
       // silently fail
     }
@@ -207,19 +198,7 @@ export default function OrbitalControlPage() {
         scheduled_end: endIso,
       };
 
-      const res = await fetch(`${API}/admin/exam/config`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-secret": ADMIN_SECRET,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Save failed" }));
-        throw new Error(err.detail || "Save failed");
-      }
-      const data = await res.json();
+      const data = await updateExamConfig(payload);
       
       const mappedData = { ...data };
       if (data.scheduled_start) {

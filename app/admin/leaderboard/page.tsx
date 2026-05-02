@@ -5,8 +5,7 @@ import { supabase } from "@/lib/supabase";
 import styles from "./leaderboard.module.css";
 import Skeleton from "@/components/Skeleton";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/api";
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
+import { adminFetch } from "@/lib/api";
 
 interface LeaderboardEntry {
   rank: number;
@@ -47,12 +46,9 @@ export default function LeaderboardPage() {
 
   const fetchLeaderboard = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/leaderboard/admin`, {
-        headers: { "x-admin-secret": ADMIN_SECRET },
+      const data = await adminFetch<{ entries: LeaderboardEntry[]; updated_at: string }>("/leaderboard/admin", {
         cache: "no-store",
       });
-      if (!res.ok) return;
-      const data = await res.json();
       // Track rank deltas
       const newMap = new Map<string, number>();
       (data.entries as LeaderboardEntry[]).forEach((e) => newMap.set(e.student_id, e.rank));

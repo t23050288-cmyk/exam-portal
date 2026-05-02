@@ -1,4 +1,6 @@
-const API_BASE = "/api"; // Always use relative path — avoids CORS across deployments
+export const API_BASE = "/api"; // Always use relative path — avoids CORS across deployments
+export const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
+
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -184,19 +186,22 @@ export interface AdminStudent {
   started_at: string | null;
 }
 
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
-
-function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
   console.log(`[ADMIN API] Fetching: ${options.method || 'GET'} ${url}`);
 
+  const headers: HeadersInit = {
+    "X-Admin-Secret": ADMIN_SECRET,
+    ...options.headers,
+  };
+
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    (headers as any)["Content-Type"] = "application/json";
+  }
+
   return fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Admin-Secret": ADMIN_SECRET,
-      ...options.headers,
-    },
+    headers,
   }).then(async (res) => {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Admin request failed" }));

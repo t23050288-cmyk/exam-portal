@@ -60,7 +60,7 @@ export function useAutoSave({
       dirty.forEach((qId) => {
         if (current[qId]) {
           navigator.sendBeacon(
-            `${process.env.NEXT_PUBLIC_API_URL}/exam/save-answer`,
+            `/api/exam/save-answer`,
             new Blob(
               [
                 JSON.stringify({
