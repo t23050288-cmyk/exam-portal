@@ -136,7 +136,7 @@ async def login(request: LoginRequest):
     # 8. Fetch the LATEST active exam config
     exam_conf = (
         db.table("exam_config")
-        .select("exam_title, duration_minutes, total_questions")
+        .select("*")
         .eq("is_active", True)
         .order("updated_at", desc=True)
         .limit(1)
