@@ -29,13 +29,13 @@ CREATE INDEX IF NOT EXISTS idx_students_usn ON students(usn);
 CREATE TABLE IF NOT EXISTS questions (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   text           TEXT NOT NULL,
-  options        JSONB NOT NULL,     -- ["A) ...", "B) ...", "C) ...", "D) ..."]
+  options        JSONB NOT NULL,
   branch         TEXT DEFAULT 'CS',
   exam_name      TEXT DEFAULT 'Initial Assessment',
-  correct_answer TEXT NOT NULL,      -- "A", "B", "C", or "D"
+  correct_answer TEXT NOT NULL,
   marks          INTEGER DEFAULT 1,
   order_index    INTEGER NOT NULL,
-  image_url      TEXT,               -- Optional: URL to associated image
+  image_url      TEXT,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -64,7 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_exam_status_status ON exam_status(status);
 CREATE TABLE IF NOT EXISTS exam_results (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   student_id   UUID UNIQUE NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  answers      JSONB DEFAULT '{}',  -- { "question_id": "A", ... }
+  answers      JSONB DEFAULT '{}',
   score        INTEGER DEFAULT 0,
   total_marks  INTEGER DEFAULT 0,
   submitted_at TIMESTAMPTZ DEFAULT NOW(),
@@ -90,6 +90,18 @@ CREATE TABLE IF NOT EXISTS violations (
 
 CREATE INDEX IF NOT EXISTS idx_violations_student ON violations(student_id);
 CREATE INDEX IF NOT EXISTS idx_violations_timestamp ON violations(timestamp);
+
+-- ============================================================
+-- TABLE: exam_config
+-- ============================================================
+CREATE TABLE IF NOT EXISTS exam_config (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  is_active        BOOLEAN DEFAULT TRUE,
+  scheduled_start  TIMESTAMPTZ,
+  duration_minutes INTEGER DEFAULT 60,
+  exam_title       TEXT DEFAULT 'ExamGuard Assessment',
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- ============================================================
 -- FUNCTION: update updated_at timestamp automatically
@@ -119,16 +131,18 @@ ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exam_status ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exam_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE violations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_config ENABLE ROW LEVEL SECURITY;
 
--- Service role bypasses all RLS (backend uses this)
--- Anon/authenticated roles have restricted access
-
--- Questions: anyone can read (students need to fetch questions)
+-- Questions: anyone can read
 CREATE POLICY "Anyone can read questions"
   ON questions FOR SELECT
   USING (true);
 
--- exam_status: allow realtime reads for admin (via service key)
+-- exam_config: anyone can read
+CREATE POLICY "Anyone can read exam_config"
+  ON exam_config FOR SELECT
+  USING (true);
+
 -- Students can only see their own status
 CREATE POLICY "Students read own status"
   ON exam_status FOR SELECT
@@ -140,34 +154,10 @@ CREATE POLICY "Students read own results"
   USING (auth.uid()::text = student_id::text);
 
 -- ============================================================
--- REALTIME: Enable for admin dashboard live updates
+-- REALTIME: Enable for live updates
+-- (Tables must exist before adding to publication)
 -- ============================================================
--- Run in Supabase Dashboard → Database → Replication
--- Enable realtime for: exam_status, violations
-
 ALTER PUBLICATION supabase_realtime ADD TABLE exam_status;
 ALTER PUBLICATION supabase_realtime ADD TABLE violations;
-
--- ============================================================
--- REALTIME: Student Dashboard — Exam Discovery Sync
--- ============================================================
--- Also enable realtime for exam_config + questions so the
--- student dashboard instantly reflects admin changes.
--- Run these in Supabase Dashboard → Database → Replication
--- OR run the ALTER PUBLICATION commands below:
-
 ALTER PUBLICATION supabase_realtime ADD TABLE exam_config;
 ALTER PUBLICATION supabase_realtime ADD TABLE questions;
-
--- ============================================================
--- TABLE: exam_config (if not already created)
--- ============================================================
-CREATE TABLE IF NOT EXISTS exam_config (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  is_active        BOOLEAN DEFAULT TRUE,
-  scheduled_start  TIMESTAMPTZ,
-  duration_minutes INTEGER DEFAULT 60,
-  exam_title       TEXT DEFAULT 'ExamGuard Assessment',
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
-);
-
