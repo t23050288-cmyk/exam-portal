@@ -19,6 +19,17 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
   const [modalMessage, setModalMessage] = useState("");
   const { enter: enterFullscreen } = useFullscreen();
 
+  // ── Enforce fullscreen immediately on mount ────────────────
+  useEffect(() => {
+    if (!isSubmitted) {
+      // Small delay to ensure the browser allows it after user gesture (clicking Start Exam)
+      const timer = setTimeout(() => {
+        enterFullscreen();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isSubmitted, enterFullscreen]);
+
   const triggerViolation = useCallback(
     async (type: string, metadata?: Record<string, unknown>) => {
       if (isSubmitted) return;
@@ -137,17 +148,19 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     };
   }, [isSubmitted, triggerViolation]);
 
-  if (!showModal) return null;
-
+  // Always render FaceMonitor so proctoring starts immediately.
+  // Only show WarningModal when a violation is triggered.
   return (
     <>
       <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} />
-      <WarningModal
-        warningCount={warningCount}
-        message={modalMessage}
-        onDismiss={warningCount < 3 ? () => setShowModal(false) : undefined}
-        onReenterFullscreen={() => enterFullscreen()}
-      />
+      {showModal && (
+        <WarningModal
+          warningCount={warningCount}
+          message={modalMessage}
+          onDismiss={warningCount < 3 ? () => setShowModal(false) : undefined}
+          onReenterFullscreen={() => enterFullscreen()}
+        />
+      )}
     </>
   );
 }

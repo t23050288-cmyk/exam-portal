@@ -29,13 +29,29 @@ export default function InstructionsPage() {
     if (studentData) {
       try {
         const parsed = JSON.parse(studentData);
+        const examTitle = parsed.examTitle || "Online Assessment";
+        
+        // Set initial info immediately so UI renders fast
         setStudentInfo({
           name: parsed.name || "Student",
           usn: parsed.usn || "Candidate",
-          examTitle: parsed.examTitle || "Online Assessment",
+          examTitle,
           duration: 20,
           totalQuestions: parsed.totalQuestions || 30,
         });
+
+        // Fetch the real question count for this branch + exam from the backend
+        fetch(`/api/exam/questions?title=${encodeURIComponent(examTitle)}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data && typeof data.total === "number" && data.total > 0) {
+              setStudentInfo(prev => prev ? { ...prev, totalQuestions: data.total } : prev);
+            }
+          })
+          .catch(() => {/* silently fall back to stored value */});
+
       } catch (err) {
         console.error("Could not parse student data", err);
       }
@@ -50,6 +66,7 @@ export default function InstructionsPage() {
       });
     }
   }, [router]);
+
 
   const handleStartExam = async () => {
     if (starting) return;

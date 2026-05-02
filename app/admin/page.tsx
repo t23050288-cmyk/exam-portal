@@ -921,6 +921,20 @@ function QuestionsTab() {
     }
   };
 
+  const handleDeactivateFolder = async (folderName: string) => {
+    if (!confirm(`Deactivate "${folderName}"? Students will no longer be able to access questions.`)) return;
+    try {
+      setLoading(true);
+      await updateExamConfig({ exam_title: folderName, is_active: false });
+      setActiveExamTitle(null);
+      alert(`Exam "${folderName}" has been deactivated.`);
+    } catch (error: any) {
+      alert(`Failed to deactivate exam: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredQuestions = selectedBranch === "All" ? questions : questions.filter((q) => q.branch === selectedBranch);
 
   // Group by exam_name and branch
@@ -1042,9 +1056,15 @@ function QuestionsTab() {
                       {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
                           {activeExamTitle === name ? (
-                            <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
-                              ✅ Active Exam
-                            </span>
+                            <>
+                              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                                ✅ Active
+                              </span>
+                              <button
+                                style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(211,47,47,0.3)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
+                                onClick={(e) => { e.stopPropagation(); handleDeactivateFolder(name); }}
+                              >Deactivate</button>
+                            </>
                           ) : (
                             <button
                               style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid var(--success)`, background: "transparent", color: "var(--success)", cursor: "pointer", fontWeight: 700 }}
@@ -1127,13 +1147,18 @@ function QuestionsTab() {
                           </div>
                           <div className={adminStyles.nodeActions}>
                             {activeExamTitle === name ? (
-                              <span style={{ fontSize: 12, padding: "4px 12px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
-                                ✅ Active Exam
-                              </span>
+                              <>
+                                <span style={{ fontSize: 12, padding: "4px 12px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                                  ✅ Active
+                                </span>
+                                <button className="btn btn-outline btn-danger" style={{ fontSize: 12, padding: "4px 12px" }}
+                                  onClick={() => handleDeactivateFolder(name)}>Deactivate</button>
+                              </>
                             ) : (
                               <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px", color: "var(--success)", borderColor: "var(--success)" }}
                                 onClick={() => handleActivateFolder(name)}>Activate</button>
                             )}
+
                             <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
                               onClick={() => handleRenameFolder(name)}>Rename</button>
                             <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }}
