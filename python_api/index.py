@@ -77,7 +77,8 @@ try:
     async def cron_evict():
         try:
             db = get_supabase()
-            result = db.table("exam_config").select("id,is_active,scheduled_end,exam_title").eq("is_active", True).not_.is_("scheduled_end", "null").execute()
+            # FIX: Database column is 'title', not 'exam_title'
+            result = db.table("exam_config").select("id,is_active,scheduled_end,title").eq("is_active", True).not_.is_("scheduled_end", "null").execute()
             deactivated = 0
             for cfg in (result.data or []):
                 end_str = cfg["scheduled_end"].replace("Z", "+00:00")
