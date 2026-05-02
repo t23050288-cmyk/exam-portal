@@ -401,7 +401,14 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         if request.is_active is True:
             db.table("exam_config").update({"is_active": False}).neq("exam_title", request.exam_title).execute()
 
-        result = db.table("exam_config").upsert(update_data, on_conflict="exam_title").execute()
+        # Safe insert-or-update: check if a row with this exam_title already exists
+        existing = db.table("exam_config").select("exam_title").eq("exam_title", request.exam_title).limit(1).execute()
+        if existing.data:
+            # Row exists — UPDATE it
+            result = db.table("exam_config").update(update_data).eq("exam_title", request.exam_title).execute()
+        else:
+            # No row yet — INSERT it
+            result = db.table("exam_config").insert(update_data).execute()
         
         if result.data:
             row = result.data[0]
