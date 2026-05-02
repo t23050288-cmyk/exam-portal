@@ -159,9 +159,10 @@ export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
 
 export async function fetchQuestions(examTitle: string): Promise<Question[]> {
   const token = getSafeToken();
-  return baseFetch<Question[]>(`/exam/questions?title=${encodeURIComponent(examTitle)}`, {
+  const res = await baseFetch<{ questions: Question[]; total: number }>(`/exam/questions?title=${encodeURIComponent(examTitle)}`, {
     headers: token ? { "Authorization": `Bearer ${token}` } : {},
   });
+  return res.questions || [];
 }
 
 
