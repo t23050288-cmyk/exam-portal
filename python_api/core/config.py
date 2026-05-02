@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     # Admin
     admin_secret: str = "admin@examguard2024"
 
-    # AI
-    inception_api_key: str = ""
+    # AI — Inception Spectral Parser
+    inception_api_key: str = ""  # Set INCEPTION_API_KEY in .env to enable AI parsing
+
     ai_model: str = "deepseek-ai/deepseek-v4-pro"
     ai_base_url: str = "https://integrate.api.nvidia.com/v1"
     ai_thinking: bool = True
@@ -30,16 +31,26 @@ class Settings(BaseSettings):
     # Exam
     exam_duration_minutes: int = 60
 
-    # CORS
-    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
+    # CORS — used only as fallback; index.py sets allow_origins=["*"]
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:3001,http://127.0.0.1:3000"
 
     @property
     def allowed_origins_list(self) -> list[str]:
         raw_list = [o.strip() for o in self.allowed_origins.split(",")]
-        cleaned = set()
+        cleaned = []
         for origin in raw_list:
-            cleaned.add(origin.rstrip("/"))
-        return list(cleaned)
+            cleaned.append(origin)
+            if origin.endswith("/"):
+                cleaned.append(origin[:-1])
+            else:
+                cleaned.append(origin + "/")
+        final = set(cleaned)
+        for origin in cleaned:
+            if "localhost" in origin:
+                final.add(origin.replace("localhost", "127.0.0.1"))
+            elif "127.0.0.1" in origin:
+                final.add(origin.replace("127.0.0.1", "localhost"))
+        return list(final)
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env", "../../.env"),
