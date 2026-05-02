@@ -329,7 +329,8 @@ async def get_exam_config(title: Optional[str] = None, _: bool = Depends(verify_
     try:
         query = db.table("exam_config").select("*")
         if title:
-            result = query.eq("exam_title", title).execute()
+            # FIX: Use 'title' column instead of 'exam_title'
+            result = query.eq("title", title).execute()
         else:
             result = query.limit(1).execute()
 
@@ -340,7 +341,7 @@ async def get_exam_config(title: Optional[str] = None, _: bool = Depends(verify_
                 scheduled_start=row.get("scheduled_start"),
                 scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
-                exam_title=row.get("exam_title", "ExamGuard Assessment"),
+                exam_title=row.get("title", "ExamGuard Assessment"),
                 marks_per_question=row.get("marks_per_question", 4),
                 negative_marks=float(row.get("negative_marks") if row.get("negative_marks") is not None else -1.0),
                 shuffle_questions=row.get("shuffle_questions", False),
@@ -367,7 +368,8 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
 
     update_data: dict = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "exam_title": request.exam_title
+        # FIX: Map 'exam_title' to 'title'
+        "title": request.exam_title
     }
     if request.is_active is not None:
         update_data["is_active"] = request.is_active
@@ -397,7 +399,8 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["exam_description"] = request.exam_description
 
     try:
-        result = db.table("exam_config").upsert(update_data, on_conflict="exam_title").execute()
+        # FIX: Conflict column is 'title'
+        result = db.table("exam_config").upsert(update_data, on_conflict="title").execute()
         
         if result.data:
             row = result.data[0]
@@ -406,7 +409,7 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
                 scheduled_start=row.get("scheduled_start"),
                 scheduled_end=row.get("scheduled_end"),
                 duration_minutes=row.get("duration_minutes", 60),
-                exam_title=row.get("exam_title"),
+                exam_title=row.get("title"),
                 marks_per_question=row.get("marks_per_question", 4),
                 negative_marks=float(row.get("negative_marks") if row.get("negative_marks") is not None else -1.0),
                 shuffle_questions=row.get("shuffle_questions", False),
@@ -435,7 +438,12 @@ async def get_exam_config_public():
     """Public exam config endpoint (no auth) — returns all configurations."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, exam_title").execute()
+        # FIX: select 'title' instead of 'exam_title'
+        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, title").execute()
+        # Map 'title' to 'exam_title' for frontend compatibility
+        for row in (result.data or []):
+            if "title" in row:
+                row["exam_title"] = row.pop("title")
         return result.data or []
     except Exception:
         return []
@@ -576,7 +584,9 @@ async def export_results(
             "Submitted At": r.get("submitted_at", ""),
         })
 
-    rows.sort(key=lambda x: -x["Percentage (%)"])
+    if rows:
+        rows.sort(key=lambda x: -x["Percentage (%)"])
+    
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     worksheet = workbook.add_worksheet("Results")
@@ -586,7 +596,7 @@ async def export_results(
         "border": 1, "align": "center", "valign": "vcenter", "font_size": 11,
     })
     cell_fmt = workbook.add_format({"border": 1, "valign": "vcenter", "font_size": 10})
-    pct_fmt = workbook.add_format({"border": 1, "valign": "vcenter", "num_format": "0.0\"%\"", "font_size": 10})
+    pct_fmt = workbook.add_format({"border": 1, "valign": "vcenter", "num_format": '0.0"%"', "font_size": 10})
     top_fmt = workbook.add_format({
         "border": 1, "valign": "vcenter", "font_size": 10,
         "bg_color": "#f0fff4", "bold": True,
