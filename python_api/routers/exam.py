@@ -67,54 +67,17 @@ def get_questions(
 
     try:
         branch = current.get("branch", "CS")
-        
-        # ── Strategy 1: Strict Branch + Strict Title Match ──
+        # ── Branch-Only Matching ──
+        # The user specifically requested that branch should be the main connector
+        # between student and questions, completely ignoring exam_name mismatches.
         result = (
             db.table("questions")
             .select("id, text, options, branch, order_index, marks, exam_name")
-            .or_(f"branch.eq.{branch},branch.ilike.*{branch}*")
-            .eq("exam_name", title)
+            .ilike("branch", f"%{branch}%")
             .order("order_index")
             .limit(100)
             .execute()
         )
-
-        # ── Strategy 2: Strict Branch + Fuzzy Title Match ──
-        # (Handles cases where active exam title is 'IP NEXUS' but questions are 'IP NEXUS DS')
-        if not result.data:
-            result = (
-                db.table("questions")
-                .select("id, text, options, branch, order_index, marks, exam_name")
-                .or_(f"branch.eq.{branch},branch.ilike.*{branch}*")
-                .ilike("exam_name", f"%{title}%")
-                .order("order_index")
-                .limit(100)
-                .execute()
-            )
-            
-        # ── Strategy 3: Strict Branch + Legacy Spectral Tag Fallback ──
-        if not result.data:
-            result = (
-                db.table("questions")
-                .select("id, text, options, branch, order_index, marks, exam_name")
-                .or_(f"branch.eq.{branch},branch.ilike.*{branch}*")
-                .ilike("text", f"%⟦EXAM:{title}⟧%")
-                .order("order_index")
-                .limit(100)
-                .execute()
-            )
-
-        # ── Strategy 4: Final Branch-Only Fallback ──
-        # If an exam is active and there are questions for this branch, show them!
-        if not result.data:
-            result = (
-                db.table("questions")
-                .select("id, text, options, branch, order_index, marks, exam_name")
-                .or_(f"branch.eq.{branch},branch.ilike.*{branch}*")
-                .order("order_index")
-                .limit(100)
-                .execute()
-            )
     except Exception as e:
         print(f"[EXAM] DB Error during question fetch: {e}")
         return QuestionsResponse(questions=[], total=0)
