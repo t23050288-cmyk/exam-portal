@@ -2,14 +2,46 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import logging
 from datetime import datetime, timezone
+import logging
 import traceback
+import os
+import sys
+
+# Top-level app definition (required by @vercel/python)
+app = FastAPI(
+    title="ExamGuard API",
+    description="Online Exam System",
+    version="1.0.4",
+    docs_url="/api/docs",
+    redoc_url=None,
+)
+
+# CORS — fully open
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Health always works
+@app.get("/api/health")
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "version": "1.0.4", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/api")
+@app.get("/")
+async def root():
+    return {"message": "ExamGuard API Active", "version": "1.0.4"}
+
+# Load routers
+_init_error = None
+_init_traceback = None
 
 try:
-    import os
-    import sys
-
     api_dir = os.path.dirname(os.path.abspath(__file__))
     if api_dir not in sys.path:
         sys.path.insert(0, api_dir)
@@ -26,37 +58,7 @@ try:
 
     settings = get_settings()
 
-    app = FastAPI(
-        title="ExamGuard API",
-        description="Online Exam System",
-        version="1.0.3",
-        docs_url="/api/docs",
-        redoc_url=None,
-    )
-
-    # ── CORS — fully open ────────────────────────────────────────
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # ── Health (no prefix needed) ────────────────────────────────
-    @app.get("/api/health")
-    @app.get("/health")
-    async def health_check():
-        return {"status": "ok", "version": "1.0.3", "timestamp": datetime.now(timezone.utc).isoformat()}
-
-    @app.get("/api")
-    @app.get("/")
-    async def root():
-        return {"message": "ExamGuard API Active", "version": "1.0.3"}
-
-    # ── Routers — SINGLE mount with /api prefix ──────────────────
-    # vercel.json: /api/(.*) → python_api/index.py
-    # FastAPI receives the full path: /api/admin/login etc.
+    # Single mount with /api prefix
     app.include_router(auth.router,        prefix="/api")
     app.include_router(exam.router,        prefix="/api")
     app.include_router(violations.router,  prefix="/api")
@@ -64,7 +66,7 @@ try:
     app.include_router(ingest.router,      prefix="/api")
     app.include_router(leaderboard.router, prefix="/api")
 
-    # ── Cron ─────────────────────────────────────────────────────
+    # Cron
     @app.get("/api/cron/evict")
     async def cron_evict():
         try:
@@ -83,36 +85,27 @@ try:
         except Exception as e:
             return JSONResponse(status_code=500, content={"error": str(e)})
 
-    # ── Global Error Handler ──────────────────────────────────────
-    @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception):
-        tb = traceback.format_exc()
-        logger.error(f"Unhandled error: {exc}\n{tb}")
-        return JSONResponse(
-            status_code=500,
-            content={"detail": str(exc), "traceback": tb},
-        )
-
-    logger.info("ExamGuard API v1.0.3 initialized OK")
+    logger.info("ExamGuard API v1.0.4 initialized OK")
 
 except Exception as e:
-    import traceback as tb_mod
     _init_error = str(e)
-    _init_traceback = tb_mod.format_exc()
+    _init_traceback = traceback.format_exc()
 
-    app = FastAPI()
+# Error endpoint — always registered
+@app.get("/api/error")
+async def startup_error():
+    if _init_error:
+        return JSONResponse(status_code=500, content={
+            "status": "initialization_failed",
+            "error": _init_error,
+            "traceback": _init_traceback
+        })
+    return {"status": "ok", "message": "No initialization errors"}
 
-    @app.get("/api/health")
-    @app.get("/health")
-    @app.get("/api/error")
-    @app.get("/api")
-    @app.get("/")
-    async def error_health(request: Request):
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": "initialization_failed",
-                "error": _init_error,
-                "traceback": _init_traceback
-            }
-        )
+# Global error handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": traceback.format_exc()},
+    )
