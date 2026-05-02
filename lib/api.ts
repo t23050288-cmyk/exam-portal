@@ -154,12 +154,12 @@ export async function adminFetch<T>(path: string, options: RequestInit = {}): Pr
 // --- Public Endpoints ---
 
 export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  return baseFetch<ExamConfig[]>("/admin/config");
+  return baseFetch<ExamConfig[]>("/admin/exam/config/public");
 }
 
 export async function fetchQuestions(examTitle: string): Promise<Question[]> {
   const token = getSafeToken();
-  return baseFetch<Question[]>(`/exam/questions?exam_title=${encodeURIComponent(examTitle)}`, {
+  return baseFetch<Question[]>(`/exam/questions?title=${encodeURIComponent(examTitle)}`, {
     headers: token ? { "Authorization": `Bearer ${token}` } : {},
   });
 }
@@ -299,11 +299,11 @@ export async function editAdminFolderBranch(examName: string, branches: string[]
 // --- Exam Configuration Endpoints ---
 
 export async function fetchExamConfig(examTitle: string) {
-  return adminFetch<ExamConfig>(`/admin/config?exam_title=${encodeURIComponent(examTitle)}`);
+  return adminFetch<ExamConfig>(`/admin/exam/config?title=${encodeURIComponent(examTitle)}`);
 }
 
 export async function updateExamConfig(config: Partial<ExamConfig>) {
-  return adminFetch<ExamConfig>("/admin/config", {
+  return adminFetch<ExamConfig>("/admin/exam/config", {
     method: "POST",
     body: JSON.stringify(config),
   });
