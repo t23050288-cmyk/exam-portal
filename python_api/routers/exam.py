@@ -82,8 +82,20 @@ def get_questions(
         filtered_data = []
         for q in all_questions:
             q_branch = q.get("branch") or ""
-            # Match exact or partial if it's a comma-separated list like ',CS,CSE,'
-            if branch == q_branch or branch in q_branch:
+            q_exam = q.get("exam_name")
+            
+            # Handle legacy virtual folders if exam_name column is empty
+            text = q.get("text", "")
+            if not q_exam and text.startswith("⟦EXAM:"):
+                end_idx = text.find("⟧")
+                if end_idx != -1:
+                    q_exam = text[6:end_idx]
+
+            # Match exam name and branch exactly
+            branch_match = (branch == q_branch or branch in q_branch)
+            exam_match = (q_exam == title)
+            
+            if branch_match and exam_match:
                 filtered_data.append(q)
                 
     except Exception as e:
