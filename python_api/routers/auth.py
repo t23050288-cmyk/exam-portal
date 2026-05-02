@@ -136,7 +136,7 @@ async def login(request: LoginRequest):
     # 8. Fetch the LATEST active exam config
     exam_conf = (
         db.table("exam_config")
-        .select("title, duration_minutes, total_questions")
+        .select("exam_title, duration_minutes, total_questions")
         .eq("is_active", True)
         .order("updated_at", desc=True)
         .limit(1)
@@ -148,7 +148,7 @@ async def login(request: LoginRequest):
     current_total_questions = 30
     
     if exam_conf.data:
-        current_exam_title = exam_conf.data[0].get("title", current_exam_title)
+        current_exam_title = exam_conf.data[0].get("exam_title", current_exam_title)
         current_duration = exam_conf.data[0].get("duration_minutes") or 20
         current_total_questions = exam_conf.data[0].get("total_questions", current_total_questions)
 
