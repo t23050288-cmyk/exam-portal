@@ -201,7 +201,7 @@ export async function saveAnswer(questionId: string, answer: string): Promise<vo
 
 export async function reportViolation(type: string, metadata?: Record<string, any>): Promise<ViolationResponse> {
   const token = getSafeToken();
-  return baseFetch<ViolationResponse>("/exam/violation", {
+  return baseFetch<ViolationResponse>("/exam/report-violation", {
     method: "POST",
     headers: token ? { "Authorization": `Bearer ${token}` } : {},
     body: JSON.stringify({ type, metadata }),
