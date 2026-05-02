@@ -211,7 +211,8 @@ export async function reportViolation(type: string, metadata?: Record<string, an
 // --- Admin Question Endpoints ---
 
 export async function fetchAdminQuestions(): Promise<AdminQuestion[]> {
-  return adminFetch<AdminQuestion[]>("/admin/questions");
+  const data = await adminFetch<any>("/admin/questions");
+  return Array.isArray(data) ? data : (data?.questions || []);
 }
 
 export async function createAdminQuestion(q: Omit<AdminQuestion, "id">): Promise<AdminQuestion> {
@@ -244,7 +245,8 @@ export async function uploadQuestionImage(file: File): Promise<{ url: string }> 
 // --- Admin Student Endpoints ---
 
 export async function fetchAdminStudents(): Promise<AdminStudent[]> {
-  return adminFetch<AdminStudent[]>("/admin/students");
+  const data = await adminFetch<any>("/admin/students");
+  return Array.isArray(data) ? data : (data?.students || []);
 }
 
 export async function createAdminStudent(s: Partial<AdminStudent>): Promise<AdminStudent> {
