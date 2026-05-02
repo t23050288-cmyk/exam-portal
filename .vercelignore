@@ -1,4 +1,7 @@
-python_api/
-Dockerfile
-railway.json
-api/
+.git
+*.pyc
+__pycache__
+.pytest_cache
+scratch/
+supabase/*.py
+node_modules

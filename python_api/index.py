@@ -46,14 +46,16 @@ try:
         redoc_url=None,
     )
 
+    import os as _os
+    _allowed = _os.getenv("ALLOWED_ORIGINS", "")
+    _origins = [o.strip() for o in _allowed.split(",") if o.strip()] if _allowed else []
+    # Always include localhost for dev
+    _origins += ["http://localhost:3000", "http://localhost:3001"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://exam-portal-76f6.vercel.app",
-            "https://exam-portal-smoky-nine.vercel.app",
-            "http://localhost:3000"
-        ],
-        allow_credentials=True,
+        allow_origins=_origins if _origins else ["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
