@@ -72,7 +72,7 @@ def get_questions(
         result = (
             db.table("questions")
             .select("id, text, options, branch, order_index, marks, exam_name")
-            .eq("branch", branch)
+            .or_(f"branch.eq.{branch},branch.ilike.%,{branch},%")
             .eq("exam_name", title)
             .order("order_index")
             .limit(100)
@@ -85,7 +85,7 @@ def get_questions(
             result = (
                 db.table("questions")
                 .select("id, text, options, branch, order_index, marks, exam_name")
-                .eq("branch", branch)
+                .or_(f"branch.eq.{branch},branch.ilike.%,{branch},%")
                 .ilike("exam_name", f"%{title}%")
                 .order("order_index")
                 .limit(100)
@@ -97,7 +97,7 @@ def get_questions(
             result = (
                 db.table("questions")
                 .select("id, text, options, branch, order_index, marks, exam_name")
-                .eq("branch", branch)
+                .or_(f"branch.eq.{branch},branch.ilike.%,{branch},%")
                 .ilike("text", f"%⟦EXAM:{title}⟧%")
                 .order("order_index")
                 .limit(100)
@@ -110,7 +110,7 @@ def get_questions(
             result = (
                 db.table("questions")
                 .select("id, text, options, branch, order_index, marks, exam_name")
-                .eq("branch", branch)
+                .or_(f"branch.eq.{branch},branch.ilike.%,{branch},%")
                 .order("order_index")
                 .limit(100)
                 .execute()

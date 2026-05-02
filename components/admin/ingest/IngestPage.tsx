@@ -248,7 +248,11 @@ export default function IngestPage() {
       setCommitted(data.committed);
       setPhase("done");
     } catch (e: any) {
-      setError(e.message);
+      if (e.message?.includes("GRAVITY_ALERT")) {
+        setError("This exam folder already has questions. Please check 'Replace existing questions' at the bottom to overwrite them, or choose a different Exam Identity.");
+      } else {
+        setError(e.message);
+      }
       setPhase("previewing");
     }
   };

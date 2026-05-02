@@ -175,7 +175,7 @@ export async function submitExam(answers: Record<string, string>, examTitle: str
 }
 
 export async function loginStudent(usn: string, pass: string, meta: { name: string, email: string, branch: string }): Promise<LoginResponse> {
-  return baseFetch<LoginResponse>("/auth/student/login", {
+  return baseFetch<LoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ usn, password: pass, ...meta }),
   });
@@ -288,10 +288,12 @@ export async function renameAdminFolder(oldName: string, newName: string): Promi
   });
 }
 
-export async function editAdminFolderBranch(examName: string, newBranch: string): Promise<void> {
-  return adminFetch<void>(`/admin/questions/folder/branch`, {
-    method: "POST",
-    body: JSON.stringify({ exam_name: examName, new_branch: newBranch }),
+export async function editAdminFolderBranch(examName: string, branches: string[]): Promise<void> {
+  // Pad the comma-separated string to ensure accurate substring querying later (e.g., ",CS,BCA,")
+  const paddedBranchString = `,${branches.join(",")},`;
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(examName)}/branch`, {
+    method: "PATCH",
+    body: JSON.stringify({ new_branch: paddedBranchString }),
   });
 }
 
