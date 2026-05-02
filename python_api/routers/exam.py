@@ -18,7 +18,7 @@ def _check_exam_active(title: str):
     db = get_supabase()
     try:
         # FIX: Use 'title' column instead of 'exam_title'
-        result = db.table("exam_config").select("is_active, scheduled_start").eq("title", title).limit(1).execute()
+        result = db.table("exam_config").select("is_active, scheduled_start").eq("exam_title", title).limit(1).execute()
         if result.data:
             row = result.data[0]
             if not row.get("is_active", True):

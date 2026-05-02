@@ -183,10 +183,9 @@ export async function loginStudent(usn: string, pass: string, meta: { name: stri
 
 export async function startExam(examTitle: string): Promise<{ started_at: string }> {
   const token = getSafeToken();
-  return baseFetch<{ started_at: string }>("/exam/start", {
+  return baseFetch<{ started_at: string }>(`/exam/start-exam?title=${encodeURIComponent(examTitle)}`, {
     method: "POST",
     headers: token ? { "Authorization": `Bearer ${token}` } : {},
-    body: JSON.stringify({ exam_title: examTitle }),
   });
 }
 
