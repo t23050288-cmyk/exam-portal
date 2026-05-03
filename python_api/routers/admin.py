@@ -240,22 +240,23 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
 
 @router.post("/students/cleanup-stale")
 async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
-    """Bulk move sessions idle for > 4h to 'submitted' (force-submit) or reset them."""
-    from datetime import timedelta
+    """Reset ALL active student sessions back to not_started (full cleanup)."""
     db = get_supabase()
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat()
     
-    stale_res = db.table("exam_status").select("student_id").eq("status", "active").lt("last_active", cutoff).execute()
+    # Get ALL currently active sessions (no time filter — reset everyone)
+    stale_res = db.table("exam_status").select("student_id").eq("status", "active").execute()
     stale_ids = [r["student_id"] for r in (stale_res.data or [])]
     
     if not stale_ids:
-        return {"count": 0}
+        return {"count": 0, "message": "No active sessions to clean up"}
 
     db.table("exam_status").update({
         "status": "not_started",
         "started_at": None,
         "last_active": None,
-        "warnings": 0
+        "warnings": 0,
+        "submitted_at": None,
+        "current_question": 0
     }).in_("student_id", stale_ids).execute()
 
     db.table("exam_results").delete().in_("student_id", stale_ids).execute()
@@ -265,7 +266,7 @@ async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
         "current_token": None
     }).in_("id", stale_ids).execute()
 
-    return {"count": len(stale_ids)}
+    return {"count": len(stale_ids), "message": f"Reset {len(stale_ids)} active sessions"}
 
 @router.post("/students/{student_id}/force-submit")
 async def force_submit_student(student_id: str, _: bool = Depends(verify_admin)):
@@ -397,10 +398,7 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["exam_description"] = request.exam_description
 
     try:
-        # If activating this exam, deactivate all others first
-        if request.is_active is True:
-            db.table("exam_config").update({"is_active": False}).neq("exam_title", request.exam_title).execute()
-
+        # Multiple exams can be active simultaneously (different branches)
         # Safe insert-or-update: check if a row with this exam_title already exists
         existing = db.table("exam_config").select("exam_title").eq("exam_title", request.exam_title).limit(1).execute()
         if existing.data:
@@ -635,3 +633,25 @@ async def export_results(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+@router.delete("/leaderboard/all")
+async def delete_all_leaderboard(_: bool = Depends(verify_admin)):
+    """Delete all exam results (leaderboard data). Student records are preserved."""
+    db = get_supabase()
+    # Delete all exam_results (this clears leaderboard)
+    db.table("exam_results").delete().neq("student_id", "00000000-0000-0000-0000-000000000000").execute()
+    # Also reset exam_status to not_started for all students
+    db.table("exam_status").update({
+        "status": "not_started",
+        "started_at": None,
+        "submitted_at": None,
+        "last_active": None,
+        "warnings": 0,
+        "current_question": 0
+    }).neq("student_id", "00000000-0000-0000-0000-000000000000").execute()
+    db.table("students").update({
+        "is_active_session": False,
+        "current_token": None
+    }).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    return {"success": True, "message": "All leaderboard data cleared"}
+
