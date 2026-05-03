@@ -255,8 +255,7 @@ async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
         "started_at": None,
         "last_active": None,
         "warnings": 0,
-        "submitted_at": None,
-        "current_question": 0
+        "submitted_at": None
     }).in_("student_id", stale_ids).execute()
 
     db.table("exam_results").delete().in_("student_id", stale_ids).execute()
@@ -646,8 +645,7 @@ async def delete_all_leaderboard(_: bool = Depends(verify_admin)):
         "started_at": None,
         "submitted_at": None,
         "last_active": None,
-        "warnings": 0,
-        "current_question": 0
+        "warnings": 0
     }).neq("student_id", "00000000-0000-0000-0000-000000000000").execute()
     db.table("students").update({
         "is_active_session": False,
