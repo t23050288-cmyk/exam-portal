@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabase";
 import styles from "./leaderboard.module.css";
 import Skeleton from "@/components/Skeleton";
 
-import { adminFetch } from "@/lib/api";
+import { adminFetch, deleteAllLeaderboard } from "@/lib/api";
+import React from "react";
 
 interface LeaderboardEntry {
   rank: number;
@@ -45,6 +46,25 @@ export default function LeaderboardPage() {
   const [selectedExam, setSelectedExam] = useState<string>("ALL");
   const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
   const prevRanks = useRef<Map<string, number>>(new Map());
+  const [deleteAllCount, setDeleteAllCount] = React.useState(0);
+  const [deleteAllTimer, setDeleteAllTimer] = React.useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDeleteAllLeaderboard = async () => {
+    const newCount = deleteAllCount + 1;
+    setDeleteAllCount(newCount);
+    if (deleteAllTimer) clearTimeout(deleteAllTimer);
+    const t = setTimeout(() => setDeleteAllCount(0), 3000);
+    setDeleteAllTimer(t);
+    if (newCount >= 3) {
+      setDeleteAllCount(0);
+      if (deleteAllTimer) clearTimeout(deleteAllTimer);
+      try {
+        await deleteAllLeaderboard();
+        setEntries([]);
+        alert("All leaderboard data deleted. Students remain but exam history is cleared.");
+      } catch { alert("Failed to delete leaderboard data."); }
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -132,6 +152,26 @@ export default function LeaderboardPage() {
             {branches.map(br => <option key={br} value={br}>{br}</option>)}
           </select>
 
+          <button
+            onClick={handleDeleteAllLeaderboard}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "1px solid " + (deleteAllCount > 0 ? "#f87171" : "rgba(248,113,113,0.4)"),
+              background: "transparent",
+              color: deleteAllCount > 0 ? "#f87171" : "#f87171",
+              fontSize: 12,
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            🗑️ Delete All {deleteAllCount > 0 ? `(${deleteAllCount}/3)` : ""}
+          </button>
+          {deleteAllCount > 0 && (
+            <span style={{ fontSize: 11, color: "#f87171", alignSelf: "center" }}>
+              {3 - deleteAllCount} more click{3 - deleteAllCount !== 1 ? "s" : ""}
+            </span>
+          )}
           <div className={styles.liveIndicator}>
             <div className={styles.liveDot} />
             LIVE
