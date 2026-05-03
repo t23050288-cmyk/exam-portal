@@ -24,7 +24,7 @@ if (typeof window === "undefined") {
 }
 
 export const API_BASE = "/api";
-export const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024";
+export const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam";
 
 // --- Types ---
 
@@ -325,4 +325,14 @@ export async function exportResults(examName?: string): Promise<Blob> {
 
 export async function cleanupStaleSessions(): Promise<{ count: number }> {
   return adminFetch<{ count: number }>("/admin/cleanup", { method: "POST" });
+}
+
+export async function deleteAllLeaderboard(): Promise<void> {
+  return adminFetch<void>("/admin/leaderboard/all", { method: "DELETE" });
+}
+
+export async function deleteAllStudents(): Promise<AdminStudent[]> {
+  const students = await fetchAdminStudents();
+  await Promise.all(students.map(s => deleteAdminStudent(s.student_id)));
+  return [];
 }
