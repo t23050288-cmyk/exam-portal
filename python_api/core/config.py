@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 90
 
     # Admin
-    admin_secret: str = "admin@examguard2024"
+    admin_secret: str = "rudranshsarvam"
 
     # AI — Inception Spectral Parser
     inception_api_key: str = ""  # Set INCEPTION_API_KEY in .env to enable AI parsing
