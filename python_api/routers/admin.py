@@ -443,7 +443,7 @@ async def get_exam_config_public():
     """Public exam config endpoint (no auth) — returns all configurations."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, scheduled_end, duration_minutes, exam_title").execute()
+        result = db.table("exam_config").select("is_active, scheduled_start, duration_minutes, exam_title").execute()
         return result.data or []
     except Exception:
         return []
