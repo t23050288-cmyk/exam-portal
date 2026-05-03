@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./instructions.module.css";
 import { startExam } from "@/lib/api";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import Skeleton from "@/components/Skeleton";
 
 export default function InstructionsPage() {
   const router = useRouter();
+  const { enter: enterFullscreen } = useFullscreen();
   const [studentInfo, setStudentInfo] = useState<{
     name: string, 
     usn: string,
@@ -71,6 +73,8 @@ export default function InstructionsPage() {
   const handleStartExam = async () => {
     if (starting) return;
     setStarting(true);
+    // Enter fullscreen immediately on button click (requires user gesture)
+    try { enterFullscreen(); } catch (_) {}
     try {
       const res = await startExam(studentInfo?.examTitle || "Initial Assessment");
       
