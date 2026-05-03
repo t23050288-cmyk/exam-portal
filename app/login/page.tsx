@@ -121,7 +121,7 @@ export default function LoginPage() {
               id="name"
               type="text"
               className={styles.inputField}
-              placeholder="Full Name"
+              placeholder="Rudransh"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
