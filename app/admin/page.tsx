@@ -84,7 +84,7 @@ const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
   if (typeof window === "undefined") return false;
-  try { return localStorage.getItem(ADMIN_AUTH_KEY) === "true"; } catch { return false; }
+  try { return sessionStorage.getItem(ADMIN_AUTH_KEY) === "true"; } catch { return false; }
 }
 
 // ── Data-Stream Export Animation ──────────────────────────────
@@ -258,14 +258,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (!initialized) return;
     try {
-      if (authed) localStorage.setItem(ADMIN_AUTH_KEY, "true");
-      else localStorage.removeItem(ADMIN_AUTH_KEY);
+      if (authed) sessionStorage.setItem(ADMIN_AUTH_KEY, "true");
+      else sessionStorage.removeItem(ADMIN_AUTH_KEY);
     } catch {}
   }, [authed, initialized]);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pass === (process.env.NEXT_PUBLIC_ADMIN_SECRET || "admin@examguard2024")) {
+    if (pass === (process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam")) {
       setAuthed(true);
     } else {
       setPassError("Incorrect admin password.");
@@ -1413,13 +1413,47 @@ function StudentsTab() {
     catch { alert("Failed to reset exam state"); }
   };
 
+  const [deleteAllCount, setDeleteAllCount] = React.useState(0);
+  const [deleteAllTimer, setDeleteAllTimer] = React.useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDeleteAll = async () => {
+    const newCount = deleteAllCount + 1;
+    setDeleteAllCount(newCount);
+    if (deleteAllTimer) clearTimeout(deleteAllTimer);
+    const t = setTimeout(() => setDeleteAllCount(0), 3000);
+    setDeleteAllTimer(t);
+    if (newCount >= 3) {
+      setDeleteAllCount(0);
+      if (deleteAllTimer) clearTimeout(deleteAllTimer);
+      try {
+        for (const s of students) { await deleteAdminStudent(s.student_id); }
+        load();
+        alert("All students deleted successfully.");
+      } catch { alert("Failed to delete all students."); }
+    }
+  };
+
   return (
     <div className={adminStyles.managementPage}>
       <div className={adminStyles.header}>
         <h2 className={adminStyles.headerTitle}>Students ({students.length})</h2>
-        <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ usn: "", name: "", email: "", branch: "CS", password: "" }); setShowModal(true); }}>
-          + Add Student
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {deleteAllCount > 0 && (
+            <span style={{ fontSize: 12, color: "#f87171", alignSelf: "center" }}>
+              Click {3 - deleteAllCount} more time{3 - deleteAllCount !== 1 ? "s" : ""} to confirm delete all
+            </span>
+          )}
+          <button
+            className="btn btn-outline"
+            onClick={handleDeleteAll}
+            style={{ color: deleteAllCount > 0 ? "#f87171" : undefined, borderColor: deleteAllCount > 0 ? "#f87171" : undefined, fontSize: 13 }}
+          >
+            🗑️ Delete All {deleteAllCount > 0 ? `(${deleteAllCount}/3)` : ""}
+          </button>
+          <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ usn: "", name: "", email: "", branch: "CS", password: "" }); setShowModal(true); }}>
+            + Add Student
+          </button>
+        </div>
       </div>
 
       {loading ? (
