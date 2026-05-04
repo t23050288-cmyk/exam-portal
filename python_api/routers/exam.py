@@ -235,38 +235,21 @@ def submit_exam(
             submitted_at=r.get("submitted_at", datetime.now(timezone.utc).isoformat()),
         )
 
-    # 2. Load correct answers using Smart Search (matching get_questions logic)
+    # 2. Load correct answers ONLY for the question IDs the student was served
     answers = request.answers
     exam_title = answers.pop("__exam_title", "Initial Assessment")
-    branch = current.get("branch", "CS")
 
-    # Strategy 1: Branch Match (Priority)
+    # Get the exact question IDs submitted by the student (excluding meta keys)
+    submitted_ids = [k for k in answers.keys() if not k.startswith("__")]
+
+    # Fetch only those specific questions from DB
     questions_result = (
         db.table("questions")
         .select("id, correct_answer, marks")
-        .eq("branch", branch)
+        .in_("id", submitted_ids)
         .execute()
     )
 
-    # Strategy 2: Title + Branch
-    if not questions_result.data:
-        questions_result = (
-            db.table("questions")
-            .select("id, correct_answer, marks")
-            .eq("exam_name", exam_title)
-            .eq("branch", branch)
-            .execute()
-        )
-
-    # Strategy 3: Title Only
-    if not questions_result.data:
-        questions_result = (
-            db.table("questions")
-            .select("id, correct_answer, marks")
-            .eq("exam_name", exam_title)
-            .execute()
-        )
-    
     correct_map = {
         q["id"]: (q["correct_answer"], q["marks"])
         for q in (questions_result.data or [])
@@ -275,7 +258,8 @@ def submit_exam(
     score = 0
     correct_count = 0
     wrong_count = 0
-    total_marks = sum(m for _, m in correct_map.values())
+    # total_marks = marks for the questions the student actually received
+    total_marks = sum(marks for _, marks in correct_map.values())
 
     for q_id, selected in answers.items():
         if q_id in correct_map:
