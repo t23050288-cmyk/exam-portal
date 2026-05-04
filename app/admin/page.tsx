@@ -793,7 +793,7 @@ function QuestionsTab() {
     image_url: ""
   });
   const [folderBranchModal, setFolderBranchModal] = useState<{ name: string, branches: string[] } | null>(null);
-  const [activeExamTitle, setActiveExamTitle] = useState<string | null>(null);
+  const [activeExamTitles, setActiveExamTitles] = useState<string[]>([]);
 
 
   const load = useCallback(async () => {
@@ -803,12 +803,8 @@ function QuestionsTab() {
       setQuestions(data); 
       
       const configRes = await fetch('/api/admin/exam/config/public').then(r => r.json());
-      const activeConfig = configRes.find((c: any) => c.is_active);
-      if (activeConfig) {
-        setActiveExamTitle(activeConfig.exam_title);
-      } else {
-        setActiveExamTitle(null);
-      }
+      const activeTitles = (configRes || []).filter((c: any) => c.is_active).map((c: any) => c.exam_title);
+      setActiveExamTitles(activeTitles);
     }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -912,7 +908,7 @@ function QuestionsTab() {
     try {
       setLoading(true);
       await updateExamConfig({ exam_title: folderName, is_active: true });
-      setActiveExamTitle(folderName);
+      setActiveExamTitles(prev => prev.includes(folderName) ? prev : [...prev, folderName]);
       alert(`Successfully activated exam: ${folderName}`);
     } catch (error: any) {
       alert(`Failed to activate exam: ${error.message}`);
@@ -926,7 +922,7 @@ function QuestionsTab() {
     try {
       setLoading(true);
       await updateExamConfig({ exam_title: folderName, is_active: false });
-      setActiveExamTitle(null);
+      setActiveExamTitles(prev => prev.filter(t => t !== folderName));
       alert(`Exam "${folderName}" has been deactivated.`);
     } catch (error: any) {
       alert(`Failed to deactivate exam: ${error.message}`);
@@ -1055,7 +1051,7 @@ function QuestionsTab() {
                       </div>
                       {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
-                          {activeExamTitle === name ? (
+                          {activeExamTitles.includes(name) ? (
                             <>
                               <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
                                 ✅ Active
@@ -1146,7 +1142,7 @@ function QuestionsTab() {
                             <small style={{ color: "var(--text-muted)" }}>{clusterQuestions.length} Questions</small>
                           </div>
                           <div className={adminStyles.nodeActions}>
-                            {activeExamTitle === name ? (
+                            {activeExamTitles.includes(name) ? (
                               <>
                                 <span style={{ fontSize: 12, padding: "4px 12px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
                                   ✅ Active
@@ -1276,6 +1272,7 @@ function QuestionsTab() {
 
             <div className={adminStyles.formGroup} style={{ marginTop: 16 }}>
               <label>Media Asset (Optional)</label>
+              {/* Image Preview */}
               {formData.image_url ? (
                 <div className={adminStyles.imagePreviewContainer}>
                   <img src={formData.image_url} alt="Question" className={adminStyles.imagePreview} />
@@ -1284,32 +1281,78 @@ function QuestionsTab() {
                     onClick={() => setFormData({ ...formData, image_url: "" })}
                     title="Remove Image"
                     type="button"
-                  >
-                    ×
-                  </button>
+                  >×</button>
                 </div>
-              ) : (
+              ) : null}
+
+              {/* Audio Preview */}
+              {(formData as any).audio_url ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 8, marginBottom: 8 }}>
+                  <audio src={(formData as any).audio_url} controls style={{ flex: 1, height: 32 }} />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, audio_url: "" } as any)}
+                    style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18 }}
+                    title="Remove Audio"
+                  >×</button>
+                </div>
+              ) : null}
+
+              {/* Upload zone — shown when neither image nor audio is set */}
+              {!formData.image_url && !(formData as any).audio_url ? (
                 <div className={adminStyles.uploadZone}>
                   <input 
                     type="file" 
-                    id="question-image-upload" 
+                    id="question-media-upload" 
                     style={{ display: "none" }}
-                    accept="image/*"
+                    accept="image/*,audio/*,video/*"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
                         const res = await uploadQuestionImage(file);
-                        setFormData({ ...formData, image_url: res.url });
+                        const isAudio = file.type.startsWith("audio/") || file.type.startsWith("video/");
+                        if (isAudio) {
+                          setFormData({ ...formData, audio_url: res.url } as any);
+                        } else {
+                          setFormData({ ...formData, image_url: res.url });
+                        }
                       } catch (err: any) {
                         alert(`Upload failed: ${err.message}`);
                       }
                     }}
                   />
-                  <label htmlFor="question-image-upload" style={{ cursor: "pointer", display: "block", padding: "12px", textAlign: "center" }}>
-                    <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to upload image asset</div>
+                  <label htmlFor="question-media-upload" style={{ cursor: "pointer", display: "block", padding: "12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️🎵</div>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to upload image or audio</div>
                   </label>
+                </div>
+              ) : (
+                <div style={{ marginTop: 4 }}>
+                  <label htmlFor="question-media-upload2" style={{ cursor: "pointer", fontSize: 12, color: "var(--accent-light)", textDecoration: "underline" }}>
+                    Replace media
+                  </label>
+                  <input 
+                    type="file" 
+                    id="question-media-upload2" 
+                    style={{ display: "none" }}
+                    accept="image/*,audio/*,video/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const res = await uploadQuestionImage(file);
+                        const isAudio = file.type.startsWith("audio/") || file.type.startsWith("video/");
+                        if (isAudio) {
+                          setFormData({ ...formData, image_url: "", audio_url: res.url } as any);
+                        } else {
+                          setFormData({ ...formData, audio_url: "", image_url: res.url } as any);
+                        }
+                      } catch (err: any) {
+                        alert(`Upload failed: ${err.message}`);
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>
