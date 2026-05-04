@@ -4,7 +4,7 @@ import styles from "./QuestionCard.module.css";
 import { ReactNode } from "react";
 
 interface QuestionCardProps {
-  question: { id: string; text: string; options: string[]; marks?: number; image_url?: string | null };
+  question: { id: string; text: string; options: string[]; marks?: number; image_url?: string | null; audio_url?: string | null };
   questionNumber: number;
   totalQuestions: number;
   selectedAnswer: string | undefined;
@@ -42,6 +42,12 @@ export default function QuestionCard({
       {question.image_url && (
         <div className={styles.imageContainer}>
           <img src={question.image_url} alt="Question Diagram" className={styles.image} />
+        </div>
+      )}
+      {question.audio_url && (
+        <div style={{ margin: "12px 0", padding: "10px 14px", background: "rgba(255,255,255,0.06)", borderRadius: 10, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 20 }}>🎧</span>
+          <audio src={question.audio_url} controls controlsList="nodownload" style={{ flex: 1, height: 36 }} />
         </div>
       )}
 
