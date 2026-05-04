@@ -1,3 +1,4 @@
+from fastapi.responses import Response
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
 from datetime import datetime, timezone
 
@@ -54,12 +55,16 @@ def update_last_active(student_id: str):
 def get_questions(
     title: str,
     background_tasks: BackgroundTasks,
+    response: Response,
     current: dict = Depends(get_current_student)
 ):
     """
     Return all questions for a specific exam title and branch.
     """
     _check_exam_active(title)
+    # Questions are immutable during an exam session — cache privately in browser
+    # for 30 minutes. On refresh, student gets instant load from their own browser.
+    response.headers["Cache-Control"] = "private, max-age=1800, stale-while-revalidate=600"
     db = get_supabase()
 
     # Update last_active in background
@@ -72,7 +77,7 @@ def get_questions(
         # questions and filter them securely in Python.
         result = (
             db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
+            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url")
             .order("order_index")
             .limit(200)
             .execute()
@@ -110,6 +115,8 @@ def get_questions(
             branch=q.get("branch", branch),
             order_index=q["order_index"],
             marks=q["marks"],
+            image_url=q.get("image_url"),
+            audio_url=q.get("audio_url"),
         )
         for q in filtered_data
     ]
@@ -122,7 +129,7 @@ def test_branch(branch: str):
     try:
         result = (
             db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name")
+            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url")
             .ilike("branch", f"%{branch}%")
             .order("order_index")
             .limit(100)
