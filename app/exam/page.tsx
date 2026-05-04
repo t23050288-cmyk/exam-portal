@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchQuestions, submitExam, fetchPublicExamConfig, type Question, type SubmitResponse } from "@/lib/api";
-import { useExamState, clearExamStorage } from "@/hooks/useExamState";
+import { useExamState, clearExamStorage, saveQuestionsToCache, loadQuestionsFromCache } from "@/hooks/useExamState";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import ExamTimer from "@/components/ExamTimer";
@@ -39,6 +39,7 @@ export default function ExamPage() {
   const [examScheduled, setExamScheduled] = useState<string | null>(null);
   const [examTitle, setExamTitle] = useState("");
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "saved">("idle");
+  const [loadSource, setLoadSource] = useState<"network" | "cache" | null>(null);
 
   // Pagination state
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -90,10 +91,27 @@ export default function ExamPage() {
     // Pick random final theme on mount
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
-    // Fetch questions for the specific exam title
+    // ── Cache-first question loading + staggered start ──────────
+    // 1. Check browser cache first (zero server hit on refresh)
+    const cached = loadQuestionsFromCache(quizTitle);
+    if (cached && cached.length > 0) {
+      setQuestions(cached as Question[]);
+      setLoadSource("cache");
+      setLoading(false);
+      enterFullscreen();
+      return; // skip network fetch entirely
+    }
+
+    // 2. Staggered start: random 0-2s delay to spread the thundering herd
+    //    100 students pressing start at the same time → requests spread over 2s
+    const jitterMs = Math.floor(Math.random() * 2000);
+    await new Promise(res => setTimeout(res, jitterMs));
+
     fetchQuestions(quizTitle)
       .then((qs) => {
         setQuestions(qs);
+        saveQuestionsToCache(quizTitle, qs); // save to browser for refresh resilience
+        setLoadSource("network");
         setLoading(false);
         enterFullscreen();
       })
@@ -413,6 +431,9 @@ export default function ExamPage() {
         }}>
           <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "#1e293b" }}>
             Welcome, {student?.name || "Student"}!{" "}
+            {loadSource === "cache" && (
+              <span style={{ fontSize: 10, background: "rgba(13,148,136,0.15)", color: "#0d9488", borderRadius: 6, padding: "2px 7px", marginLeft: 6, fontWeight: 700, verticalAlign: "middle" }}>⚡ Cache</span>
+            )}
             <span style={{ fontWeight: 400, opacity: 0.7, color: "#475569" }}>
               Deep breaths and stay focused. You&apos;ve got this.
             </span>
