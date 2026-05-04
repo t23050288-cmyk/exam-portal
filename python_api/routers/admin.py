@@ -97,33 +97,61 @@ async def upload_question_image(
     _: bool = Depends(verify_admin)
 ):
     """
-    Upload a question image to Supabase Storage and return the public URL.
+    Upload a question image/audio/video to Cloudinary and return the public URL.
+    Cloudinary bypasses Vercel 4.5MB payload limit via direct server-to-CDN upload.
     """
-    import uuid
-    db = get_supabase()
-    
-    bucket_name = "question-images"
-    try:
-        buckets = db.storage.list_buckets()
-        if not any(b.name == bucket_name for b in buckets):
-            db.storage.create_bucket(bucket_name, options={"public": True})
-    except Exception as e:
-        print(f"Bucket init alert: {e}")
+    import uuid, httpx, os
+    from core.config import get_settings as _cs
+    settings = _cs()
 
-    file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
-    unique_name = f"{uuid.uuid4()}.{file_ext}"
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+    api_key = os.environ.get("CLOUDINARY_API_KEY", "")
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET", "")
+
+    if not cloud_name or not api_key or not api_secret:
+        raise HTTPException(status_code=500, detail="Cloudinary credentials not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET env vars.")
+
     contents = await file.read()
+    file_ext = (file.filename.split(".")[-1] if file.filename and "." in file.filename else "jpg").lower()
+    
+    # Determine resource type
+    audio_exts = {"mp3", "wav", "ogg", "m4a", "aac", "flac", "webm"}
+    video_exts = {"mp4", "mov", "avi", "mkv", "webm"}
+    if file_ext in audio_exts:
+        resource_type = "video"  # Cloudinary uses "video" for audio too
+    elif file_ext in video_exts:
+        resource_type = "video"
+    else:
+        resource_type = "image"
+
+    upload_url = f"https://api.cloudinary.com/v1_1/{cloud_name}/{resource_type}/upload"
+
+    import hashlib, time
+    timestamp = str(int(time.time()))
+    params_to_sign = f"folder=examguard&timestamp={timestamp}"
+    signature = hashlib.sha1(f"{params_to_sign}{api_secret}".encode()).hexdigest()
 
     try:
-        res = db.storage.from_(bucket_name).upload(
-            path=unique_name,
-            file=contents,
-            file_options={"content-type": file.content_type or "image/jpeg"}
-        )
-        public_url = db.storage.from_(bucket_name).get_public_url(unique_name)
-        return {"image_url": public_url}
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                upload_url,
+                data={
+                    "api_key": api_key,
+                    "timestamp": timestamp,
+                    "signature": signature,
+                    "folder": "examguard",
+                },
+                files={"file": (file.filename or f"upload.{file_ext}", contents, file.content_type or "application/octet-stream")},
+            )
+        result = resp.json()
+        if "secure_url" not in result:
+            raise HTTPException(status_code=500, detail=f"Cloudinary error: {result.get("error", {}).get("message", str(result))}")
+        url = result["secure_url"]
+        return {"url": url, "image_url": url, "resource_type": resource_type}
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Upload timed out — file may be too large")
     except Exception as e:
-        print(f"CRITICAL image_upload: {e}")
+        print(f"CRITICAL upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Students Management ───────────────────────────────────────
