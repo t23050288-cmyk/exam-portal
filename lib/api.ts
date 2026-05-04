@@ -51,6 +51,7 @@ export interface Question {
   text: string;
   options: string[];
   image_url?: string;
+  audio_url?: string;
   marks?: number;
 }
 
@@ -233,10 +234,10 @@ export async function deleteAdminQuestion(id: string): Promise<void> {
   return adminFetch<void>(`/admin/questions/${id}`, { method: "DELETE" });
 }
 
-export async function uploadQuestionImage(file: File): Promise<{ url: string }> {
+export async function uploadQuestionImage(file: File): Promise<{ url: string; image_url?: string; resource_type?: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  return adminFetch<{ url: string }>("/admin/upload", {
+  return adminFetch<{ url: string; image_url?: string; resource_type?: string }>("/admin/upload", {
     method: "POST",
     body: formData,
   });
