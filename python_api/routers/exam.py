@@ -77,7 +77,7 @@ def get_questions(
         # questions and filter them securely in Python.
         result = (
             db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url")
+            .select("id, text, options, branch, order_index, marks, exam_name, image_url")
             .order("order_index")
             .limit(200)
             .execute()
@@ -97,14 +97,7 @@ def get_questions(
                     q_exam = text[6:end_idx]
 
             # Match exam name and branch exactly
-            # Supports both plain "CS" and padded ",CS,ECE," formats
-            # Use exact word boundary matching to prevent "CS" matching "CSE"
-            if q_branch.startswith(",") and q_branch.endswith(","):
-                # Padded comma-separated format: ",CS,ECE,"
-                branch_match = f",{branch}," in q_branch
-            else:
-                # Plain format: exact match only
-                branch_match = (branch == q_branch)
+            branch_match = (branch == q_branch or branch in q_branch)
             exam_match = (q_exam == title)
             
             if branch_match and exam_match:
@@ -123,7 +116,6 @@ def get_questions(
             order_index=q["order_index"],
             marks=q["marks"],
             image_url=q.get("image_url"),
-            audio_url=q.get("audio_url"),
         )
         for q in filtered_data
     ]
@@ -136,7 +128,7 @@ def test_branch(branch: str):
     try:
         result = (
             db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url")
+            .select("id, text, options, branch, order_index, marks, exam_name, image_url")
             .ilike("branch", f"%{branch}%")
             .order("order_index")
             .limit(100)
