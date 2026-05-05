@@ -438,3 +438,118 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Full Redesign for ≤768px
+   Layout: Header → Question Card → Question Grid
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  .wrapper {
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    padding: 8px 14px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    min-height: 52px;
+  }
+
+  .headerLeft { gap: 6px; min-width: 0; flex: 1; }
+  .headerCenter { flex: 0 0 auto; }
+  .headerRight { gap: 6px; flex: 0 0 auto; }
+
+  .headerSubmitBtn {
+    padding: 6px 12px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+    max-width: 100%;
+    flex: 1;
+    overflow: hidden;
+    margin: 0;
+  }
+
+  .questionList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar {
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 0;
+    height: auto;
+    overflow: visible;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 10px 12px 14px;
+    max-height: 36vh;
+    overflow-y: auto;
+  }
+
+  .sideCard {
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .sideTitle {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .navGrid {
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+    gap: 6px;
+  }
+
+  .navBtn {
+    width: 36px;
+    height: 36px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
+  .legend {
+    margin-top: 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .legendItem { font-size: 10px; gap: 4px; }
+  .legendDot { width: 8px; height: 8px; }
+
+  /* Hide camera card on mobile */
+  .sideCard:nth-child(2) { display: none; }
+}
+
+@media (max-width: 390px) {
+  .header { padding: 6px 10px; }
+  .navBtn { width: 32px; height: 32px; font-size: 10px; }
+  .questionList { padding: 10px; }
+}
