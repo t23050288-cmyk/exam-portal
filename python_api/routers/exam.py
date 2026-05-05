@@ -85,8 +85,10 @@ def get_questions(
         
         all_questions = result.data or []
         filtered_data = []
+        student_branch_upper = branch.strip().upper()
+        
         for q in all_questions:
-            q_branch = q.get("branch") or ""
+            q_branch = (q.get("branch") or "").strip()
             q_exam = q.get("exam_name")
             
             # Handle legacy virtual folders if exam_name column is empty
@@ -96,12 +98,38 @@ def get_questions(
                 if end_idx != -1:
                     q_exam = text[6:end_idx]
 
-            # Match exam name and branch exactly
-            branch_match = (branch == q_branch or branch in q_branch)
             exam_match = (q_exam == title)
-            
-            if branch_match and exam_match:
+            if not exam_match:
+                continue  # skip questions from other exams entirely
+
+            # Branch matching: case-insensitive
+            # If q_branch is empty/null → the question applies to ALL branches
+            if not q_branch:
                 filtered_data.append(q)
+                continue
+
+            q_branch_upper = q_branch.upper()
+            branch_match = (
+                student_branch_upper == q_branch_upper
+                or student_branch_upper in q_branch_upper
+                or q_branch_upper in student_branch_upper
+            )
+            if branch_match:
+                filtered_data.append(q)
+
+        # Fallback: if no branch-matched questions found, return ALL questions for this exam
+        # This handles cases where branch data is inconsistent
+        if not filtered_data:
+            print(f"[EXAM] No branch match for branch='{branch}', title='{title}'. Falling back to all questions for this exam.")
+            for q in all_questions:
+                q_exam = q.get("exam_name")
+                text = q.get("text", "")
+                if not q_exam and text.startswith("⟦EXAM:"):
+                    end_idx = text.find("⟧")
+                    if end_idx != -1:
+                        q_exam = text[6:end_idx]
+                if q_exam == title:
+                    filtered_data.append(q)
                 
     except Exception as e:
         print(f"[EXAM] DB Error during question fetch: {e}")
