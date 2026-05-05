@@ -235,3 +235,83 @@
   object-fit: contain;
   display: block;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE — QuestionCard responsive tweaks
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .card {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+
+  .text {
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .options {
+    gap: 8px;
+  }
+
+  .option {
+    padding: 12px 14px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .optionLabel {
+    font-size: 14px;
+  }
+
+  .actions {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .btnPrev, .btnNext {
+    padding: 10px 18px;
+    font-size: 13px;
+    flex: 1;
+  }
+
+  .btnSubmit {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+
+  .header {
+    margin-bottom: 6px;
+  }
+
+  .numberText {
+    font-size: 13px;
+  }
+
+  .marks {
+    font-size: 10px;
+    padding: 3px 10px;
+  }
+
+  .imageContainer {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 390px) {
+  .card {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+
+  .text {
+    font-size: 14px;
+  }
+
+  .option {
+    padding: 10px 12px;
+  }
+}
