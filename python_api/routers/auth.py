@@ -133,33 +133,51 @@ async def login(request: LoginRequest):
             {"student_id": student["id"], "status": "not_started"}
         ).execute()
 
-    # 8. Fetch the LATEST active exam config
+    # 8. Find the active exam that has questions for THIS student's branch (branch-aware matching)
     exam_conf = (
         db.table("exam_config")
         .select("*")
         .eq("is_active", True)
         .order("updated_at", desc=True)
-        .limit(1)
         .execute()
     )
-    
+
     current_exam_title = "Initial Assessment"
     current_duration = 20
-    current_total_questions = 30
-    
-    if exam_conf.data:
-        current_exam_title = exam_conf.data[0].get("exam_title", current_exam_title)
-        current_duration = exam_conf.data[0].get("duration_minutes") or 20
-        current_total_questions = exam_conf.data[0].get("total_questions", current_total_questions)
+    current_total_questions = 0
+    selected_config = None
 
-    # Calculate how many questions actually exist
+    if exam_conf.data:
+        # Try each active exam to find one with questions for student's branch (exact match)
+        for cfg in exam_conf.data:
+            title = cfg.get("exam_title", "")
+            try:
+                q_check = (
+                    db.table("questions")
+                    .select("id", count="exact")
+                    .eq("exam_name", title)
+                    .eq("branch", current_branch)
+                    .execute()
+                )
+                if q_check.count and q_check.count > 0:
+                    selected_config = cfg
+                    current_exam_title = title
+                    current_duration = cfg.get("duration_minutes") or 20
+                    current_total_questions = q_check.count
+                    break  # Found the right exam for this branch
+            except Exception:
+                continue
+
+        # Fallback: if no branch-matched exam found, use the most-recently-updated active exam
+        if not selected_config and exam_conf.data:
+            selected_config = exam_conf.data[0]
+            current_exam_title = selected_config.get("exam_title", current_exam_title)
+            current_duration = selected_config.get("duration_minutes") or 20
+            current_total_questions = selected_config.get("total_questions", 30)
+
+    # Calculate how many questions actually exist (always verify exact count)
     try:
         q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).eq("exam_name", current_exam_title).execute()
-        if not q_count.count:
-            q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).ilike("exam_name", f"%{current_exam_title}%").execute()
-        if not q_count.count:
-            q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).execute()
-            
         if q_count.count and q_count.count > 0:
             current_total_questions = q_count.count
     except Exception as e:
