@@ -105,20 +105,20 @@ export default function ExamPage() {
     // 2. Staggered start: random 0-2s delay to spread the thundering herd
     //    100 students pressing start at the same time → requests spread over 2s
     const jitterMs = Math.floor(Math.random() * 2000);
-    await new Promise(res => setTimeout(res, jitterMs));
-
-    fetchQuestions(quizTitle)
-      .then((qs) => {
-        setQuestions(qs);
-        saveQuestionsToCache(quizTitle, qs); // save to browser for refresh resilience
-        setLoadSource("network");
-        setLoading(false);
-        enterFullscreen();
-      })
-      .catch(() => {
-        setError("Failed to load exam questions. Please refresh.");
-        setLoading(false);
-      });
+    setTimeout(() => {
+      fetchQuestions(quizTitle)
+        .then((qs) => {
+          setQuestions(qs);
+          saveQuestionsToCache(quizTitle, qs); // save to browser for refresh resilience
+          setLoadSource("network");
+          setLoading(false);
+          enterFullscreen();
+        })
+        .catch(() => {
+          setError("Failed to load exam questions. Please refresh.");
+          setLoading(false);
+        });
+    }, jitterMs);
   }, [router, enterFullscreen]);
 
   // ── Exam config polling (inactive guard) ──────────────────
