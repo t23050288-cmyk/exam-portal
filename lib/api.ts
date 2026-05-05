@@ -225,7 +225,7 @@ export async function createAdminQuestion(q: Omit<AdminQuestion, "id">): Promise
 
 export async function updateAdminQuestion(id: string, q: Partial<AdminQuestion>): Promise<AdminQuestion> {
   return adminFetch<AdminQuestion>(`/admin/questions/${id}`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(q),
   });
 }
@@ -259,7 +259,7 @@ export async function createAdminStudent(s: Partial<AdminStudent>): Promise<Admi
 
 export async function updateAdminStudent(id: string, s: Partial<AdminStudent>): Promise<AdminStudent> {
   return adminFetch<AdminStudent>(`/admin/students/${id}`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(s),
   });
 }
