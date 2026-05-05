@@ -186,10 +186,15 @@ export default function DashboardPage() {
     };
   }, [loadExams]);
 
-  // ── Branch-Resonance filtered exams ──────────────────────
-  const filteredExams = selectedBranch === "ALL"
+  // ── Branch-Resonance filtered exams (STRICT: students see ONLY their branch) ──
+  const filteredExams = (!student || student.branch === "ALL")
     ? allExams
-    : allExams.filter(e => e.branch === selectedBranch);
+    : allExams.filter(e => {
+        const sBranch = student.branch.trim();
+        const eBranch = e.branch.trim();
+        // Exact match only — "CS" must NOT match "CSE"
+        return eBranch === sBranch;
+      });
 
   const activeExams = filteredExams.filter(e => e.is_active);
   const inactiveExams = filteredExams.filter(e => !e.is_active);
