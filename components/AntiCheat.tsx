@@ -175,7 +175,7 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
   // Only show WarningModal when a violation is triggered.
   return (
     <>
-      <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} />
+      {/* <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} /> */}
       {showModal && (
         <WarningModal
           warningCount={warningCount}
