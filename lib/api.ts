@@ -279,7 +279,7 @@ export async function forceSubmitAdminStudent(id: string): Promise<void> {
 // --- Admin Folder/Branch Endpoints ---
 
 export async function deleteAdminFolder(examName: string): Promise<void> {
-  return adminFetch<void>(`/admin/questions/folder/${encodeURIComponent(examName)}`, { method: "DELETE" });
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(examName)}`, { method: "DELETE" });
 }
 
 export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
