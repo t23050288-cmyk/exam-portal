@@ -30,9 +30,21 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     }
   }, [isSubmitted, enterFullscreen]);
 
+  const [ready, setReady] = useState(false);
+
+  // Grace period: don't fire violations for first 4 seconds
+  // This gives fullscreen time to settle and avoids spurious triggers on load
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const isMobile = typeof window !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
   const triggerViolation = useCallback(
     async (type: string, metadata?: Record<string, unknown>) => {
       if (isSubmitted) return;
+      if (!ready) return; // still in grace period
 
       try {
         const res = await reportViolation(type, metadata);
@@ -75,16 +87,27 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [triggerViolation]);
 
-  // ── Window blur ───────────────────────────────────────────
+  // ── Window blur (skip on mobile — keyboard/notifications cause constant blur) ──
   useEffect(() => {
-    const handleBlur = () => triggerViolation("window_blur");
+    if (isMobile) return;
+    let blurTimer: ReturnType<typeof setTimeout>;
+    const handleBlur = () => {
+      blurTimer = setTimeout(() => triggerViolation("window_blur"), 600);
+    };
+    const handleFocus = () => clearTimeout(blurTimer);
     window.addEventListener("blur", handleBlur);
-    return () => window.removeEventListener("blur", handleBlur);
-  }, [triggerViolation]);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      clearTimeout(blurTimer);
+    };
+  }, [triggerViolation, isMobile]);
 
   // ── Fullscreen exit ───────────────────────────────────────
   useEffect(() => {
     const handleFsChange = () => {
+      if (isMobile) return; // Mobile browsers don't support fullscreen the same way
       const isFs =
         !!document.fullscreenElement ||
         !!(document as any).webkitFullscreenElement;
