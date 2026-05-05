@@ -97,7 +97,14 @@ def get_questions(
                     q_exam = text[6:end_idx]
 
             # Match exam name and branch exactly
-            branch_match = (branch == q_branch or branch in q_branch)
+            # Supports both plain "CS" and padded ",CS,ECE," formats
+            # Use exact word boundary matching to prevent "CS" matching "CSE"
+            if q_branch.startswith(",") and q_branch.endswith(","):
+                # Padded comma-separated format: ",CS,ECE,"
+                branch_match = f",{branch}," in q_branch
+            else:
+                # Plain format: exact match only
+                branch_match = (branch == q_branch)
             exam_match = (q_exam == title)
             
             if branch_match and exam_match:
