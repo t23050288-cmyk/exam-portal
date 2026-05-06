@@ -27,11 +27,11 @@ interface StudentLog {
 }
 
 interface Props {
-  examId: string;
-  token:  string;
+  examId?: string;
+  token?:  string;
 }
 
-export default function AdminDashboard({ examId, token }: Props) {
+export default function AdminDashboard({ examId = "", token = "" }: Props) {
   const [agg, setAgg]             = useState<AggregateData | null>(null);
   const [drillSession, setDrill]  = useState<string | null>(null);
   const [studentLog, setStudentLog] = useState<StudentLog | null>(null);
