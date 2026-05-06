@@ -383,3 +383,26 @@ export async function uploadQuestionImage(file: File, questionId?: string): Prom
 export async function fetchBranchExamSummary(): Promise<BranchExamSummary[]> {
   return adminFetch<BranchExamSummary[]>("/admin/branch-summary");
 }
+
+export async function startExam(examTitle: string): Promise<{ session_id: string; started_at: string; expires_at: string }> {
+  const token = typeof window !== "undefined" ? sessionStorage.getItem("exam_token") || "" : "";
+  const res = await fetch(`${API_BASE}/exam/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ exam_name: examTitle }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to start exam");
+  }
+  const data = await res.json();
+  // Store session_id for sync engine
+  if (typeof window !== "undefined" && data.session_id) {
+    sessionStorage.setItem("exam_session_id", data.session_id);
+  }
+  return { session_id: data.session_id, started_at: data.started_at || new Date().toISOString(), expires_at: data.expires_at };
+}
+
+export async function deleteAllLeaderboard(): Promise<void> {
+  return adminFetch<void>("/admin/leaderboard", { method: "DELETE" });
+}
