@@ -302,7 +302,7 @@ export default function AdminPage() {
     if (!authed) return;
     setLoading(true);
     fetchStudents().finally(() => setLoading(false));
-    fetchAdminQuestions().then(qs => {
+    fetchAdminQuestions().then(({ questions: qs }) => {
       const list: BranchExamSummary[] = [];
       qs.forEach(q => {
         const br = q.branch || "CS";
@@ -803,7 +803,7 @@ function QuestionsTab() {
     setLoading(true);
     try { 
       const data = await fetchAdminQuestions(); 
-      setQuestions(data); 
+      setQuestions(data.questions); 
       
       const configRes = await fetch('/api/admin/exam/config/public').then(r => r.json());
       const activeTitles = (configRes || []).filter((c: any) => c.is_active).map((c: any) => c.exam_title);
