@@ -12,7 +12,7 @@ import sys
 app = FastAPI(
     title="ExamGuard API",
     description="Online Exam System",
-    version="1.0.4",
+    version="1.0.5",
     docs_url="/api/docs",
     redoc_url=None,
 )
@@ -48,7 +48,7 @@ try:
 
     from db.supabase_client import get_supabase
     from core.config import get_settings
-    from routers import auth, exam, violations, admin, ingest, leaderboard
+    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate
 
     logging.basicConfig(
         level=logging.INFO,
@@ -65,6 +65,10 @@ try:
     app.include_router(admin.router,       prefix="/api")
     app.include_router(ingest.router,      prefix="/api")
     app.include_router(leaderboard.router, prefix="/api")
+    app.include_router(sessions.router)          # /api/start_exam, /api/final_submit, /api/export_session
+    app.include_router(sync.router)              # /api/autosave, /api/events_batch, /api/events_beacon, /api/sync
+    app.include_router(uploads.router)           # /api/sign_upload
+    app.include_router(aggregate.router)         # /api/admin/aggregate, /api/admin/throttle
 
     # Cron
     @app.get("/api/cron/evict")

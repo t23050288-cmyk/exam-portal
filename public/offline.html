@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — Exam Portal</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center;
+           justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: #e2e8f0; }
+    .card { text-align: center; max-width: 400px; padding: 2rem; background: #1e293b;
+            border-radius: 16px; border: 1px solid #334155; }
+    h1 { color: #f87171; margin-bottom: 0.5rem; }
+    p  { color: #94a3b8; line-height: 1.6; }
+    .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 4px 12px;
+             border-radius: 99px; font-size: 0.8rem; font-weight: 600; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>📡 You're Offline</h1>
+    <p>Your answers are being saved locally in your browser. Do <strong>not</strong> close this tab.</p>
+    <p>Once your connection returns, your answers will sync automatically.</p>
+    <div class="badge">⏳ Waiting for connection...</div>
+    <script>
+      window.addEventListener('online', () => window.location.reload());
+    </script>
+  </div>
+</body>
+</html>

@@ -18,7 +18,21 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#ffffff" />
       </head>
-      <body className="">{children}</body>
+      <body className="">{children}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                  .then(function(reg) { console.log('[SW] Registered:', reg.scope); })
+                  .catch(function(err) { console.warn('[SW] Registration failed:', err); });
+              });
+            }
+          `,
+        }}
+      />
+      </body>
     </html>
   );
 }
