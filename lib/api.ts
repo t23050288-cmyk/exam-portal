@@ -291,13 +291,21 @@ export async function fetchExamConfig(): Promise<ExamConfig[]> {
 }
 
 export async function updateExamConfig(
-  id: string,
-  updates: Partial<ExamConfig>
+  idOrUpdates: string | Partial<ExamConfig>,
+  updates?: Partial<ExamConfig>
 ): Promise<ExamConfig> {
-  return adminFetch<ExamConfig>(`/admin/exam-config/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(updates),
-  });
+  if (typeof idOrUpdates === "string") {
+    return adminFetch<ExamConfig>(`/admin/exam-config/${idOrUpdates}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+  } else {
+    // Called with just the config object (find/create by exam_title)
+    return adminFetch<ExamConfig>(`/admin/exam-config`, {
+      method: "PUT",
+      body: JSON.stringify(idOrUpdates),
+    });
+  }
 }
 
 export async function fetchAdminQuestions(): Promise<{ questions: AdminQuestion[]; total: number }> {
@@ -342,8 +350,10 @@ export async function forceSubmitAdminStudent(id: string): Promise<void> {
   return adminFetch<void>(`/admin/students/${id}/force-submit`, { method: "POST" });
 }
 
-export async function cleanupStaleSessions(): Promise<{ cleaned: number }> {
-  return adminFetch<{ cleaned: number }>("/admin/cleanup-sessions", { method: "POST" });
+export async function cleanupStaleSessions(): Promise<{ cleaned: number; count: number }> {
+  const res = await adminFetch<{ cleaned?: number; count?: number }>("/admin/cleanup-sessions", { method: "POST" });
+  const n = res.cleaned ?? res.count ?? 0;
+  return { cleaned: n, count: n };
 }
 
 export async function exportResults(branch?: string): Promise<Blob> {
@@ -363,8 +373,8 @@ export async function renameAdminFolder(oldName: string, newName: string): Promi
   return adminFetch<void>("/admin/folder/rename", { method: "POST", body: JSON.stringify({ old_name: oldName, new_name: newName }) });
 }
 
-export async function editAdminFolderBranch(folderName: string, branch: string): Promise<void> {
-  return adminFetch<void>("/admin/folder/branch", { method: "PATCH", body: JSON.stringify({ folder: folderName, branch }) });
+export async function editAdminFolderBranch(folderName: string, branches: string | string[]): Promise<void> {
+  return adminFetch<void>("/admin/folder/branch", { method: "PATCH", body: JSON.stringify({ folder: folderName, branches }) });
 }
 
 export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id: string }> {
