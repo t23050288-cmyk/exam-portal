@@ -1,46 +1,28 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-from datetime import datetime
-
-
-# ── Auth ──────────────────────────────────────────────────────
-class LoginRequest(BaseModel):
-    usn: str
-    password: str
-    name: Optional[str] = None
-    email: Optional[str] = None
-    branch: Optional[str] = None
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    student_id: str
-    student_name: str
-    email: Optional[str] = None
-    branch: str = "CS"
-    exam_start_time: Optional[str] = None     # ISO timestamp (when this student started)
-    exam_duration_minutes: int
-    exam_title: str
-    total_questions: int
-
-
-class StartExamResponse(BaseModel):
-    started_at: str
-    status: str
+from typing import Optional, Any, List, Dict
 
 
 # ── Questions ─────────────────────────────────────────────────
+
+class TestCaseOut(BaseModel):
+    input: str = ""
+    expected_output: str = ""
+    is_hidden: bool = False
+    description: Optional[str] = None
+
+
 class QuestionOut(BaseModel):
     id: str
     text: str
     options: list[str]
     branch: str = "CS"
     order_index: int
-    marks: int
-    exam_name: str = "Initial Assessment"
+    marks: int = 1
     image_url: Optional[str] = None
-
+    audio_url: Optional[str] = None
+    question_type: str = "mcq"   # "mcq" | "code"
+    starter_code: Optional[str] = None
+    test_cases: Optional[List[TestCaseOut]] = None
 
 
 class QuestionsResponse(BaseModel):
@@ -48,10 +30,130 @@ class QuestionsResponse(BaseModel):
     total: int
 
 
+# ── Admin Question Management ─────────────────────────────────
+
+class AdminQuestionOut(BaseModel):
+    id: str
+    text: str
+    options: list[str]
+    branch: str
+    correct_answer: str
+    marks: int
+    order_index: int
+    exam_name: Optional[str] = None
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    question_type: str = "mcq"
+    starter_code: Optional[str] = None
+
+
+class AdminQuestionsResponse(BaseModel):
+    questions: list[AdminQuestionOut]
+    total: int
+
+
+class QuestionCreate(BaseModel):
+    text: str
+    options: list[str]
+    branch: str
+    correct_answer: str
+    marks: int = 1
+    order_index: int = 0
+    exam_name: Optional[str] = "Initial Assessment"
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    question_type: str = "mcq"
+    starter_code: Optional[str] = None
+
+
+class QuestionUpdate(BaseModel):
+    text: Optional[str] = None
+    options: Optional[list[str]] = None
+    branch: Optional[str] = None
+    correct_answer: Optional[str] = None
+    marks: Optional[int] = None
+    exam_name: Optional[str] = None
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    question_type: Optional[str] = None
+    starter_code: Optional[str] = None
+
+
+# ── Code Questions ────────────────────────────────────────────
+
+class TestCaseIn(BaseModel):
+    input: str = ""
+    expected_output: str = ""
+    is_hidden: bool = False
+    description: Optional[str] = None
+
+
+class CodeQuestionCreate(BaseModel):
+    question_id: str
+    starter_code: str = ""
+    language: str = "python"
+    test_cases: List[TestCaseIn] = []
+    time_limit_ms: int = 10000
+
+
+class TestResultIn(BaseModel):
+    input: str
+    expected: str
+    actual: str
+    passed: bool
+    description: Optional[str] = None
+    error: Optional[str] = None
+
+
+class CodeSubmitRequest(BaseModel):
+    question_id: str
+    code: str
+    test_results: List[TestResultIn] = []
+    passed_count: int = 0
+    total_count: int = 0
+    is_final: bool = False
+
+
+class CodeSubmitResponse(BaseModel):
+    saved: bool
+    question_id: str
+    passed_count: int
+    total_count: int
+
+
+# ── Batch Save Answers ────────────────────────────────────────
+
+class BatchSaveRequest(BaseModel):
+    answers: Dict[str, str]   # { question_id: "A"|"B"|"C"|"D"|<code> }
+
+
+class BatchSaveResponse(BaseModel):
+    saved: bool
+    count: int
+
+
+# ── Telemetry Batch ───────────────────────────────────────────
+
+class TelemetryEventIn(BaseModel):
+    id: str            # client UUID for dedup
+    type: str
+    ts: str            # ISO timestamp
+    payload: Optional[Dict[str, Any]] = None
+
+
+class BatchEventsRequest(BaseModel):
+    events: List[TelemetryEventIn]
+
+
+class BatchEventsResponse(BaseModel):
+    received: int
+
+
 # ── Answers ───────────────────────────────────────────────────
+
 class SaveAnswerRequest(BaseModel):
     question_id: str
-    selected_option: str   # "A", "B", "C", or "D"
+    selected_option: str
 
 
 class SaveAnswerResponse(BaseModel):
@@ -60,8 +162,9 @@ class SaveAnswerResponse(BaseModel):
 
 
 # ── Submit ────────────────────────────────────────────────────
+
 class SubmitExamRequest(BaseModel):
-    answers: Dict[str, str]   # { "question_id": "A", ... }
+    answers: dict
 
 
 class SubmitExamResponse(BaseModel):
@@ -74,64 +177,34 @@ class SubmitExamResponse(BaseModel):
     submitted_at: str
 
 
-# ── Violations ────────────────────────────────────────────────
-class ReportViolationRequest(BaseModel):
-    type: str    # tab_switch | window_blur | fullscreen_exit | etc.
-    metadata: Optional[Dict[str, Any]] = {}
+# ── Start / Session ───────────────────────────────────────────
+
+class StartExamResponse(BaseModel):
+    started: bool
+    exam_title: str
 
 
-class ReportViolationResponse(BaseModel):
-    warning_count: int
-    auto_submitted: bool
-    message: str
+# ── Students ──────────────────────────────────────────────────
 
-
-# ── Admin ─────────────────────────────────────────────────────
-# ── Admin Management ──────────────────────────────────────────
-class AdminQuestionOut(BaseModel):
-    id: str
-    text: str
-    options: list[str]
+class StudentStatus(BaseModel):
+    student_id: str
+    usn: str
+    name: str
+    email: Optional[str] = None
     branch: str = "CS"
-    correct_answer: str
-    marks: int
-    order_index: int
-    exam_name: str = "Initial Assessment"
-    image_url: Optional[str] = None
-
-
-class AdminQuestionsResponse(BaseModel):
-    questions: list[AdminQuestionOut]
-    total: int
-
-class QuestionCreate(BaseModel):
-    text: str
-    options: list[str]
-    branch: str
-    correct_answer: str
-    marks: int = 1
-    order_index: int
-    exam_name: str = "Initial Assessment"
-    image_url: Optional[str] = None
-
-
-class QuestionUpdate(BaseModel):
-    text: Optional[str] = None
-    options: Optional[list[str]] = None
-    branch: Optional[str] = None
-    correct_answer: Optional[str] = None
-    marks: Optional[int] = None
-    order_index: Optional[int] = None
-    exam_name: Optional[str] = None
-    image_url: Optional[str] = None
+    status: str
+    warnings: int
+    last_active: Optional[str] = None
+    submitted_at: Optional[str] = None
+    started_at: Optional[str] = None
 
 
 class StudentCreate(BaseModel):
     usn: str
     name: str
     email: Optional[str] = None
-    branch: str
-    password: str  # Plain text, will be hashed in backend
+    branch: str = "CS"
+    password: str
 
 
 class StudentUpdate(BaseModel):
@@ -142,49 +215,17 @@ class StudentUpdate(BaseModel):
     is_active_session: Optional[bool] = None
 
 
-class StudentStatus(BaseModel):
-    student_id: str
-    usn: str
-    name: str
-    email: Optional[str] = None
-    branch: str = "CS"
-    status: str
-    warnings: int
-    last_active: Optional[str]
-    submitted_at: Optional[str]
-    started_at: Optional[str] = None
+# ── ExamConfig ────────────────────────────────────────────────
 
-
-# ── Exam Config ───────────────────────────────────────────────
 class ExamConfig(BaseModel):
+    id: Optional[str] = None
     is_active: bool = True
-    scheduled_start: Optional[str] = None   # ISO timestamp or None
-    scheduled_end: Optional[str] = None     # ISO timestamp for auto-evaporation
-    duration_minutes: int = 60
-    exam_title: Optional[str] = "ExamGuard Assessment"
-    
-    # New configuration fields
-    marks_per_question: int = 4
-    negative_marks: float = -1.0
-    shuffle_questions: bool = False
-    shuffle_options: bool = False
-    max_attempts: int = 1
-    show_answers_after: bool = True
-    total_questions: int = 30
-    total_marks: int = 120
-    exam_description: Optional[str] = None
-
-
-class ExamConfigUpdate(BaseModel):
-    is_active: Optional[bool] = None
     scheduled_start: Optional[str] = None
     scheduled_end: Optional[str] = None
-    duration_minutes: Optional[int] = None
-    exam_title: Optional[str] = None
-    
-    # New configuration fields
+    duration_minutes: int = 60
+    exam_title: str = "ExamGuard Assessment"
     marks_per_question: Optional[int] = None
-    negative_marks: Optional[float] = None
+    negative_marks: Optional[int] = None
     shuffle_questions: Optional[bool] = None
     shuffle_options: Optional[bool] = None
     max_attempts: Optional[int] = None
@@ -194,64 +235,44 @@ class ExamConfigUpdate(BaseModel):
     exam_description: Optional[str] = None
 
 
-# ── Leaderboard ───────────────────────────────────────────────
-class LeaderboardEntry(BaseModel):
-    rank: int
-    student_id: str
-    usn: str
-    name: str
-    branch: str
-    score: int
-    total_marks: int
-    percentage: float
-    time_taken_seconds: Optional[int]   # None if not submitted
-    submitted_at: Optional[str]
+class ExamConfigUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    scheduled_start: Optional[str] = None
+    scheduled_end: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    exam_title: Optional[str] = None
+    marks_per_question: Optional[int] = None
+    negative_marks: Optional[int] = None
+    shuffle_questions: Optional[bool] = None
+    shuffle_options: Optional[bool] = None
+    max_attempts: Optional[int] = None
+    show_answers_after: Optional[bool] = None
+    total_questions: Optional[int] = None
+    total_marks: Optional[int] = None
+    exam_description: Optional[str] = None
 
 
-class LeaderboardResponse(BaseModel):
-    entries: List[LeaderboardEntry]
-    total_submitted: int
-    updated_at: str
+# ── Violations ────────────────────────────────────────────────
+
+class ReportViolationRequest(BaseModel):
+    type: str
+    metadata: Optional[dict] = None
 
 
-# ── File Ingestion ────────────────────────────────────────────
-class ParsedQuestion(BaseModel):
-    text: str
-    options: List[str]          # exactly 4
-    correct_answer: str         # "A" | "B" | "C" | "D"
-    marks: int = 1
-    branch: str = "CS"
-    order_index: int = 0
-    exam_name: str = "Initial Assessment"
-    image_url: Optional[str] = None
-    # AI Spectral Parser metadata (not persisted to DB)
-    confidence: float = 1.0       # 0.0—1.0 — AI certainty about this extraction
-    needs_review: bool = False    # True if AI flagged ambiguity
-    review_reason: Optional[str] = None  # Human-readable reason
+class ReportViolationResponse(BaseModel):
+    warning_count: int
+    auto_submitted: bool
+    message: str
 
 
-
-class IngestPreviewResponse(BaseModel):
-    questions: List[ParsedQuestion]
-    total: int
-    source_file: str
-    parse_warnings: List[str]
-    ai_powered: bool = False           # True if Gemini AI was used
-    ai_confidence_avg: float = 1.0     # Average confidence across all questions
-    needs_review_count: int = 0        # Number of questions needing admin review
-    finesse_check: Optional[str] = None  # AI self-verification message
-
-
-class BulkImportRequest(BaseModel):
-    questions: List[ParsedQuestion]
-    replace_existing: bool = False
-    exam_name: str  # Mandatory for Crystalline Isolation Node anchoring
-    max_questions: Optional[int] = None
-
+# ── Folder Management ─────────────────────────────────────────
 
 class FolderRenameRequest(BaseModel):
+    old_name: str
     new_name: str
 
 
 class FolderEditBranchRequest(BaseModel):
+    exam_name: str
+    old_branch: str
     new_branch: str

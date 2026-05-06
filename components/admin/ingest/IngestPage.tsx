@@ -6,6 +6,13 @@ import styles from "./ingest.module.css";
 
 import { API_BASE, ADMIN_SECRET, adminFetch } from "@/lib/api";
 
+interface TestCase {
+  input: string;
+  expected_output: string;
+  is_hidden: boolean;
+  description?: string;
+}
+
 interface ParsedQuestion {
   text: string;
   options: string[];
@@ -15,6 +22,10 @@ interface ParsedQuestion {
   order_index: number;
   exam_name: string;
   image_url?: string;
+  audio_url?: string;
+  question_type?: "mcq" | "code";
+  starter_code?: string;
+  test_cases?: TestCase[];
   // AI Spectral metadata
   confidence?: number;
   needs_review?: boolean;

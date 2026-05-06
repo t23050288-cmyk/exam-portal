@@ -37,13 +37,28 @@ export interface ExamConfig {
   scheduled_end?: string | null;
   total_questions?: number;
   total_marks?: number;
-  // UI mapping fields used in control panel
   schedule_start_date?: string;
   schedule_start_time?: string;
   enable_schedule?: boolean;
   schedule_end_date?: string;
   schedule_end_time?: string;
   enable_end_schedule?: boolean;
+}
+
+export interface TestCase {
+  input: string;
+  expected_output: string;
+  is_hidden: boolean;
+  description?: string;
+}
+
+export interface TestResult {
+  input: string;
+  expected: string;
+  actual: string;
+  passed: boolean;
+  description?: string | null;
+  error?: string | null;
 }
 
 export interface Question {
@@ -53,6 +68,9 @@ export interface Question {
   image_url?: string;
   audio_url?: string;
   marks?: number;
+  question_type?: "mcq" | "code";
+  starter_code?: string;
+  test_cases?: TestCase[];
 }
 
 export interface AdminQuestion extends Question {
@@ -99,241 +117,193 @@ export interface LoginResponse {
 
 export interface ViolationResponse {
   warning_count: number;
-  message: string;
   auto_submitted: boolean;
+  message: string;
 }
 
-// --- Centralized Fetch Wrapper ---
+// --- Telemetry Event ---
+export interface TelemetryEvent {
+  id: string;          // client-generated UUID for dedup
+  type: string;        // tab_switch | window_blur | copy_attempt | etc.
+  ts: string;          // ISO timestamp
+  payload?: Record<string, unknown>;
+}
 
-async function baseFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
-  
-  const headers = new Headers(options.headers || {});
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
+// --- Helpers ---
 
-  const response = await fetch(url, {
+function getAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("exam_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...getAuthHeaders(),
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "Unknown error");
-    throw new Error(`API Error (${response.status}): ${errorBody || response.statusText}`);
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try { detail = JSON.parse(text)?.detail ?? text; } catch {}
+    throw Object.assign(new Error(detail), { status: res.status });
   }
 
-  // Handle binary data for export
-  if (path.includes("/export") || path.includes("/download")) {
-    return (await response.blob()) as unknown as T;
-  }
-
-  return response.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
-// Helper to safely access storage on client-only
-const getSafeToken = () => {
-  if (typeof window !== "undefined" && window.sessionStorage) {
-    return window.sessionStorage.getItem("exam_token");
+export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const isFormData = options.body instanceof FormData;
+  const headers: Record<string, string> = {
+    "x-admin-secret": ADMIN_SECRET,
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try { detail = JSON.parse(text)?.detail ?? text; } catch {}
+    throw Object.assign(new Error(detail), { status: res.status });
   }
-  return null;
-};
+
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
+}
+
+// --- API functions ---
+
+export async function loginStudent(
+  usn: string,
+  password: string
+): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ usn, password }),
+  });
+}
+
+export async function fetchQuestions(title: string): Promise<Question[]> {
+  const data = await apiFetch<{ questions: Question[]; total: number }>(
+    `/exam/questions?title=${encodeURIComponent(title)}`
+  );
+  return data.questions;
+}
+
+export async function saveAnswer(
+  questionId: string,
+  selectedOption: string
+): Promise<void> {
+  await apiFetch("/exam/save-answer", {
+    method: "POST",
+    body: JSON.stringify({ question_id: questionId, selected_option: selectedOption }),
+  });
+}
 
 /**
- * Enhanced fetch for admin endpoints that injects the secret header.
+ * Batch save multiple answers at once (IndexedDB-backed autosave)
  */
-export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { ...(options.headers as any) };
-  headers["X-Admin-Secret"] = ADMIN_SECRET;
-  
-  const token = getSafeToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  return baseFetch<T>(path, { ...options, headers });
-}
-
-// --- Public Endpoints ---
-
-export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  return baseFetch<ExamConfig[]>("/admin/exam/config/public");
-}
-
-export async function fetchQuestions(examTitle: string): Promise<Question[]> {
-  const token = getSafeToken();
-  const res = await baseFetch<{ questions: Question[]; total: number }>(`/exam/questions?title=${encodeURIComponent(examTitle)}`, {
-    headers: token ? { "Authorization": `Bearer ${token}` } : {},
-  });
-  return res.questions || [];
-}
-
-
-export async function submitExam(answers: Record<string, string>, examTitle: string): Promise<SubmitResponse> {
-  const token = getSafeToken();
-  return baseFetch<SubmitResponse>("/exam/submit-exam", {
+export async function batchSaveAnswers(
+  answers: Record<string, string>
+): Promise<void> {
+  await apiFetch("/exam/batch-save", {
     method: "POST",
-    headers: token ? { "Authorization": `Bearer ${token}` } : {},
-    body: JSON.stringify({ answers, exam_title: examTitle }),
+    body: JSON.stringify({ answers }),
   });
 }
 
-export async function loginStudent(usn: string, pass: string, meta: { name: string, email: string, branch: string }): Promise<LoginResponse> {
-  return baseFetch<LoginResponse>("/auth/login", {
+/**
+ * Submit Pyodide code execution result for a question.
+ */
+export async function submitCodeAnswer(
+  questionId: string,
+  code: string,
+  testResults: TestResult[],
+  passedCount: number,
+  totalCount: number,
+  isFinal = false
+): Promise<void> {
+  await apiFetch("/exam/submit-code", {
     method: "POST",
-    body: JSON.stringify({ usn, password: pass, ...meta }),
+    body: JSON.stringify({
+      question_id: questionId,
+      code,
+      test_results: testResults,
+      passed_count: passedCount,
+      total_count: totalCount,
+      is_final: isFinal,
+    }),
   });
 }
 
-export async function startExam(examTitle: string): Promise<{ started_at: string }> {
-  const token = getSafeToken();
-  return baseFetch<{ started_at: string }>(`/exam/start-exam?title=${encodeURIComponent(examTitle)}`, {
+/**
+ * Flush batched telemetry events to server (every 30s or on threshold)
+ */
+export async function flushTelemetryBatch(events: TelemetryEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  await apiFetch("/exam/batch-events", {
     method: "POST",
-    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    body: JSON.stringify({ events }),
   });
 }
 
-export async function saveAnswer(questionId: string, answer: string): Promise<void> {
-  const token = getSafeToken();
-  return baseFetch<void>("/exam/save-answer", {
+export async function submitExam(
+  answers: Record<string, string>,
+  examTitle: string
+): Promise<SubmitResponse> {
+  return apiFetch<SubmitResponse>("/exam/submit-exam", {
     method: "POST",
-    headers: token ? { "Authorization": `Bearer ${token}` } : {},
-    body: JSON.stringify({ question_id: questionId, selected_option: answer }),
+    body: JSON.stringify({ answers: { ...answers, __exam_title: examTitle } }),
   });
 }
 
-export async function reportViolation(type: string, metadata?: Record<string, any>): Promise<ViolationResponse> {
-  const token = getSafeToken();
-  return baseFetch<ViolationResponse>("/exam/report-violation", {
+export async function reportViolation(
+  type: string,
+  metadata?: Record<string, unknown>
+): Promise<ViolationResponse> {
+  return apiFetch<ViolationResponse>("/exam/report-violation", {
     method: "POST",
-    headers: token ? { "Authorization": `Bearer ${token}` } : {},
     body: JSON.stringify({ type, metadata }),
   });
 }
 
-// --- Admin Question Endpoints ---
-
-export async function fetchAdminQuestions(): Promise<AdminQuestion[]> {
-  const data = await adminFetch<any>("/admin/questions");
-  return Array.isArray(data) ? data : (data?.questions || []);
+export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
+  const data = await fetch(`${API_BASE}/exam/config`);
+  if (!data.ok) return [];
+  const json = await data.json();
+  return Array.isArray(json) ? json : (json.configs || []);
 }
 
-export async function createAdminQuestion(q: Omit<AdminQuestion, "id">): Promise<AdminQuestion> {
-  return adminFetch<AdminQuestion>("/admin/questions", {
-    method: "POST",
-    body: JSON.stringify(q),
-  });
+export async function fetchExamConfig(): Promise<ExamConfig[]> {
+  return adminFetch<ExamConfig[]>("/admin/exam-config");
 }
 
-export async function updateAdminQuestion(id: string, q: Partial<AdminQuestion>): Promise<AdminQuestion> {
-  return adminFetch<AdminQuestion>(`/admin/questions/${id}`, {
+export async function updateExamConfig(
+  id: string,
+  updates: Partial<ExamConfig>
+): Promise<ExamConfig> {
+  return adminFetch<ExamConfig>(`/admin/exam-config/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(q),
+    body: JSON.stringify(updates),
   });
 }
 
-export async function deleteAdminQuestion(id: string): Promise<void> {
-  return adminFetch<void>(`/admin/questions/${id}`, { method: "DELETE" });
+export async function fetchAdminQuestions(): Promise<{ questions: AdminQuestion[]; total: number }> {
+  return adminFetch("/admin/questions");
 }
-
-export async function uploadQuestionImage(file: File): Promise<{ url: string; image_url?: string; resource_type?: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
-  return adminFetch<{ url: string; image_url?: string; resource_type?: string }>("/admin/upload", {
-    method: "POST",
-    body: formData,
-  });
-}
-
-// --- Admin Student Endpoints ---
 
 export async function fetchAdminStudents(): Promise<AdminStudent[]> {
-  const data = await adminFetch<any>("/admin/students");
-  return Array.isArray(data) ? data : (data?.students || []);
-}
-
-export async function createAdminStudent(s: Partial<AdminStudent>): Promise<AdminStudent> {
-  return adminFetch<AdminStudent>("/admin/students", {
-    method: "POST",
-    body: JSON.stringify(s),
-  });
-}
-
-export async function updateAdminStudent(id: string, s: Partial<AdminStudent>): Promise<AdminStudent> {
-  return adminFetch<AdminStudent>(`/admin/students/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(s),
-  });
-}
-
-export async function deleteAdminStudent(id: string): Promise<void> {
-  return adminFetch<void>(`/admin/students/${id}`, { method: "DELETE" });
-}
-
-export async function resetAdminStudent(id: string): Promise<void> {
-  return adminFetch<void>(`/admin/students/${id}/reset`, { method: "POST" });
-}
-
-export async function forceSubmitAdminStudent(id: string): Promise<void> {
-  return adminFetch<void>(`/admin/students/${id}/force-submit`, { method: "POST" });
-}
-
-// --- Admin Folder/Branch Endpoints ---
-
-export async function deleteAdminFolder(examName: string): Promise<void> {
-  return adminFetch<void>(`/admin/folders/${encodeURIComponent(examName)}`, { method: "DELETE" });
-}
-
-export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
-  return adminFetch<void>(`/admin/questions/folder/rename`, {
-    method: "POST",
-    body: JSON.stringify({ old_name: oldName, new_name: newName }),
-  });
-}
-
-export async function editAdminFolderBranch(examName: string, branches: string[]): Promise<void> {
-  // Pad the comma-separated string to ensure accurate substring querying later (e.g., ",CS,BCA,")
-  const paddedBranchString = `,${branches.join(",")},`;
-  return adminFetch<void>(`/admin/folders/${encodeURIComponent(examName)}/branch`, {
-    method: "PATCH",
-    body: JSON.stringify({ new_branch: paddedBranchString }),
-  });
-}
-
-// --- Exam Configuration Endpoints ---
-
-export async function fetchExamConfig(examTitle: string) {
-  return adminFetch<ExamConfig>(`/admin/exam/config?title=${encodeURIComponent(examTitle)}`);
-}
-
-export async function updateExamConfig(config: Partial<ExamConfig>) {
-  return adminFetch<ExamConfig>("/admin/exam/config", {
-    method: "POST",
-    body: JSON.stringify(config),
-  });
-}
-
-// --- Specialized Admin Endpoints ---
-
-export async function fetchBranchExamSummary(branch: string): Promise<BranchExamSummary[]> {
-  return adminFetch<BranchExamSummary[]>(`/admin/summary?branch=${encodeURIComponent(branch)}`);
-}
-
-export async function exportResults(examName?: string): Promise<Blob> {
-  const path = examName 
-    ? `/admin/export?exam_name=${encodeURIComponent(examName)}` 
-    : "/admin/export";
-  return adminFetch<Blob>(path);
-}
-
-export async function cleanupStaleSessions(): Promise<{ count: number }> {
-  return adminFetch<{ count: number }>("/admin/cleanup", { method: "POST" });
-}
-
-export async function deleteAllLeaderboard(): Promise<void> {
-  return adminFetch<void>("/admin/leaderboard/all", { method: "DELETE" });
-}
-
-export async function deleteAllStudents(): Promise<AdminStudent[]> {
-  const students = await fetchAdminStudents();
-  await Promise.all(students.map(s => deleteAdminStudent(s.student_id)));
-  return [];
+  return adminFetch("/admin/students");
 }

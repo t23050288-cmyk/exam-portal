@@ -681,3 +681,44 @@ async def delete_all_leaderboard(_: bool = Depends(verify_admin)):
     }).neq("id", "00000000-0000-0000-0000-000000000000").execute()
     return {"success": True, "message": "All leaderboard data cleared"}
 
+
+
+# ── Code Questions Management ─────────────────────────────────
+
+from models.schemas import CodeQuestionCreate
+
+@router.get("/code-questions/{question_id}")
+async def get_code_question(question_id: str, _: bool = Depends(verify_admin)):
+    """Get code question metadata (test cases, starter code) for a question."""
+    db = get_supabase()
+    result = db.table("code_questions").select("*").eq("question_id", question_id).limit(1).execute()
+    if not result.data:
+        return {}
+    return result.data[0]
+
+
+@router.post("/code-questions")
+async def upsert_code_question(request: CodeQuestionCreate, _: bool = Depends(verify_admin)):
+    """Create or update code question metadata (test cases, starter code)."""
+    db = get_supabase()
+    payload = {
+        "question_id": request.question_id,
+        "starter_code": request.starter_code,
+        "language": request.language,
+        "test_cases": [tc.model_dump() for tc in request.test_cases],
+        "time_limit_ms": request.time_limit_ms,
+    }
+    existing = db.table("code_questions").select("id").eq("question_id", request.question_id).execute()
+    if existing.data:
+        db.table("code_questions").update(payload).eq("question_id", request.question_id).execute()
+    else:
+        db.table("code_questions").insert(payload).execute()
+    return {"saved": True}
+
+
+@router.delete("/code-questions/{question_id}")
+async def delete_code_question(question_id: str, _: bool = Depends(verify_admin)):
+    """Delete code question metadata."""
+    db = get_supabase()
+    db.table("code_questions").delete().eq("question_id", question_id).execute()
+    return {"deleted": True}

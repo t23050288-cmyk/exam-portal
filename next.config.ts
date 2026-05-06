@@ -21,6 +21,20 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Allow Pyodide Web Worker + CDN
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
+          },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
+          },
+        ],
+      },
       // Next.js static files already get hashed names, so 1yr is safe
       {
         source: "/_next/static/(.*)",

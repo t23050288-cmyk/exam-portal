@@ -94,5 +94,16 @@ export function useExamState() {
     [answers]
   );
 
-  return { answers, dirtyIds, selectAnswer, clearDirty, getAnsweredCount };
+  // Code answers tracking (for "answered" count on code questions)
+  const selectCodeAnswer = useCallback((questionId: string) => {
+    // Mark code question as "answered" using a special marker
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: "__code_answered__" };
+      saveToStorage(next);
+      return next;
+    });
+    setDirtyIds((prev) => new Set(prev).add(questionId));
+  }, []);
+
+  return { answers, dirtyIds, selectAnswer, selectCodeAnswer, clearDirty, getAnsweredCount };
 }

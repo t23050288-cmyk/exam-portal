@@ -693,13 +693,15 @@ async def commit_questions(
             
         full_row = {
             "text": row_text,
-            "options": q.options,
-            "correct_answer": q.correct_answer,
+            "options": q.options if (getattr(q, "question_type", "mcq") or "mcq") == "mcq" else [],
+            "correct_answer": q.correct_answer or "",
             "marks": q.marks,
             "branch": q.branch,
             "order_index": q.order_index if q.order_index > 0 else i,
             "exam_name": safe_exam_name,
-            "image_url": q.image_url,
+            "image_url": getattr(q, "image_url", None),
+            "audio_url": getattr(q, "audio_url", None),
+            "question_type": getattr(q, "question_type", "mcq") or "mcq",
         }
         # Filter: ONLY keep fields that actually exist in the DB columns
         safe_row = {k: v for k, v in full_row.items() if k in db_columns}
@@ -711,6 +713,29 @@ async def commit_questions(
         
         # Verify success
         inserted_count = len(result.data) if result.data else len(rows_to_insert)
+
+        # ── Insert code_questions for code-type questions ──
+        if result.data:
+            inserted_ids = {r["exam_name"] + "||" + str(r["order_index"]): r["id"] for r in result.data if r.get("question_type") == "code"}
+            code_rows = []
+            for i, q in enumerate(questions):
+                qt = getattr(q, "question_type", "mcq") or "mcq"
+                if qt == "code":
+                    key = safe_exam_name + "||" + str(q.order_index if q.order_index > 0 else i)
+                    qid = inserted_ids.get(key)
+                    if qid and hasattr(q, "test_cases") and q.test_cases:
+                        code_rows.append({
+                            "question_id": qid,
+                            "starter_code": getattr(q, "starter_code", "") or "",
+                            "language": "python",
+                            "test_cases": [tc if isinstance(tc, dict) else tc.model_dump() for tc in q.test_cases],
+                        })
+            if code_rows:
+                try:
+                    db.table("code_questions").insert(code_rows).execute()
+                    logger.info(f"Inserted {len(code_rows)} code_questions rows.")
+                except Exception as cq_err:
+                    logger.warning(f"code_questions insert failed: {cq_err}")
 
         # ── Step 5: Sync Exam Config ──
         try:

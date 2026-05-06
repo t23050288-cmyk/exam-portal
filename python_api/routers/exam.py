@@ -3,10 +3,13 @@ from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
 from datetime import datetime, timezone
 
 from models.schemas import (
-    QuestionsResponse, QuestionOut,
+    QuestionsResponse, QuestionOut, TestCaseOut,
     SaveAnswerRequest, SaveAnswerResponse,
     SubmitExamRequest, SubmitExamResponse,
-    StartExamResponse
+    StartExamResponse,
+    BatchSaveRequest, BatchSaveResponse,
+    BatchEventsRequest, BatchEventsResponse,
+    CodeSubmitRequest, CodeSubmitResponse,
 )
 from core.security import get_current_student
 from db.supabase_client import get_supabase
@@ -135,18 +138,40 @@ def get_questions(
         print(f"[EXAM] DB Error during question fetch: {e}")
         return QuestionsResponse(questions=[], total=0)
 
-    questions = [
-        QuestionOut(
+    # Fetch code_questions data for code-type questions
+    code_q_ids = [q["id"] for q in filtered_data if q.get("question_type") == "code"]
+    code_q_map = {}
+    if code_q_ids:
+        try:
+            cq_result = db.table("code_questions").select("*").in_("question_id", code_q_ids).execute()
+            for cq in (cq_result.data or []):
+                code_q_map[cq["question_id"]] = cq
+        except Exception as e:
+            print(f"[EXAM] code_questions fetch error: {e}")
+
+    questions = []
+    for q in filtered_data:
+        qtype = q.get("question_type", "mcq")
+        cq = code_q_map.get(q["id"]) if qtype == "code" else None
+        test_cases = None
+        starter_code = None
+        if cq:
+            starter_code = cq.get("starter_code", "")
+            raw_tests = cq.get("test_cases") or []
+            test_cases = [TestCaseOut(**t) for t in raw_tests]
+        questions.append(QuestionOut(
             id=q["id"],
             text=q["text"].replace(f"⟦EXAM:{title}⟧", "").strip(),
-            options=q["options"],
+            options=q["options"] if qtype == "mcq" else [],
             branch=q.get("branch", branch),
             order_index=q["order_index"],
             marks=q["marks"],
             image_url=q.get("image_url"),
-        )
-        for q in filtered_data
-    ]
+            audio_url=q.get("audio_url"),
+            question_type=qtype,
+            starter_code=starter_code,
+            test_cases=test_cases,
+        ))
 
     return QuestionsResponse(questions=questions, total=len(questions))
 
@@ -377,3 +402,140 @@ async def start_exam(
     }).eq("student_id", student_id).execute()
 
     return StartExamResponse(started_at=started_at, status="active")
+
+
+# ── NEW: Batch Save Answers ───────────────────────────────────
+
+
+@router.post("/batch-save", response_model=BatchSaveResponse)
+def batch_save_answers(
+    request: BatchSaveRequest,
+    background_tasks: BackgroundTasks,
+    current: dict = Depends(get_current_student),
+):
+    """
+    Batch upsert multiple answers in a single DB write.
+    Replaces the per-answer save endpoint — one request per 30s instead of N.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+
+    if not request.answers:
+        return BatchSaveResponse(saved=True, count=0)
+
+    # Guard: reject if already submitted
+    status_row = db.table("exam_status").select("status").eq("student_id", student_id).single().execute()
+    if status_row.data and status_row.data["status"] == "submitted":
+        return BatchSaveResponse(saved=False, count=0)
+
+    # Fetch existing answers and merge
+    existing = db.table("exam_results").select("answers").eq("student_id", student_id).execute()
+    if existing.data:
+        merged = existing.data[0].get("answers") or {}
+        merged.update(request.answers)
+        db.table("exam_results").update({"answers": merged}).eq("student_id", student_id).execute()
+    else:
+        db.table("exam_results").insert({
+            "student_id": student_id,
+            "answers": request.answers,
+            "score": 0,
+        }).execute()
+
+    background_tasks.add_task(update_last_active, student_id)
+    return BatchSaveResponse(saved=True, count=len(request.answers))
+
+
+# ── NEW: Batch Telemetry Events ───────────────────────────────
+
+@router.post("/batch-events", response_model=BatchEventsResponse)
+def batch_events(
+    request: BatchEventsRequest,
+    current: dict = Depends(get_current_student),
+):
+    """
+    Accept a batch of telemetry events from the client queue.
+    Inserts all events as a single row (append-only log).
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+
+    if not request.events:
+        return BatchEventsResponse(received=0)
+
+    events_data = [e.model_dump() for e in request.events]
+    try:
+        db.table("telemetry_batches").insert({
+            "student_id": student_id,
+            "events": events_data,
+        }).execute()
+    except Exception as e:
+        print(f"[TELEMETRY] Batch insert error: {e}")
+
+    return BatchEventsResponse(received=len(request.events))
+
+
+# ── NEW: Submit Code Answer (Pyodide result) ──────────────────
+
+@router.post("/submit-code", response_model=CodeSubmitResponse)
+def submit_code(
+    request: CodeSubmitRequest,
+    background_tasks: BackgroundTasks,
+    current: dict = Depends(get_current_student),
+):
+    """
+    Upsert Pyodide code execution result for a question.
+    Stores the student's code + test results in code_submissions table.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+
+    # Guard: reject if already submitted AND is_final
+    if request.is_final:
+        status_row = db.table("exam_status").select("status").eq("student_id", student_id).single().execute()
+        if status_row.data and status_row.data["status"] == "submitted":
+            return CodeSubmitResponse(
+                saved=False,
+                question_id=request.question_id,
+                passed_count=request.passed_count,
+                total_count=request.total_count,
+            )
+
+    results_data = [r.model_dump() for r in request.test_results]
+
+    try:
+        # Try upsert (unique on student_id + question_id)
+        existing = (
+            db.table("code_submissions")
+            .select("id")
+            .eq("student_id", student_id)
+            .eq("question_id", request.question_id)
+            .execute()
+        )
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "student_id": student_id,
+            "question_id": request.question_id,
+            "code": request.code,
+            "language": "python",
+            "test_results": results_data,
+            "passed_count": request.passed_count,
+            "total_count": request.total_count,
+            "is_final": request.is_final,
+            "submitted_at": now,
+        }
+        if existing.data:
+            db.table("code_submissions").update(payload).eq("student_id", student_id).eq("question_id", request.question_id).execute()
+        else:
+            db.table("code_submissions").insert(payload).execute()
+    except Exception as e:
+        print(f"[CODE] Submit error: {e}")
+
+    background_tasks.add_task(update_last_active, student_id)
+
+    return CodeSubmitResponse(
+        saved=True,
+        question_id=request.question_id,
+        passed_count=request.passed_count,
+        total_count=request.total_count,
+    )

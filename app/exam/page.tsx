@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { fetchQuestions, submitExam, fetchPublicExamConfig, type Question, type SubmitResponse } from "@/lib/api";
+import { fetchQuestions, submitExam, fetchPublicExamConfig, submitCodeAnswer, type Question, type SubmitResponse, type TestResult } from "@/lib/api";
 import { useExamState, clearExamStorage, saveQuestionsToCache, loadQuestionsFromCache } from "@/hooks/useExamState";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -52,6 +52,23 @@ export default function ExamPage() {
   const [finalTheme, setFinalTheme] = useState("glass-aura");
 
   const { answers, dirtyIds, selectAnswer, clearDirty, getAnsweredCount } = useExamState();
+  // Code answers (Pyodide submissions) stored separately
+  const [codeAnswers, setCodeAnswers] = useState<Record<string, { code: string; passedCount: number; totalCount: number }>>({});
+
+  const handleCodeSubmit = useCallback(async (
+    questionId: string,
+    code: string,
+    results: TestResult[],
+    passedCount: number,
+    totalCount: number
+  ) => {
+    setCodeAnswers(prev => ({ ...prev, [questionId]: { code, passedCount, totalCount } }));
+    try {
+      await submitCodeAnswer(questionId, code, results, passedCount, totalCount, false);
+    } catch {
+      // Silently ignore — will retry on final submit
+    }
+  }, []);
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { flush } = useAutoSave({
@@ -488,7 +505,9 @@ export default function ExamPage() {
                 questionNumber={activeQuestionIndex + 1}
                 totalQuestions={questions.length}
                 selectedAnswer={answers[activeQuestion.id]}
+                savedCode={codeAnswers[activeQuestion.id]?.code}
                 onSelect={handleSelect}
+                onCodeSubmit={handleCodeSubmit}
                 isSubmitted={isSubmitted}
               >
                 {/* Previous */}
