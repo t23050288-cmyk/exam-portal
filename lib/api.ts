@@ -307,3 +307,79 @@ export async function fetchAdminQuestions(): Promise<{ questions: AdminQuestion[
 export async function fetchAdminStudents(): Promise<AdminStudent[]> {
   return adminFetch("/admin/students");
 }
+
+// ── Admin CRUD stubs (wired to backend) ────────────────────────────────────
+
+export async function createAdminQuestion(q: Partial<AdminQuestion>): Promise<AdminQuestion> {
+  return adminFetch<AdminQuestion>("/admin/questions", { method: "POST", body: JSON.stringify(q) });
+}
+
+export async function updateAdminQuestion(id: string, q: Partial<AdminQuestion>): Promise<AdminQuestion> {
+  return adminFetch<AdminQuestion>(`/admin/questions/${id}`, { method: "PATCH", body: JSON.stringify(q) });
+}
+
+export async function deleteAdminQuestion(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/questions/${id}`, { method: "DELETE" });
+}
+
+export async function createAdminStudent(s: Partial<AdminStudent>): Promise<AdminStudent> {
+  return adminFetch<AdminStudent>("/admin/students", { method: "POST", body: JSON.stringify(s) });
+}
+
+export async function updateAdminStudent(id: string, s: Partial<AdminStudent>): Promise<AdminStudent> {
+  return adminFetch<AdminStudent>(`/admin/students/${id}`, { method: "PATCH", body: JSON.stringify(s) });
+}
+
+export async function deleteAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}`, { method: "DELETE" });
+}
+
+export async function resetAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}/reset`, { method: "POST" });
+}
+
+export async function forceSubmitAdminStudent(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/students/${id}/force-submit`, { method: "POST" });
+}
+
+export async function cleanupStaleSessions(): Promise<{ cleaned: number }> {
+  return adminFetch<{ cleaned: number }>("/admin/cleanup-sessions", { method: "POST" });
+}
+
+export async function exportResults(branch?: string): Promise<Blob> {
+  const url = branch ? `/admin/export?branch=${encodeURIComponent(branch)}` : "/admin/export";
+  const res = await fetch(`${API_BASE}${url}`, {
+    headers: { "X-Admin-Secret": ADMIN_SECRET },
+  });
+  if (!res.ok) throw new Error("Export failed");
+  return res.blob();
+}
+
+export async function deleteAdminFolder(folderName: string): Promise<void> {
+  return adminFetch<void>("/admin/folder", { method: "DELETE", body: JSON.stringify({ folder: folderName }) });
+}
+
+export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
+  return adminFetch<void>("/admin/folder/rename", { method: "POST", body: JSON.stringify({ old_name: oldName, new_name: newName }) });
+}
+
+export async function editAdminFolderBranch(folderName: string, branch: string): Promise<void> {
+  return adminFetch<void>("/admin/folder/branch", { method: "PATCH", body: JSON.stringify({ folder: folderName, branch }) });
+}
+
+export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (questionId) fd.append("question_id", questionId);
+  const res = await fetch(`${API_BASE}/admin/upload-image`, {
+    method: "POST",
+    headers: { "X-Admin-Secret": ADMIN_SECRET },
+    body: fd,
+  });
+  if (!res.ok) throw new Error("Upload failed");
+  return res.json();
+}
+
+export async function fetchBranchExamSummary(): Promise<BranchExamSummary[]> {
+  return adminFetch<BranchExamSummary[]>("/admin/branch-summary");
+}
