@@ -34,7 +34,7 @@ def _get_aggregate(exam_id: str) -> dict:
     sess_resp = (
         sb.table("exam_sessions")
         .select("status, id")
-        .eq("exam_id", exam_id)
+        .eq("exam_config_id", exam_id)
         .execute()
     )
     sessions = sess_resp.data or []
@@ -170,3 +170,4 @@ async def student_log(
         "events":     events.data or [],
         "violations": violations.data or [],
     }
+

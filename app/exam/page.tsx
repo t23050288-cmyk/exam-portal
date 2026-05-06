@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchQuestions, submitExam, fetchPublicExamConfig, submitCodeAnswer, type Question, type SubmitResponse, type TestResult } from "@/lib/api";
 import { useExamState, clearExamStorage, saveQuestionsToCache, loadQuestionsFromCache } from "@/hooks/useExamState";
-import { useAutoSave } from "@/hooks/useAutoSave";
+import { useExamSync } from "@/hooks/useExamSync";
+import SyncStatusBar from "@/components/SyncStatusBar";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import ExamTimer from "@/components/ExamTimer";
 import QuestionCard from "@/components/QuestionCard";
@@ -70,12 +71,21 @@ export default function ExamPage() {
     }
   }, []);
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [examToken, setExamToken] = useState<string>("");
+  const [examSessionId, setExamSessionId] = useState<string>("");
 
-  const { flush } = useAutoSave({
-    answers,
-    dirtyIds,
-    clearDirty,
-    isSubmitted,
+  const {
+    syncStatus,
+    lastSyncedAt,
+    offlineMsg,
+    saveAnswer,
+    recordEvent,
+    downloadBackup,
+    flush,
+  } = useExamSync({
+    sessionId: examSessionId || "init",
+    token: examToken,
+    enabled: !isSubmitted && !!examSessionId,
   });
 
   // ── Load student + questions ──────────────────────────────
@@ -88,6 +98,10 @@ export default function ExamPage() {
       router.replace("/login");
       return;
     }
+
+    // Wire token into sync engine
+    setExamToken(token || "");
+    setExamSessionId(sessionStorage.getItem("exam_session_id") || "");
 
     const info = raw ? JSON.parse(raw) : { 
       id: "PREVIEW", 
@@ -179,6 +193,8 @@ export default function ExamPage() {
     (qId: string, option: string) => {
       selectAnswer(qId, option);
       setSaveIndicator("saving");
+      // Save to IndexedDB + trigger debounced batch flush
+      saveAnswer(qId, { selected_option: option }).catch(() => {});
       clearTimeout(saveIndicatorTimer.current);
       saveIndicatorTimer.current = setTimeout(() => {
         setSaveIndicator("saved");
@@ -430,7 +446,13 @@ export default function ExamPage() {
       )}
 
       {/* Anti-cheat: all proctoring attached here */}
-      <AntiCheat isSubmitted={isSubmitted} onAutoSubmit={handleAutoSubmit} />
+      <SyncStatusBar
+          syncStatus={syncStatus}
+          lastSyncedAt={lastSyncedAt}
+          offlineMsg={offlineMsg}
+          onDownload={downloadBackup}
+        />
+        <AntiCheat isSubmitted={isSubmitted} onAutoSubmit={handleAutoSubmit} />
 
       {/* ── Welcome Banner (always visible, matching mockup) ── */}
       <div style={{ padding: "16px 28px 0", zIndex: 2, position: "relative" }}>
@@ -713,3 +735,4 @@ export default function ExamPage() {
     </div>
   );
 }
+

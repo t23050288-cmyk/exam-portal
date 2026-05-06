@@ -37,7 +37,8 @@ import Skeleton from "@/components/Skeleton";
 import nextDynamic from "next/dynamic";
 const LeaderboardPage = nextDynamic(() => import("@/components/admin/leaderboard/LeaderboardPage"), { ssr: false });
 const IngestPage      = nextDynamic(() => import("@/components/admin/ingest/IngestPage"),      { ssr: false });
-const OrbitalControl  = nextDynamic(() => import("@/components/admin/control-panel/ControlPage"),     { ssr: false });
+const OrbitalControl    = nextDynamic(() => import("@/components/admin/control-panel/ControlPage"),  { ssr: false });
+const AdminDashboard    = nextDynamic(() => import("@/components/admin/AdminDashboard"),                { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────
 interface StudentRow {
@@ -79,7 +80,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "questions" | "students" | "leaderboard" | "ingest" | "control";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -401,6 +402,7 @@ export default function AdminPage() {
 
   const TAB_CONFIG: { id: Tab; label: string; icon: string }[] = [
     { id: "monitor",     label: "Monitor",     icon: "📡" },
+    { id: "dashboard",   label: "Dashboard",   icon: "📊" },
     { id: "leaderboard", label: "Leaderboard", icon: "⚡" },
     { id: "questions",   label: "Questions",   icon: "📋" },
     { id: "students",    label: "Students",    icon: "👥" },
@@ -637,6 +639,7 @@ export default function AdminPage() {
 
       {/* ── New Feature Tabs ── */}
       {activeTab === "leaderboard" && <LeaderboardPage />}
+      {activeTab === "dashboard"   && <AdminDashboard />}
       {activeTab === "ingest"      && <IngestPage />}
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}

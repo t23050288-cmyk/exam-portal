@@ -2,6 +2,8 @@
 /api/start_exam  — create or resume an exam session
 /api/final_submit — mark session ended, freeze responses
 /api/export_session — admin-only session snapshot download
+
+FIXED: Uses exam_config table (not 'exams'). Uses student id (TEXT) not UUID.
 """
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -14,45 +16,47 @@ from core.security import get_current_student
 
 router = APIRouter(tags=["sessions"])
 
-# ── helpers ──────────────────────────────────────────────────────────────────
 
 def _require_admin(user: dict):
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
+
 # ── /api/start_exam ──────────────────────────────────────────────────────────
 
 class StartExamRequest(BaseModel):
-    exam_id: str
+    exam_name: str          # matches exam_config.exam_title / questions.exam_name
     client_ts: Optional[int] = None
 
 @router.post("/api/start_exam")
 async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
     sb = get_supabase()
 
-    # Verify exam exists and is active
-    exam_resp = sb.table("exams").select("*").eq("id", req.exam_id).single().execute()
-    if not exam_resp.data:
+    # Look up exam_config by exam_title (case-insensitive)
+    cfg_resp = (
+        sb.table("exam_config")
+        .select("*")
+        .ilike("exam_title", req.exam_name)
+        .limit(1)
+        .execute()
+    )
+    if not cfg_resp.data:
         raise HTTPException(status_code=404, detail="Exam not found")
-    exam = exam_resp.data
+
+    exam = cfg_resp.data[0]
     if not exam.get("is_active"):
         raise HTTPException(status_code=403, detail="Exam is not active")
 
-    # Branch check
-    user_branch = user.get("branch", "")
-    exam_branch = exam.get("branch", "")
-    if exam_branch and exam_branch.strip() != user_branch.strip():
-        raise HTTPException(status_code=403, detail="Exam not available for your branch")
+    user_id   = user.get("id") or user.get("usn") or user.get("student_id", "")
+    now       = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=exam.get("duration_minutes", 20))
 
-    # Upsert session (one per exam+user)
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(minutes=exam.get("duration_minutes", 60))
-
+    # Check for existing session
     existing = (
         sb.table("exam_sessions")
         .select("*")
-        .eq("exam_id", req.exam_id)
-        .eq("user_id", user["id"])
+        .eq("exam_config_id", exam["id"])
+        .eq("user_id", str(user_id))
         .maybe_single()
         .execute()
     )
@@ -62,33 +66,35 @@ async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
 
     if existing.data:
         session_id = existing.data["id"]
-        sb.table("exam_sessions").update({"last_activity_at": now.isoformat()}).eq("id", session_id).execute()
+        sb.table("exam_sessions").update({
+            "last_activity_at": now.isoformat()
+        }).eq("id", session_id).execute()
     else:
         ins = sb.table("exam_sessions").insert({
-            "exam_id":         req.exam_id,
-            "user_id":         user["id"],
-            "branch":          user_branch,
+            "exam_config_id":  exam["id"],
+            "exam_name":       exam.get("exam_title", req.exam_name),
+            "user_id":         str(user_id),
+            "branch":          user.get("branch", ""),
             "status":          "running",
             "client_ts_start": req.client_ts,
         }).execute()
         session_id = ins.data[0]["id"]
 
-    # Fetch minimal question list (id + type only — no answers)
+    # Fetch minimal question list for this exam
     q_resp = (
         sb.table("questions")
-        .select("id, question_type, question_text, marks")
-        .eq("exam_id", req.exam_id)
-        .order("id")
+        .select("id, text, marks")
+        .ilike("exam_name", req.exam_name)
+        .order("order_index")
         .execute()
     )
 
     return {
-        "session_id":   session_id,
-        "expires_at":   expires_at.isoformat(),
-        "exam_config":  {
-            "title":            exam["title"],
-            "duration_minutes": exam.get("duration_minutes", 60),
-            "total_marks":      exam.get("total_marks"),
+        "session_id":  session_id,
+        "expires_at":  expires_at.isoformat(),
+        "exam_config": {
+            "title":            exam.get("exam_title"),
+            "duration_minutes": exam.get("duration_minutes", 20),
         },
         "question_list_minimal": q_resp.data or [],
     }
@@ -109,12 +115,13 @@ class FinalSubmitRequest(BaseModel):
 @router.post("/api/final_submit")
 async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student)):
     sb = get_supabase()
+    user_id = user.get("id") or user.get("usn") or user.get("student_id", "")
 
     session = (
         sb.table("exam_sessions")
         .select("*")
         .eq("id", req.session_id)
-        .eq("user_id", user["id"])
+        .eq("user_id", str(user_id))
         .maybe_single()
         .execute()
     )
@@ -131,7 +138,7 @@ async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student
             {
                 "session_id":  req.session_id,
                 "question_id": r.question_id,
-                "user_id":     user["id"],
+                "user_id":     str(user_id),
                 "answer_json": r.answer_json,
                 "updated_at":  r.updated_at or now.isoformat(),
                 "is_final":    True,
@@ -142,8 +149,8 @@ async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student
 
     # Mark session ended
     sb.table("exam_sessions").update({
-        "status":   "submitted",
-        "ended_at": now.isoformat(),
+        "status":           "submitted",
+        "ended_at":         now.isoformat(),
         "last_activity_at": now.isoformat(),
     }).eq("id", req.session_id).execute()
 
@@ -157,21 +164,26 @@ async def export_session(session_id: str, user=Depends(get_current_student)):
     _require_admin(user)
     sb = get_supabase()
 
-    session = sb.table("exam_sessions").select("*").eq("id", session_id).maybe_single().execute()
+    session = (
+        sb.table("exam_sessions")
+        .select("*")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
     if not session.data:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    responses = sb.table("responses").select("*").eq("session_id", session_id).execute()
-    events    = sb.table("events_log").select("event_id,event_type,payload,created_at").eq("session_id", session_id).order("created_at").execute()
-    violations = sb.table("violations").select("*").eq("session_id", session_id).execute()
+    responses  = sb.table("responses").select("*").eq("session_id", session_id).execute()
+    events     = sb.table("events_log").select("event_id,event_type,payload,created_at").eq("session_id", session_id).order("created_at").execute()
 
     snapshot = {
         "session":    session.data,
         "responses":  responses.data or [],
         "events":     events.data or [],
-        "violations": violations.data or [],
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": now.isoformat() if (now := datetime.now(timezone.utc)) else "",
     }
-    return JSONResponse(content=snapshot, headers={
-        "Content-Disposition": f'attachment; filename="session_{session_id[:8]}.json"'
-    })
+    return JSONResponse(
+        content=snapshot,
+        headers={"Content-Disposition": f'attachment; filename="session_{session_id[:8]}.json"'},
+    )
