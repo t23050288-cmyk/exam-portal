@@ -41,6 +41,8 @@ const IngestPage      = nextDynamic(() => import("@/components/admin/ingest/Inge
 const OrbitalControl    = nextDynamic(() => import("@/components/admin/control-panel/ControlPage"),  { ssr: false });
 const AdminDashboard    = nextDynamic(() => import("@/components/admin/AdminDashboard"),                { ssr: false });
 const GradingQueue      = nextDynamic(() => import("@/components/admin/grading/GradingQueuePanel"),    { ssr: false });
+const SOSAdminPage      = nextDynamic(() => import("@/app/admin/sos/page"),                         { ssr: false });
+
 
 // ── Types ─────────────────────────────────────────────────────
 interface StudentRow {
@@ -82,7 +84,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -421,6 +423,7 @@ export default function AdminPage() {
     { id: "ingest",      label: "Harvester",   icon: "🌌" },
     { id: "control",     label: "Control",     icon: "🛸" },
     { id: "grading",     label: "Grading",     icon: "⚙️" },
+    { id: "sos",         label: "SOS",         icon: "🆘" },
   ];
 
   return (
@@ -658,6 +661,7 @@ export default function AdminPage() {
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}
       {activeTab === "students"    && <StudentsTab />}
+      {activeTab === "sos"         && <SOSAdminPage />}
     </div>
   );
 }

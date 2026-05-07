@@ -609,3 +609,117 @@
     font-size: 11px;
   }
 }
+
+/* ── Multi-View Enhancements ── */
+
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px 24px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 20px;
+  text-align: center;
+  animation: cardEntry 0.5s ease-out;
+}
+
+.successIcon {
+  font-size: 40px;
+  color: #4ade80;
+  margin-bottom: 8px;
+}
+
+.successTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.successText {
+  font-size: 14px;
+  color: rgba(148, 163, 184, 0.9);
+  line-height: 1.5;
+}
+
+.recoveryText {
+  color: rgba(148, 163, 184, 0.9);
+  line-height: 1.7;
+  font-size: 14px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.recoveryHighlight {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.textareaWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 13px 18px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.textareaWrap:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(200, 170, 110, 0.5);
+  box-shadow: 0 0 0 3px rgba(200, 170, 110, 0.12);
+}
+
+.textareaField {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #e2e8f0;
+  outline: none;
+  font-family: inherit;
+  resize: none;
+  height: 100px;
+  width: 100%;
+}
+
+.backRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.signupPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.signupLabel {
+  font-size: 13px;
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.signupLink {
+  color: #c8aa6e;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.signupLink:hover {
+  color: #f0d87e;
+  text-decoration: underline;
+}
+

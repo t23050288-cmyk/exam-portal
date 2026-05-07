@@ -48,7 +48,7 @@ try:
 
     from db.supabase_client import get_supabase
     from core.config import get_settings
-    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading
+    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support
 
     logging.basicConfig(
         level=logging.INFO,
@@ -71,6 +71,7 @@ try:
     app.include_router(aggregate.router,   prefix="/api")
     app.include_router(admin_auth.router,  prefix="/api")
     app.include_router(grading.router,     prefix="/api")
+    app.include_router(support.router,     prefix="/api")
 
     # Cron
     @app.get("/api/cron/evict")

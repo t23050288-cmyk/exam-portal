@@ -129,6 +129,15 @@ export interface TelemetryEvent {
   payload?: Record<string, unknown>;
 }
 
+export interface SupportRequest {
+  id: string;
+  usn_or_email: string;
+  description: string;
+  status: "pending" | "resolved";
+  created_at: string;
+}
+
+
 // --- Helpers ---
 
 function getAuthHeaders(): Record<string, string> {
@@ -467,3 +476,23 @@ export async function startExam(examTitle: string): Promise<{ session_id: string
 export async function deleteAllLeaderboard(): Promise<void> {
   return adminFetch<void>("/admin/leaderboard", { method: "DELETE" });
 }
+
+export async function submitSupportRequest(usn_or_email: string, description: string): Promise<{ status: string; id: string }> {
+  return apiFetch<{ status: string; id: string }>("/support/request", {
+    method: "POST",
+    body: JSON.stringify({ usn_or_email: usn_or_email, description }),
+  });
+}
+
+export async function fetchSupportRequests(): Promise<SupportRequest[]> {
+  return adminFetch<SupportRequest[]>("/support/list");
+}
+
+export async function resolveSupportRequest(requestId: string): Promise<void> {
+  await adminFetch(`/support/resolve/${requestId}`, { method: "POST" });
+}
+
+export async function clearAllSupportRequests(): Promise<void> {
+  await adminFetch("/support/clear-all", { method: "DELETE" });
+}
+

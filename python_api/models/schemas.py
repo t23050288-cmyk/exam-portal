@@ -368,3 +368,16 @@ class BulkImportRequest(BaseModel):
     max_questions: Optional[int] = None
     branch: str = "CS"
     marks_per_question: int = 1
+
+# ── Support / SOS ─────────────────────────────────────────────
+class SupportRequestCreate(BaseModel):
+    usn_or_email: str
+    description: str
+
+class SupportRequestOut(BaseModel):
+    id: str
+    usn_or_email: str
+    description: str
+    status: str = "pending"
+    created_at: str
+
