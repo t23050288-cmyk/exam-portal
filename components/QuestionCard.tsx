@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "./QuestionCard.module.css";
-import { ReactNode, lazy, Suspense } from "react";
+import React, { ReactNode, lazy, Suspense } from "react";
 
 const CodeEditor = lazy(() => import("./CodeEditor"));
 
