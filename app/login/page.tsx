@@ -75,7 +75,7 @@ export default function LoginPage() {
         email: data.email,
         branch: data.branch
       }));
-      router.push("/instructions");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed.");
       setLoading(false);
@@ -109,7 +109,7 @@ export default function LoginPage() {
         email: data.email,
         branch: data.branch
       }));
-      router.push("/instructions");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Registration failed.");
       setLoading(false);
