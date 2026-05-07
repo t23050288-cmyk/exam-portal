@@ -6,6 +6,8 @@
 FIXED: Uses exam_config table (not 'exams'). Uses student id (TEXT) not UUID.
 """
 import uuid
+import hashlib
+import random
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
@@ -83,20 +85,42 @@ async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
     # Fetch minimal question list for this exam
     q_resp = (
         sb.table("questions")
-        .select("id, text, marks")
+        .select("id, text, marks, question_type, audio_url, image_url")
         .ilike("exam_name", req.exam_name)
         .order("order_index")
         .execute()
     )
+    questions = q_resp.data or []
+
+    # Reproducible shuffle — use seeded RNG (seed from session_id+user_id)
+    question_order = None
+    if existing.data and existing.data.get("question_order"):
+        # Resume: restore saved order
+        saved_order = existing.data["question_order"]
+        q_map = {q["id"]: q for q in questions}
+        questions = [q_map[qid] for qid in saved_order if qid in q_map]
+        question_order = saved_order
+    elif exam.get("shuffle_questions"):
+        seed = int(hashlib.md5((str(session_id)+str(user_id)).encode()).hexdigest(), 16) % (2**31)
+        rng  = random.Random(seed)
+        rng.shuffle(questions)
+        question_order = [q["id"] for q in questions]
+        try:
+            sb.table("exam_sessions").update({"question_order": question_order}).eq("id", session_id).execute()
+        except Exception:
+            pass
 
     return {
         "session_id":  session_id,
         "expires_at":  expires_at.isoformat(),
         "exam_config": {
-            "title":            exam.get("exam_title"),
-            "duration_minutes": exam.get("duration_minutes", 20),
+            "title":                    exam.get("exam_title"),
+            "duration_minutes":         exam.get("duration_minutes", 20),
+            "shuffle_questions":        exam.get("shuffle_questions", False),
+            "enable_face_proctoring":   exam.get("enable_face_proctoring", False),
         },
-        "question_list_minimal": q_resp.data or [],
+        "question_order":        question_order,
+        "question_list_minimal": questions,
     }
 
 
@@ -154,7 +178,22 @@ async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student
         "last_activity_at": now.isoformat(),
     }).eq("id", req.session_id).execute()
 
-    return {"status": "ok", "score_estimate": None}
+    # Enqueue async grading job — return immediately
+    grading_id = None
+    try:
+        gq = sb.table("grading_queue").insert({
+            "session_id": req.session_id,
+            "user_id":    str(user_id),
+            "status":     "pending",
+            "payload":    {"response_count": len(req.final_responses),
+                           "submitted_at":   now.isoformat()},
+        }).execute()
+        if gq.data:
+            grading_id = gq.data[0].get("id")
+    except Exception as eq_err:
+        print(f"[WARN] grading_queue insert failed: {eq_err}")
+
+    return {"status": "accepted", "message": "Submitted. Grading in progress.", "grading_id": grading_id}
 
 
 # ── /api/export_session ──────────────────────────────────────────────────────

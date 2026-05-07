@@ -48,7 +48,7 @@ try:
 
     from db.supabase_client import get_supabase
     from core.config import get_settings
-    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate
+    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading
 
     logging.basicConfig(
         level=logging.INFO,
@@ -68,7 +68,9 @@ try:
     app.include_router(sessions.router)          # /api/start_exam, /api/final_submit, /api/export_session
     app.include_router(sync.router)              # /api/autosave, /api/events_batch, /api/events_beacon, /api/sync
     app.include_router(uploads.router)           # /api/sign_upload
-    app.include_router(aggregate.router)         # /api/admin/aggregate, /api/admin/throttle
+    app.include_router(aggregate.router)
+    app.include_router(admin_auth.router)
+    app.include_router(grading.router)         # /api/admin/aggregate, /api/admin/throttle
 
     # Cron
     @app.get("/api/cron/evict")

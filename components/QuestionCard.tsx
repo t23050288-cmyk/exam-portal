@@ -45,6 +45,29 @@ interface QuestionCardProps {
 
 const OPTION_KEYS = ["A", "B", "C", "D"];
 
+
+// ── Lazy-loaded audio via IntersectionObserver ─────────────────────────────
+function LazyAudio({ src }: { src: string }) {
+  const wrapRef  = React.useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => {
+    if (!wrapRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
+      { threshold: 0.1 }
+    );
+    obs.observe(wrapRef.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={wrapRef} style={{ margin:"12px 0", padding:"10px 14px", background:"rgba(255,255,255,0.06)", borderRadius:10, display:"flex", alignItems:"center", gap:10 }}>
+      <span style={{ fontSize:20 }}>🎧</span>
+      <audio src={visible ? src : undefined} controls controlsList="nodownload"
+        preload="none" style={{ flex:1, height:36 }} />
+    </div>
+  );
+}
+
 export default function QuestionCard({
   question,
   questionNumber,
@@ -92,12 +115,7 @@ export default function QuestionCard({
           <img src={question.image_url} alt="Question Diagram" className={styles.image} />
         </div>
       )}
-      {question.audio_url && (
-        <div style={{ margin: "12px 0", padding: "10px 14px", background: "rgba(255,255,255,0.06)", borderRadius: 10, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🎧</span>
-          <audio src={question.audio_url} controls controlsList="nodownload" style={{ flex: 1, height: 36 }} />
-        </div>
-      )}
+      {question.audio_url && <LazyAudio src={question.audio_url} />}
 
       {/* ── CODE QUESTION: Pyodide Editor ── */}
       {isCode ? (

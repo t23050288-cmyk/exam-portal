@@ -785,3 +785,68 @@ async def patch_exam_config_alias(exam_id: str, request: ExamConfigUpdate, _: bo
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=404, detail="Exam config not found")
+
+
+# ── Bulk Student CSV Upload ───────────────────────────────────────────────────
+
+import csv
+import io as _io
+from passlib.context import CryptContext as _CryptCtx
+
+_pwd = _CryptCtx(schemes=["bcrypt"], deprecated="auto")
+
+@router.post("/students/bulk")
+async def bulk_upload_students(file: UploadFile = File(...), _=Depends(verify_admin)):
+    """
+    Upload CSV: usn,name,email,branch,password (password optional — defaults to USN).
+    Returns {created, skipped, errors}.
+    """
+    if not (file.filename or "").endswith(".csv"):
+        raise HTTPException(400, "Only CSV files accepted")
+    raw = (await file.read()).decode("utf-8-sig", errors="replace")
+    reader = csv.DictReader(_io.StringIO(raw))
+    db = get_supabase()
+    created = skipped = 0
+    errors: list = []
+    rows: list = []
+    for i, row in enumerate(reader, start=2):
+        usn    = (row.get("usn") or row.get("USN") or "").strip().upper()
+        name   = (row.get("name") or row.get("Name") or "").strip()
+        email  = (row.get("email") or row.get("Email") or "").strip() or None
+        branch = (row.get("branch") or row.get("Branch") or "CS").strip().upper()
+        pw     = (row.get("password") or row.get("Password") or "").strip() or usn
+        if not usn or not name:
+            errors.append({"line": i, "error": "usn and name required"})
+            continue
+        rows.append({"usn": usn, "name": name, "email": email,
+                     "branch": branch, "password_hash": _pwd.hash(pw)})
+
+    for chunk in [rows[i:i+50] for i in range(0, len(rows), 50)]:
+        try:
+            res = db.table("students").upsert(chunk, on_conflict="usn").execute()
+            created += len(res.data or [])
+        except Exception as e:
+            for r in chunk:
+                try:
+                    ex = db.table("students").select("usn").eq("usn", r["usn"]).maybe_single().execute()
+                    if ex.data:
+                        skipped += 1
+                    else:
+                        db.table("students").insert(r).execute()
+                        created += 1
+                except Exception as ie:
+                    errors.append({"usn": r.get("usn"), "error": str(ie)})
+
+    return {"created": created, "skipped": skipped, "errors": errors,
+            "total_rows": len(rows), "csv_template": "/api/admin/students/csv_template"}
+
+
+@router.get("/students/csv_template")
+async def csv_template(_=Depends(verify_admin)):
+    """Download blank CSV template for bulk upload."""
+    tpl = "usn,name,email,branch,password\n1RV21CS001,John Doe,john@college.edu,CS,\n1RV21IS002,Jane Smith,jane@college.edu,IS,\n"
+    return StreamingResponse(
+        _io.StringIO(tpl),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=students_template.csv"},
+    )

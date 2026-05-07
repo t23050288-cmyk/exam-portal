@@ -1,233 +1,201 @@
 /**
  * AdminDashboard.tsx
- * Aggregated exam monitoring with:
- *  - Active / submitted / flagged session counts
- *  - Violations by severity
- *  - Throttle toggle (normal / safe / emergency)
- *  - Drill-down: click student row → fetch events on demand
- *  - Export session JSON snapshot
+ * - Throttle control works independently (no examId needed)
+ * - Aggregate metrics shown when examId is available
+ * - Student drill-down + export
  */
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
-interface AggregateData {
-  exam_id:          string;
-  active_sessions:  number;
-  submitted_count:  number;
-  flagged_count:    number;
+const ADMIN_SECRET =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam"
+    : "rudranshsarvam";
+
+const mkHeaders = () => ({
+  "Content-Type": "application/json",
+  "x-admin-secret": ADMIN_SECRET,
+});
+
+interface AggData {
+  active_sessions: number; submitted_count: number; flagged_count: number;
   violations_by_severity: { low: number; medium: number; high: number };
-  throttle_mode:    string;
-  last_updated:     string;
+  throttle_mode: string; last_updated: string;
 }
 
 interface StudentLog {
-  session:    Record<string, unknown>;
-  events:     Record<string, unknown>[];
-  violations: Record<string, unknown>[];
+  session: Record<string,unknown>; events: Record<string,unknown>[]; violations: Record<string,unknown>[];
 }
 
-interface Props {
-  examId?: string;
-  token?:  string;
-}
+interface Props { examId?: string; }
 
-export default function AdminDashboard({ examId = "", token = "" }: Props) {
-  const [agg, setAgg]             = useState<AggregateData | null>(null);
-  const [drillSession, setDrill]  = useState<string | null>(null);
-  const [studentLog, setStudentLog] = useState<StudentLog | null>(null);
-  const [loading, setLoading]     = useState(false);
-  const [throttleLoading, setTL]  = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+const MODE_COLOR: Record<string,string> = {
+  normal: "#10b981", safe: "#f59e0b", emergency: "#ef4444"
+};
 
-  // Use x-admin-secret header (same as adminFetch in lib/api.ts)
-  const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam";
-  const headers = { "Content-Type": "application/json", "x-admin-secret": adminSecret };
+export default function AdminDashboard({ examId = "" }: Props) {
+  const [agg, setAgg]               = useState<AggData|null>(null);
+  const [throttleMode, setMode]     = useState("normal");
+  const [throttleLoading, setTL]    = useState(false);
+  const [throttleMsg, setMsg]       = useState<string|null>(null);
+  const [drill, setDrill]           = useState<string|null>(null);
+  const [log, setLog]               = useState<StudentLog|null>(null);
+  const [logLoading, setLL]         = useState(false);
+  const [aggErr, setAggErr]         = useState<string|null>(null);
 
-  const fetchAggregate = useCallback(async () => {
+  // Fetch current throttle mode (always works, no auth needed)
+  const fetchThrottle = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/aggregate?exam_id=${examId}`, { headers });
-      if (!res.ok) throw new Error(await res.text());
-      setAgg(await res.json());
-      setError(null);
-    } catch (e: unknown) {
-      setError(String(e));
-    }
-  }, [examId, token]);
+      const r = await fetch("/api/admin/throttle_status");
+      if (r.ok) { const d = await r.json(); setMode(d.throttle_mode || "normal"); }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Fetch aggregate (needs examId + auth)
+  const fetchAgg = useCallback(async () => {
+    if (!examId) return;
+    try {
+      const r = await fetch(`/api/admin/aggregate?exam_id=${examId}`, { headers: mkHeaders() });
+      if (!r.ok) { setAggErr(`${r.status}`); return; }
+      const d = await r.json();
+      setAgg(d); setMode(d.throttle_mode || "normal"); setAggErr(null);
+    } catch (e: unknown) { setAggErr(String(e)); }
+  }, [examId]);
 
   useEffect(() => {
-    fetchAggregate();
-    const interval = setInterval(fetchAggregate, 10_000); // refresh every 10s
-    return () => clearInterval(interval);
-  }, [fetchAggregate]);
+    fetchThrottle(); fetchAgg();
+    const id = setInterval(() => { fetchThrottle(); fetchAgg(); }, 10_000);
+    return () => clearInterval(id);
+  }, [fetchThrottle, fetchAgg]);
 
   const setThrottle = async (mode: string) => {
-    setTL(true);
+    if (throttleLoading) return;
+    setTL(true); setMsg(null);
     try {
-      await fetch("/api/admin/throttle", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ mode }),
+      const r = await fetch("/api/admin/throttle", {
+        method: "POST", headers: mkHeaders(), body: JSON.stringify({ mode })
       });
-      await fetchAggregate();
-    } finally {
-      setTL(false);
-    }
+      if (r.ok) {
+        setMode(mode);
+        setMsg(`✓ Switched to ${mode.toUpperCase()}`);
+        setTimeout(() => setMsg(null), 2500);
+      } else {
+        setMsg(`Error ${r.status}: ${await r.text()}`);
+      }
+    } catch (e: unknown) { setMsg(`Error: ${String(e)}`); }
+    finally { setTL(false); }
   };
 
-  const drillDown = async (sessionId: string) => {
-    setDrill(sessionId);
-    setStudentLog(null);
-    setLoading(true);
+  const drillDown = async (sid: string) => {
+    setDrill(sid); setLog(null); setLL(true);
     try {
-      const res = await fetch(`/api/admin/student_log?session_id=${sessionId}`, { headers });
-      setStudentLog(await res.json());
-    } finally {
-      setLoading(false);
-    }
+      const r = await fetch(`/api/admin/student_log?session_id=${sid}`, { headers: mkHeaders() });
+      setLog(await r.json());
+    } finally { setLL(false); }
   };
 
-  const exportSession = async (sessionId: string) => {
-    const res = await fetch(`/api/export_session?session_id=${sessionId}`, { headers });
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `session_${sessionId.slice(0, 8)}.json`;
-    a.click();
+  const exportSession = async (sid: string) => {
+    const r   = await fetch(`/api/export_session?session_id=${sid}`, { headers: mkHeaders() });
+    const url = URL.createObjectURL(await r.blob());
+    Object.assign(document.createElement("a"), { href: url, download: `session_${sid.slice(0,8)}.json` }).click();
     URL.revokeObjectURL(url);
   };
 
-  if (error) return <div style={{ color: "#f87171", padding: 16 }}>Error: {error}</div>;
-  if (!agg)  return <div style={{ color: "#94a3b8", padding: 16 }}>Loading metrics…</div>;
-
-  const modeColors: Record<string, string> = {
-    normal:    "#10b981",
-    safe:      "#f59e0b",
-    emergency: "#ef4444",
-  };
-
   return (
-    <div style={{ fontFamily: "system-ui", color: "#e2e8f0", padding: "24px" }}>
-      <h2 style={{ marginBottom: "20px", color: "#f8fafc" }}>📊 Exam Dashboard</h2>
+    <div style={{ fontFamily: "system-ui", color: "#e2e8f0", padding: 24 }}>
+      <h2 style={{ marginBottom: 20, color: "#f8fafc" }}>📊 Exam Dashboard</h2>
 
-      {/* Metric Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px", marginBottom: "24px" }}>
-        {[
-          { label: "Active",     value: agg.active_sessions,  color: "#10b981" },
-          { label: "Submitted",  value: agg.submitted_count,  color: "#60a5fa" },
-          { label: "Flagged",    value: agg.flagged_count,    color: "#f87171" },
-          { label: "High Risk",  value: agg.violations_by_severity.high,   color: "#ef4444" },
-          { label: "Medium Risk",value: agg.violations_by_severity.medium, color: "#f59e0b" },
-        ].map((m) => (
-          <div key={m.label} style={{
-            background:   "#1e293b",
-            border:       `1px solid ${m.color}33`,
-            borderRadius: "12px",
-            padding:      "16px",
-            textAlign:    "center",
-          }}>
-            <div style={{ fontSize: "2rem", fontWeight: 700, color: m.color }}>{m.value}</div>
-            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>{m.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Throttle Control */}
-      <div style={{
-        background:   "#1e293b",
-        borderRadius: "12px",
-        padding:      "16px",
-        marginBottom: "24px",
-        border:       `1px solid ${modeColors[agg.throttle_mode] || "#334155"}55`,
-      }}>
-        <div style={{ marginBottom: "10px", fontWeight: 600 }}>
-          🎛️ Load Control — current:{" "}
-          <span style={{ color: modeColors[agg.throttle_mode], fontWeight: 700 }}>
-            {agg.throttle_mode.toUpperCase()}
-          </span>
+      {/* Metric cards */}
+      {agg ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
+          {[
+            { label: "Active",      value: agg.active_sessions,               color: "#10b981" },
+            { label: "Submitted",   value: agg.submitted_count,               color: "#60a5fa" },
+            { label: "Flagged",     value: agg.flagged_count,                 color: "#f87171" },
+            { label: "High Risk",   value: agg.violations_by_severity.high,   color: "#ef4444" },
+            { label: "Medium Risk", value: agg.violations_by_severity.medium, color: "#f59e0b" },
+          ].map(m => (
+            <div key={m.label} style={{ background:"#1e293b", border:`1px solid ${m.color}33`, borderRadius:12, padding:16, textAlign:"center" }}>
+              <div style={{ fontSize:"2rem", fontWeight:700, color:m.color }}>{m.value}</div>
+              <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>{m.label}</div>
+            </div>
+          ))}
         </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {["normal", "safe", "emergency"].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setThrottle(mode)}
-              disabled={throttleLoading || agg.throttle_mode === mode}
+      ) : (
+        <div style={{ marginBottom:24, padding:12, borderRadius:8, background:"#1e293b", color:"#94a3b8", fontSize:13 }}>
+          {aggErr ? `⚠️ Metrics unavailable (${aggErr})` : examId ? "Loading metrics…" : "ℹ️ No active exam selected — metrics will appear once an exam starts."}
+        </div>
+      )}
+
+      {/* Throttle control — ALWAYS visible, works without examId */}
+      <div style={{ background:"#1e293b", borderRadius:12, padding:16, marginBottom:24, border:`1px solid ${MODE_COLOR[throttleMode]||"#334155"}55` }}>
+        <div style={{ marginBottom:10, fontWeight:600 }}>
+          🎛️ Load Control — current:{" "}
+          <span style={{ color: MODE_COLOR[throttleMode], fontWeight:700 }}>{throttleMode.toUpperCase()}</span>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {(["normal","safe","emergency"] as const).map(mode => (
+            <button key={mode} onClick={() => setThrottle(mode)} disabled={throttleLoading}
               style={{
-                background:   agg.throttle_mode === mode ? modeColors[mode] : "transparent",
-                border:       `1px solid ${modeColors[mode]}`,
-                color:        agg.throttle_mode === mode ? "#0f172a" : modeColors[mode],
-                padding:      "6px 16px",
-                borderRadius: "8px",
-                cursor:       "pointer",
-                fontWeight:   600,
-                fontSize:     "13px",
-                opacity:      throttleLoading ? 0.6 : 1,
-              }}
-            >
-              {mode === "normal" ? "🟢 Normal (30s)" : mode === "safe" ? "🟡 Safe (60s)" : "🔴 Emergency (120s)"}
+                background:   throttleMode===mode ? MODE_COLOR[mode] : "transparent",
+                border:       `2px solid ${MODE_COLOR[mode]}`,
+                color:        throttleMode===mode ? "#0f172a" : MODE_COLOR[mode],
+                padding:      "8px 18px", borderRadius:8, cursor: throttleLoading?"not-allowed":"pointer",
+                fontWeight:700, fontSize:13, opacity: throttleLoading?0.6:1, transition:"all 0.2s",
+                transform:    throttleMode===mode ? "scale(1.05)" : "scale(1)",
+              }}>
+              {mode==="normal" ? "🟢 Normal (30s)" : mode==="safe" ? "🟡 Safe (60s)" : "🔴 Emergency (120s)"}
             </button>
           ))}
         </div>
-        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "8px" }}>
-          Clients poll throttle status every 60s and adjust autosave interval automatically.
+        {throttleMsg && (
+          <div style={{ marginTop:8, fontSize:12, color: throttleMsg.startsWith("✓")?"#10b981":"#f87171" }}>
+            {throttleMsg}
+          </div>
+        )}
+        <div style={{ fontSize:11, color:"#64748b", marginTop:8 }}>
+          Clients poll every 60s and adjust autosave interval automatically.
         </div>
       </div>
 
-      {/* Last updated */}
-      <div style={{ fontSize: "11px", color: "#475569", marginBottom: "16px" }}>
-        Last updated: {new Date(agg.last_updated).toLocaleTimeString()} · Auto-refreshes every 10s
-      </div>
+      {agg && (
+        <div style={{ fontSize:11, color:"#475569", marginBottom:16 }}>
+          Last updated: {new Date(agg.last_updated).toLocaleTimeString()} · Auto-refreshes every 10s
+        </div>
+      )}
 
-      {/* Student Drill-down */}
-      {drillSession && (
-        <div style={{
-          background:   "#1e293b",
-          borderRadius: "12px",
-          padding:      "16px",
-          border:       "1px solid #334155",
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <h3 style={{ margin: 0 }}>🔍 Session: {drillSession.slice(0, 8)}…</h3>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => exportSession(drillSession)}
-                style={{ background: "#0f172a", border: "1px solid #334155", color: "#94a3b8", padding: "4px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}
-              >
-                📥 Export JSON
-              </button>
-              <button
-                onClick={() => { setDrill(null); setStudentLog(null); }}
-                style={{ background: "transparent", border: "1px solid #ef4444", color: "#f87171", padding: "4px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}
-              >
-                ✕ Close
-              </button>
+      {/* Drill-down */}
+      {drill && (
+        <div style={{ background:"#1e293b", borderRadius:12, padding:16, border:"1px solid #334155" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <h3 style={{ margin:0 }}>🔍 Session: {drill.slice(0,8)}…</h3>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => exportSession(drill)} style={{ background:"#0f172a", border:"1px solid #334155", color:"#94a3b8", padding:"4px 12px", borderRadius:6, cursor:"pointer", fontSize:12 }}>📥 Export JSON</button>
+              <button onClick={() => { setDrill(null); setLog(null); }} style={{ background:"transparent", border:"1px solid #ef4444", color:"#f87171", padding:"4px 12px", borderRadius:6, cursor:"pointer", fontSize:12 }}>✕ Close</button>
             </div>
           </div>
-          {loading && <div style={{ color: "#94a3b8" }}>Loading events…</div>}
-          {studentLog && (
-            <>
-              <div style={{ marginBottom: "8px", fontSize: "13px", color: "#94a3b8" }}>
-                Status: <strong style={{ color: "#e2e8f0" }}>{String(studentLog.session?.status)}</strong> |
-                Events: <strong style={{ color: "#60a5fa" }}>{studentLog.events.length}</strong> |
-                Violations: <strong style={{ color: "#f87171" }}>{studentLog.violations.length}</strong>
+          {logLoading && <div style={{ color:"#94a3b8" }}>Loading…</div>}
+          {log && (
+            <div>
+              <div style={{ marginBottom:8, fontSize:13, color:"#94a3b8" }}>
+                Status: <strong style={{ color:"#e2e8f0" }}>{String(log.session?.status)}</strong> |
+                Events: <strong style={{ color:"#60a5fa" }}>{log.events.length}</strong> |
+                Violations: <strong style={{ color:"#f87171" }}>{log.violations.length}</strong>
               </div>
-              <div style={{ maxHeight: "300px", overflow: "auto", fontSize: "12px", fontFamily: "monospace" }}>
-                {studentLog.violations.map((v: Record<string, unknown>, i) => (
-                  <div key={i} style={{
-                    padding: "4px 8px", marginBottom: "4px",
-                    background: v.severity === "high" ? "#450a0a" : v.severity === "medium" ? "#451a03" : "#0f172a",
-                    borderRadius: "4px", color: "#e2e8f0",
-                  }}>
+              <div style={{ maxHeight:300, overflow:"auto", fontSize:12, fontFamily:"monospace" }}>
+                {log.violations.map((v,i) => (
+                  <div key={i} style={{ padding:"4px 8px", marginBottom:4, borderRadius:4, color:"#e2e8f0",
+                    background: v.severity==="high"?"#450a0a":v.severity==="medium"?"#451a03":"#0f172a" }}>
                     {String(v.severity).toUpperCase()} · {String(v.violation_type)} × {String(v.count)}
                   </div>
                 ))}
-                {studentLog.events.slice(0, 50).map((ev: Record<string, unknown>, i) => (
-                  <div key={i} style={{ padding: "2px 8px", color: "#64748b" }}>
-                    [{String(ev.created_at || "").slice(11, 19)}] {String(ev.event_type)}
+                {log.events.slice(0,50).map((ev,i) => (
+                  <div key={i} style={{ padding:"2px 8px", color:"#64748b" }}>
+                    [{String(ev.created_at||"").slice(11,19)}] {String(ev.event_type)}
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

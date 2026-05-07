@@ -40,6 +40,7 @@ const LeaderboardPage = nextDynamic(() => import("@/components/admin/leaderboard
 const IngestPage      = nextDynamic(() => import("@/components/admin/ingest/IngestPage"),      { ssr: false });
 const OrbitalControl    = nextDynamic(() => import("@/components/admin/control-panel/ControlPage"),  { ssr: false });
 const AdminDashboard    = nextDynamic(() => import("@/components/admin/AdminDashboard"),                { ssr: false });
+const GradingQueue      = nextDynamic(() => import("@/components/admin/grading/GradingQueuePanel"),    { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────
 interface StudentRow {
@@ -81,7 +82,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -419,6 +420,7 @@ export default function AdminPage() {
     { id: "students",    label: "Students",    icon: "👥" },
     { id: "ingest",      label: "Harvester",   icon: "🌌" },
     { id: "control",     label: "Control",     icon: "🛸" },
+    { id: "grading",     label: "Grading",     icon: "⚙️" },
   ];
 
   return (
@@ -651,6 +653,7 @@ export default function AdminPage() {
       {/* ── New Feature Tabs ── */}
       {activeTab === "leaderboard" && <LeaderboardPage />}
       {activeTab === "dashboard"   && <AdminDashboard examId={activeExamIds[0] || ""} />}
+      {activeTab === "grading"     && <GradingQueue />}
       {activeTab === "ingest"      && <IngestPage />}
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}
@@ -1425,6 +1428,21 @@ function StudentsTab() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<AdminStudent | null>(null);
   const [formData, setFormData] = useState({ usn: "", name: "", email: "", branch: "CS", password: "" });
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvResult, setCsvResult] = useState<{created:number;skipped:number;errors:any[]}|null>(null);
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setCsvUploading(true); setCsvResult(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await fetch("/api/admin/students/bulk", {
+        method:"POST", headers:{"x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET||"rudranshsarvam"}, body:fd
+      });
+      setCsvResult(await r.json()); load();
+    } catch (err:any) { setCsvResult({created:0,skipped:0,errors:[{error:err.message}]}); }
+    finally { setCsvUploading(false); e.target.value=""; }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1510,6 +1528,18 @@ function StudentsTab() {
           <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ usn: "", name: "", email: "", branch: "CS", password: "" }); setShowModal(true); }}>
             + Add Student
           </button>
+            {/* Bulk CSV upload */}
+            <label style={{ padding:"8px 16px", borderRadius:8, border:"1px solid #6366f1", background:"transparent", color:"#a5b4fc", fontSize:13, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:6 }}>
+              📤 {csvUploading ? "Uploading…" : "Bulk CSV"}
+              <input type="file" accept=".csv" onChange={handleCsvUpload} style={{ display:"none" }} disabled={csvUploading} />
+            </label>
+            <a href="/api/admin/students/csv_template" download style={{ padding:"8px 12px", borderRadius:8, border:"1px solid #334155", color:"#64748b", fontSize:12, textDecoration:"none" }}>📄 Template</a>
+            {csvResult && (
+              <span style={{ fontSize:12, color:"#94a3b8" }}>
+                ✅ {csvResult.created} created · ⏭ {csvResult.skipped} skipped
+                {csvResult.errors.length>0 && <span style={{color:"#f87171"}}> · ⚠️ {csvResult.errors.length} err</span>}
+              </span>
+            )}
         </div>
       </div>
 
