@@ -179,6 +179,12 @@
   flex-shrink: 0;
 }
 
+.inputField {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
   color: #ffffff !important;
   outline: none;
   font-family: inherit;
