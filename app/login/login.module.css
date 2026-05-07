@@ -179,16 +179,17 @@
   flex-shrink: 0;
 }
 
-.inputField {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 15px;
-  font-weight: 500;
-  color: #e2e8f0 !important;
+  color: #ffffff !important;
   outline: none;
   font-family: inherit;
   width: 100%;
+}
+.inputField:-webkit-autofill,
+.inputField:-webkit-autofill:hover,
+.inputField:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px rgba(15, 23, 42, 0.9) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 .inputField::placeholder {
@@ -678,12 +679,15 @@
   border: none;
   background: transparent;
   font-size: 14px;
-  color: #e2e8f0;
+  color: #ffffff !important;
   outline: none;
   font-family: inherit;
   resize: none;
   height: 100px;
   width: 100%;
+}
+.textareaField::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
 }
 
 .backRow {

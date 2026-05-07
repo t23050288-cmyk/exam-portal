@@ -59,19 +59,15 @@ try:
     settings = get_settings()
 
     # Single mount with /api prefix for consistency
-    app.include_router(auth.router,        prefix="/api")
-    app.include_router(exam.router,        prefix="/api")
-    app.include_router(violations.router,  prefix="/api")
-    app.include_router(admin.router,       prefix="/api")
-    app.include_router(ingest.router,      prefix="/api")
-    app.include_router(leaderboard.router, prefix="/api")
-    app.include_router(sessions.router,    prefix="/api")
-    app.include_router(sync.router,        prefix="/api")
-    app.include_router(uploads.router,     prefix="/api")
-    app.include_router(aggregate.router,   prefix="/api")
-    app.include_router(admin_auth.router,  prefix="/api")
-    app.include_router(grading.router,     prefix="/api")
-    app.include_router(support.router,     prefix="/api")
+    # Define routers list
+    routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support]
+
+    # Mount routers with /api prefix (for frontend compatibility)
+    # AND at root (some Vercel environments strip the /api prefix)
+    for r in routers_list:
+        app.include_router(r.router, prefix="/api")
+        app.include_router(r.router)
+
 
     # Cron
     @app.get("/api/cron/evict")
