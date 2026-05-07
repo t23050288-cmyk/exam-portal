@@ -43,6 +43,7 @@ export interface ExamConfig {
   schedule_end_date?: string;
   schedule_end_time?: string;
   enable_end_schedule?: boolean;
+  category?: string;
 }
 
 export interface TestCase {
@@ -71,6 +72,7 @@ export interface Question {
   question_type?: "mcq" | "code";
   starter_code?: string;
   test_cases?: TestCase[];
+  category?: string;
 }
 
 export interface AdminQuestion extends Question {
@@ -110,7 +112,10 @@ export interface LoginResponse {
   access_token: string;
   student_id: string;
   student_name: string;
+  email?: string;
+  branch?: string;
   exam_start_time: string | null;
+  exam_duration_minutes?: number;
   exam_title: string;
   total_questions: number;
 }

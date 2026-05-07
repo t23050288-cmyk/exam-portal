@@ -170,6 +170,7 @@ export default function IngestPage() {
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("CS");
   const [examName, setExamName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Aptitude");
   const [maxQuestions, setMaxQuestions] = useState<number | "">("");
   const [showGatekeeperAlert, setShowGatekeeperAlert] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -243,6 +244,7 @@ export default function IngestPage() {
       ...q,
       branch: selectedBranch,
       exam_name: examName,
+      category: selectedCategory,
       order_index: i,
     }));
 
@@ -253,6 +255,7 @@ export default function IngestPage() {
           questions: questionsWithTether,
           replace_existing: replaceExisting,
           exam_name: examName,
+          category: selectedCategory,
           max_questions: maxQuestions === "" ? null : maxQuestions,
         }),
       });
@@ -350,6 +353,24 @@ export default function IngestPage() {
             />
             <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4, textAlign: "center" }}>
               If specified, we will pick random questions from your file.
+            </div>
+          </div>
+
+          {/* Category Orb */}
+          <div className={styles.orbContainer} style={{ marginTop: 12 }}>
+            <label className={styles.orbLabel}>Category Target</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              {["Aptitude", "Programming", "Others"].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  type="button"
+                  className={`${styles.orbInput} ${selectedCategory === cat ? styles.orbActive : ""}`}
+                  style={{ flex: 1, padding: "10px", fontSize: 13, cursor: "pointer", border: selectedCategory === cat ? "1px solid #6366f1" : "1px solid rgba(255,255,255,0.05)" }}
+                >
+                  {cat === "Aptitude" ? "🧠" : cat === "Programming" ? "💻" : "📦"} {cat}
+                </button>
+              ))}
             </div>
           </div>
 

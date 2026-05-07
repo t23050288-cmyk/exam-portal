@@ -421,6 +421,8 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         update_data["total_questions"] = request.total_questions
     if request.total_marks is not None:
         update_data["total_marks"] = request.total_marks
+    if request.category is not None:
+        update_data["category"] = request.category
     if request.exam_description is not None:
         update_data["exam_description"] = request.exam_description
 

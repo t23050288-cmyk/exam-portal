@@ -803,6 +803,7 @@ function QuestionsTab() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<AdminQuestion | null>(null);
   const [selectedBranch, setSelectedBranch] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [formData, setFormData] = useState<Omit<AdminQuestion, "id">>({ 
     text: "", 
     options: ["", "", "", ""], 
@@ -811,7 +812,8 @@ function QuestionsTab() {
     order_index: 0, 
     marks: 1, 
     exam_name: "General Assessment",
-    image_url: ""
+    image_url: "",
+    category: "Others"
   });
   const [folderBranchModal, setFolderBranchModal] = useState<{ name: string, branches: string[] } | null>(null);
   const [activeExamTitles, setActiveExamTitles] = useState<string[]>([]);
@@ -842,7 +844,7 @@ function QuestionsTab() {
       if (editing) await updateAdminQuestion(editing.id, formData);
       else await createAdminQuestion(formData);
       setShowModal(false); setEditing(null);
-      setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "" });
+      setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "", category: "Others" });
       load();
     } catch { alert("Failed to save question"); }
   };
@@ -952,7 +954,11 @@ function QuestionsTab() {
     }
   };
 
-  const filteredQuestions = selectedBranch === "All" ? questions : questions.filter((q) => q.branch === selectedBranch);
+  const filteredQuestions = questions.filter((q) => {
+    const branchMatch = selectedBranch === "All" || q.branch === selectedBranch;
+    const categoryMatch = selectedCategory === "All" || q.category === selectedCategory;
+    return branchMatch && categoryMatch;
+  });
 
   // Group by exam_name and branch
   const clusters: Record<string, AdminQuestion[]> = {};
@@ -1019,8 +1025,15 @@ function QuestionsTab() {
             <option value="All">All Branches</option>
             {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
+          <select className={adminStyles.input} style={{ width: 140, height: 36, padding: "0 8px", fontSize: 13 }}
+            value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+            <option value="All">All Categories</option>
+            <option value="Aptitude">Aptitude</option>
+            <option value="Programming">Programming</option>
+            <option value="Others">Others</option>
+          </select>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "" }); setShowModal(true); }}>
+        <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ text: "", options: ["", "", "", ""], branch: "CS", correct_answer: "", order_index: questions.length, marks: 1, exam_name: "General Assessment", image_url: "", category: "Others" }); setShowModal(true); }}>
           + Add Question
         </button>
       </div>
@@ -1139,9 +1152,14 @@ function QuestionsTab() {
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${palette.border}` }}>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
-                        📋 {clusterQuestions.length} question{clusterQuestions.length !== 1 ? "s" : ""}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+                          📋 {clusterQuestions.length} question{clusterQuestions.length !== 1 ? "s" : ""}
+                        </span>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          {clusterQuestions[0]?.category || "Others"}
+                        </span>
+                      </div>
                       <span style={{ fontSize: 12, color: palette.accent, fontWeight: 700 }}>
                         {expandedClusters[clusterKey] ? "▲ Collapse" : "▼ View Questions"}
                       </span>
@@ -1201,9 +1219,10 @@ function QuestionsTab() {
                                 </div>
                               )}
                               <p className={adminStyles.cardText} style={{ fontSize: 14 }}>{q.text}</p>
-                              <div className={adminStyles.cardFooter} style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                              <div className={adminStyles.cardFooter} style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
                                 <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.branch}</span>
                                 <span className="badge badge-neutral" style={{ fontSize: 10 }}>{q.marks} Marks</span>
+                                <span className="badge badge-neutral" style={{ fontSize: 10, background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>{q.category || "Others"}</span>
                               </div>
                             </div>
                           ))}
@@ -1287,6 +1306,14 @@ function QuestionsTab() {
                 <label>Branch</label>
                 <select className={adminStyles.input} value={formData.branch} onChange={(e) => setFormData({ ...formData, branch: e.target.value })}>
                   {ALL_BRANCH_DATA.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className={adminStyles.formGroup}>
+                <label>Category</label>
+                <select className={adminStyles.input} value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
+                  <option value="Aptitude">Aptitude</option>
+                  <option value="Programming">Programming</option>
+                  <option value="Others">Others</option>
                 </select>
               </div>
             </div>

@@ -293,6 +293,7 @@ async def _spectral_parse_with_ai(raw_text: str) -> Tuple[List[ParsedQuestion], 
                     branch="CS",
                     order_index=len(questions),
                     confidence=float(chunk_q.get("confidence", 0.5)),
+                    category="Others",
                     needs_review=bool(chunk_q.get("needs_review", False)),
                     review_reason=chunk_q.get("review_reason")
                 )
@@ -384,6 +385,7 @@ def _extract_questions_from_text(raw_text: str) -> Tuple[List[ParsedQuestion], L
                 correct_answer=correct,
                 marks=1,
                 branch="CS",
+                category="Others",
                 order_index=len(questions),
             )
         )
@@ -699,6 +701,7 @@ async def commit_questions(
             "branch": q.branch,
             "order_index": q.order_index if q.order_index > 0 else i,
             "exam_name": safe_exam_name,
+            "category": request.category or "Others",
             "image_url": getattr(q, "image_url", None),
             "audio_url": getattr(q, "audio_url", None),
             "question_type": getattr(q, "question_type", "mcq") or "mcq",
@@ -751,6 +754,7 @@ async def commit_questions(
                 "total_marks": total_marks,
                 "duration_minutes": 20,  # Enforced 20 min exam as per user request
                 "is_active": True,
+                "category": request.category or "Others",
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }, on_conflict="exam_title").execute()
             

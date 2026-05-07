@@ -45,6 +45,7 @@ class QuestionOut(BaseModel):
     marks: int = 1
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
+    category: Optional[str] = "Others"
     question_type: str = "mcq"   # "mcq" | "code"
     starter_code: Optional[str] = None
     test_cases: Optional[List[TestCaseOut]] = None
@@ -68,6 +69,7 @@ class AdminQuestionOut(BaseModel):
     exam_name: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
+    category: Optional[str] = "Others"
     question_type: str = "mcq"
     starter_code: Optional[str] = None
 
@@ -87,6 +89,7 @@ class QuestionCreate(BaseModel):
     exam_name: Optional[str] = "Initial Assessment"
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
+    category: Optional[str] = "Others"
     question_type: str = "mcq"
     starter_code: Optional[str] = None
 
@@ -100,6 +103,7 @@ class QuestionUpdate(BaseModel):
     exam_name: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
+    category: Optional[str] = None
     question_type: Optional[str] = None
     starter_code: Optional[str] = None
 
@@ -257,6 +261,7 @@ class ExamConfig(BaseModel):
     show_answers_after: Optional[bool] = None
     total_questions: Optional[int] = None
     total_marks: Optional[int] = None
+    category: Optional[str] = "Others"
     exam_description: Optional[str] = None
 
 
@@ -274,6 +279,7 @@ class ExamConfigUpdate(BaseModel):
     show_answers_after: Optional[bool] = None
     total_questions: Optional[int] = None
     total_marks: Optional[int] = None
+    category: Optional[str] = None
     exam_description: Optional[str] = None
 
 
@@ -343,6 +349,7 @@ class ParsedQuestion(BaseModel):
     audio_url: Optional[str] = None
     question_type: str = "mcq"
     starter_code: Optional[str] = None
+    category: Optional[str] = "Others"
     test_cases: Optional[List[Dict[str, Any]]] = None
 
 
@@ -368,6 +375,7 @@ class BulkImportRequest(BaseModel):
     max_questions: Optional[int] = None
     branch: str = "CS"
     marks_per_question: int = 1
+    category: Optional[str] = "Others"
 
 # ── Support / SOS ─────────────────────────────────────────────
 class SupportRequestCreate(BaseModel):

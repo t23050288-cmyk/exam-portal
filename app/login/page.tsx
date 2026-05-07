@@ -72,6 +72,8 @@ export default function LoginPage() {
         examDurationMinutes: 60,
         examTitle: data.exam_title,
         totalQuestions: data.total_questions,
+        email: data.email,
+        branch: data.branch
       }));
       router.push("/instructions");
     } catch (err: any) {
@@ -104,6 +106,8 @@ export default function LoginPage() {
         examDurationMinutes: 60,
         examTitle: data.exam_title,
         totalQuestions: data.total_questions,
+        email: data.email,
+        branch: data.branch
       }));
       router.push("/instructions");
     } catch (err: any) {
