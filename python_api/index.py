@@ -30,7 +30,7 @@ app.add_middleware(
 @app.get("/api/health")
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "version": "1.0.4", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"status": "ok", "version": "1.0.5", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api")
 @app.get("/")
