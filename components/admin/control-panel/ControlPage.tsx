@@ -13,6 +13,7 @@ type ExamState = "active" | "inactive";
 interface ExamConfig {
   is_active: boolean;
   scheduled_start: string | null;
+  scheduled_end?: string | null;
   duration_minutes: number;
   exam_title: string;
   marks_per_question: number;

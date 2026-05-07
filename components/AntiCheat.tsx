@@ -160,7 +160,7 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
         <WarningModal
           message={modalMessage}
           warningCount={warningCount}
-          onClose={() => setShowModal(false)}
+          onDismiss={() => setShowModal(false)}
           onReenterFullscreen={enterFullscreen}
         />
       )}

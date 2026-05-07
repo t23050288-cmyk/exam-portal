@@ -187,11 +187,12 @@ export async function adminFetch<T>(path: string, options: RequestInit = {}): Pr
 
 export async function loginStudent(
   usn: string,
-  password: string
+  password: string,
+  extra?: { name?: string; email?: string; branch?: string }
 ): Promise<LoginResponse> {
   return apiFetch<LoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ usn, password }),
+    body: JSON.stringify({ usn, password, ...extra }),
   });
 }
 
@@ -286,8 +287,13 @@ export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
   return Array.isArray(json) ? json : (json.configs || []);
 }
 
-export async function fetchExamConfig(): Promise<ExamConfig[]> {
-  return adminFetch<ExamConfig[]>("/admin/exam-config");
+export async function fetchExamConfig(title?: string): Promise<ExamConfig> {
+  if (title) {
+    const all = await adminFetch<ExamConfig[]>("/admin/exam-config");
+    return (all.find((e) => e.exam_title === title) || all[0]) as ExamConfig;
+  }
+  const all = await adminFetch<ExamConfig[]>("/admin/exam-config");
+  return (all[0] || {}) as ExamConfig;
 }
 
 export async function updateExamConfig(
