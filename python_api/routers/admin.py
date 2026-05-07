@@ -145,7 +145,7 @@ async def upload_question_image(
             )
         result = resp.json()
         if "secure_url" not in result:
-            raise HTTPException(status_code=500, detail=f"Cloudinary error: {result.get("error", {}).get("message", str(result))}")
+            raise HTTPException(status_code=500, detail=f"Cloudinary error: {result.get('error', {}).get('message', str(result))}")
         url = result["secure_url"]
         return {"url": url, "image_url": url, "resource_type": resource_type}
     except httpx.TimeoutException:

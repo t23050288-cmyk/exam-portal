@@ -276,3 +276,73 @@ class FolderEditBranchRequest(BaseModel):
     exam_name: str
     old_branch: str
     new_branch: str
+
+
+# ── Auth ──────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    usn: str
+    password: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    branch: Optional[str] = "CS"
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    student_id: str
+    student_name: Optional[str] = None
+    email: Optional[str] = None
+    branch: Optional[str] = "CS"
+    exam_start_time: Optional[str] = None
+    exam_duration_minutes: int = 60
+    exam_title: str = "ExamGuard Assessment"
+    total_questions: int = 0
+
+
+# ── Leaderboard ───────────────────────────────────────────────
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    student_id: str
+    usn: str
+    name: str
+    branch: str
+    score: int
+    total_marks: int
+    percentage: float
+    time_taken_seconds: Optional[int] = None
+    submitted_at: Optional[str] = None
+    exam_name: Optional[str] = None
+
+
+class LeaderboardResponse(BaseModel):
+    entries: List[LeaderboardEntry]
+    total: int
+    generated_at: str
+
+
+# ── Ingest ────────────────────────────────────────────────────
+
+class ParsedQuestion(BaseModel):
+    id: int
+    text: str
+    options: List[str]
+    correct_answer: str
+    confidence: float = 1.0
+    needs_review: bool = False
+    review_reason: Optional[str] = None
+
+
+class IngestPreviewResponse(BaseModel):
+    parsed: List[ParsedQuestion]
+    extracted_count: int
+    expected_count: int
+    warnings: List[str] = []
+
+
+class BulkImportRequest(BaseModel):
+    questions: List[ParsedQuestion]
+    exam_name: str
+    branch: str
+    marks_per_question: int = 1
