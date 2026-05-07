@@ -53,7 +53,7 @@ class AutosaveRequest(BaseModel):
             raise ValueError(f"Too many responses (max {MAX_BATCH_RESPONSES})")
         return v
 
-@router.post("/api/autosave")
+@router.post("/autosave")
 async def autosave(req: AutosaveRequest, user=Depends(get_current_student)):
     _check_rate(req.session_id, min_interval_s=2.0)
 
@@ -115,7 +115,7 @@ class EventsBatchRequest(BaseModel):
             raise ValueError(f"Too many events (max {MAX_BATCH_EVENTS})")
         return v
 
-@router.post("/api/events_batch")
+@router.post("/events_batch")
 async def events_batch(req: EventsBatchRequest, user=Depends(get_current_student)):
     if not req.events:
         return {"status": "ok", "inserted": 0}
@@ -159,7 +159,7 @@ async def events_batch(req: EventsBatchRequest, user=Depends(get_current_student
 # Called by navigator.sendBeacon — raw body, no auth header possible from beacon
 # We do soft-auth: extract user from JWT if present, else store anonymously
 
-@router.post("/api/events_beacon")
+@router.post("/events_beacon")
 async def events_beacon(request: Request):
     body = await request.body()
     if len(body) > MAX_PAYLOAD_BYTES:
@@ -197,7 +197,7 @@ class SyncRequest(BaseModel):
     responses:  List[ResponseItem] = Field(default_factory=list)
     events:     List[EventItem]    = Field(default_factory=list)
 
-@router.post("/api/sync")
+@router.post("/sync")
 async def sync(req: SyncRequest, user=Depends(get_current_student)):
     sb = get_supabase()
     now_iso = datetime.now(timezone.utc).isoformat()

@@ -58,19 +58,19 @@ try:
 
     settings = get_settings()
 
-    # Single mount with /api prefix
+    # Single mount with /api prefix for consistency
     app.include_router(auth.router,        prefix="/api")
     app.include_router(exam.router,        prefix="/api")
     app.include_router(violations.router,  prefix="/api")
     app.include_router(admin.router,       prefix="/api")
     app.include_router(ingest.router,      prefix="/api")
     app.include_router(leaderboard.router, prefix="/api")
-    app.include_router(sessions.router)          # /api/start_exam, /api/final_submit, /api/export_session
-    app.include_router(sync.router)              # /api/autosave, /api/events_batch, /api/events_beacon, /api/sync
-    app.include_router(uploads.router)           # /api/sign_upload
-    app.include_router(aggregate.router)
-    app.include_router(admin_auth.router)
-    app.include_router(grading.router)         # /api/admin/aggregate, /api/admin/throttle
+    app.include_router(sessions.router,    prefix="/api")
+    app.include_router(sync.router,        prefix="/api")
+    app.include_router(uploads.router,     prefix="/api")
+    app.include_router(aggregate.router,   prefix="/api")
+    app.include_router(admin_auth.router,  prefix="/api")
+    app.include_router(grading.router,     prefix="/api")
 
     # Cron
     @app.get("/api/cron/evict")

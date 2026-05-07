@@ -2,6 +2,31 @@ from pydantic import BaseModel
 from typing import Optional, Any, List, Dict
 
 
+# ── Auth ──────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    usn: str
+    password: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    branch: Optional[str] = "CS"
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    student: Optional[Dict[str, Any]] = None
+    # Add flattened fields for convenience
+    student_id: str
+    student_name: Optional[str] = None
+    email: Optional[str] = None
+    branch: Optional[str] = "CS"
+    exam_start_time: Optional[str] = None
+    exam_duration_minutes: int = 60
+    exam_title: str = "ExamGuard Assessment"
+    total_questions: int = 0
+
+
 # ── Questions ─────────────────────────────────────────────────
 
 class TestCaseOut(BaseModel):
@@ -278,28 +303,6 @@ class FolderEditBranchRequest(BaseModel):
     new_branch: str
 
 
-# ── Auth ──────────────────────────────────────────────────────
-
-class LoginRequest(BaseModel):
-    usn: str
-    password: str
-    name: Optional[str] = None
-    email: Optional[str] = None
-    branch: Optional[str] = "CS"
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    student_id: str
-    student_name: Optional[str] = None
-    email: Optional[str] = None
-    branch: Optional[str] = "CS"
-    exam_start_time: Optional[str] = None
-    exam_duration_minutes: int = 60
-    exam_title: str = "ExamGuard Assessment"
-    total_questions: int = 0
-
-
 # ── Leaderboard ───────────────────────────────────────────────
 
 class LeaderboardEntry(BaseModel):
@@ -324,28 +327,32 @@ class LeaderboardResponse(BaseModel):
     updated_at: str = ""
 
 
-# ── Ingest ────────────────────────────────────────────────────
+# ── Ingest Models ─────────────────────────────────────────────
 
 class ParsedQuestion(BaseModel):
-    id: int = 0
     text: str
-    options: List[str]
-    correct_answer: str
+    options: List[str] = []
+    correct_answer: str = "A"
     marks: int = 1
     branch: str = "CS"
     order_index: int = 0
     confidence: float = 1.0
     needs_review: bool = False
     review_reason: Optional[str] = None
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    question_type: str = "mcq"
+    starter_code: Optional[str] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
 
 
 class IngestPreviewResponse(BaseModel):
     questions: List[ParsedQuestion]
-    total: int = 0
-    source_file: Optional[str] = None
+    total: int
+    source_file: str = ""
     parse_warnings: List[str] = []
     ai_powered: bool = False
-    ai_confidence_avg: float = 0.0
+    ai_confidence_avg: float = 1.0
     needs_review_count: int = 0
     finesse_check: Optional[str] = None
     # legacy aliases
@@ -356,6 +363,8 @@ class IngestPreviewResponse(BaseModel):
 
 class BulkImportRequest(BaseModel):
     questions: List[ParsedQuestion]
-    exam_name: str
-    branch: str
+    exam_name: str = "Initial Assessment"
+    replace_existing: bool = False
+    max_questions: Optional[int] = None
+    branch: str = "CS"
     marks_per_question: int = 1

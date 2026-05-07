@@ -11,9 +11,7 @@ from typing import Optional
 from db.supabase_client import get_supabase
 from routers.admin import verify_admin
 
-# NO prefix here — index.py mounts this without prefix,
-# and the routes themselves have /api/admin/... paths
-router = APIRouter(tags=["admin-aggregate"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Simple TTL cache for aggregate query (5 seconds)
 _agg_cache: dict = {}
@@ -86,7 +84,7 @@ def _get_aggregate(exam_id: str) -> dict:
     return data
 
 
-@router.get("/api/admin/aggregate")
+@router.get("/aggregate")
 async def get_aggregate(exam_id: str = Query(...), _: bool = Depends(verify_admin)):
     return _get_aggregate(exam_id)
 
@@ -96,7 +94,7 @@ async def get_aggregate(exam_id: str = Query(...), _: bool = Depends(verify_admi
 class ThrottleRequest(BaseModel):
     mode: str   # 'normal' | 'safe' | 'emergency'
 
-@router.post("/api/admin/throttle")
+@router.post("/throttle")
 async def set_throttle(req: ThrottleRequest, _: bool = Depends(verify_admin)):
     if req.mode not in ("normal", "safe", "emergency"):
         raise HTTPException(status_code=400, detail="mode must be 'normal', 'safe', or 'emergency'")
@@ -115,7 +113,7 @@ async def set_throttle(req: ThrottleRequest, _: bool = Depends(verify_admin)):
     return {"status": "ok", "throttle_mode": req.mode}
 
 
-@router.get("/api/admin/throttle_status")
+@router.get("/throttle_status")
 async def throttle_status():
     """Public endpoint — no auth needed."""
     sb = get_supabase()
@@ -136,7 +134,7 @@ async def throttle_status():
     }
 
 
-@router.get("/api/admin/student_log")
+@router.get("/student_log")
 async def student_log(
     session_id: str = Query(...),
     limit: int = Query(100, le=500),

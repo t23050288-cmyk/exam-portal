@@ -30,7 +30,7 @@ class StartExamRequest(BaseModel):
     exam_name: str          # matches exam_config.exam_title / questions.exam_name
     client_ts: Optional[int] = None
 
-@router.post("/api/start_exam")
+@router.post("/start_exam")
 async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
     sb = get_supabase()
 
@@ -136,7 +136,7 @@ class FinalSubmitRequest(BaseModel):
     final_responses: List[FinalResponse] = Field(default_factory=list)
     client_ts:       Optional[int] = None
 
-@router.post("/api/final_submit")
+@router.post("/final_submit")
 async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student)):
     sb = get_supabase()
     user_id = user.get("id") or user.get("usn") or user.get("student_id", "")
@@ -198,7 +198,7 @@ async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student
 
 # ── /api/export_session ──────────────────────────────────────────────────────
 
-@router.get("/api/export_session")
+@router.get("/export_session")
 async def export_session(session_id: str, user=Depends(get_current_student)):
     _require_admin(user)
     sb = get_supabase()

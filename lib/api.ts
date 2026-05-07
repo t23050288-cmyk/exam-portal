@@ -137,29 +137,57 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = options.method || "GET";
+  const url = `${API_BASE}${path}`;
+  
+  // Production-style logging to match user preference
+  console.log(`[API] Fetching: ${method} ${url}`);
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...getAuthHeaders(),
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      const text = await res.text();
+      let detail = text;
+      try { 
+        const parsed = JSON.parse(text);
+        detail = parsed.detail || parsed.message || text;
+      } catch {}
+      console.error(`[API] Error ${res.status}:`, detail);
+      throw Object.assign(new Error(detail), { status: res.status });
+    }
+
     const text = await res.text();
-    let detail = text;
-    try { detail = JSON.parse(text)?.detail ?? text; } catch {}
-    throw Object.assign(new Error(detail), { status: res.status });
-  }
+    if (!text) return {} as T;
 
-  const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+    try {
+      return JSON.parse(text) as T;
+    } catch (e) {
+      console.error("[API] Malformed JSON response:", text);
+      throw new Error("Invalid server response format");
+    }
+  } catch (err: any) {
+    if (err.status) throw err;
+    console.error("[API] Network error:", err.message);
+    throw err;
+  }
 }
 
 export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = options.method || "GET";
+  const url = `${API_BASE}${path}`;
+  
+  console.log(`[API-ADMIN] Fetching: ${method} ${url}`);
+
   const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
     "x-admin-secret": ADMIN_SECRET,
@@ -167,20 +195,37 @@ export async function adminFetch<T>(path: string, options: RequestInit = {}): Pr
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      const text = await res.text();
+      let detail = text;
+      try { 
+        const parsed = JSON.parse(text);
+        detail = parsed.detail || parsed.message || text;
+      } catch {}
+      console.error(`[API-ADMIN] Error ${res.status}:`, detail);
+      throw Object.assign(new Error(detail), { status: res.status });
+    }
+
     const text = await res.text();
-    let detail = text;
-    try { detail = JSON.parse(text)?.detail ?? text; } catch {}
-    throw Object.assign(new Error(detail), { status: res.status });
-  }
+    if (!text) return {} as T;
 
-  const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+    try {
+      return JSON.parse(text) as T;
+    } catch (e) {
+      console.error("[API-ADMIN] Malformed JSON response:", text);
+      throw new Error("Invalid server response format");
+    }
+  } catch (err: any) {
+    if (err.status) throw err;
+    console.error("[API-ADMIN] Network error:", err.message);
+    throw err;
+  }
 }
 
 // --- API functions ---

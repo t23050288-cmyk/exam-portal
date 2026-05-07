@@ -26,7 +26,7 @@ class SignUploadRequest(BaseModel):
     purpose:     str = "question_media"
     folder:      Optional[str] = None
 
-@router.post("/api/sign_upload")
+@router.post("/sign_upload")
 async def sign_upload(req: SignUploadRequest, user=Depends(get_current_student)):
     if req.purpose not in ALLOWED_PURPOSES:
         raise HTTPException(status_code=400, detail=f"Invalid purpose. Allowed: {ALLOWED_PURPOSES}")
