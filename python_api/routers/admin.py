@@ -722,3 +722,66 @@ async def delete_code_question(question_id: str, _: bool = Depends(verify_admin)
     db = get_supabase()
     db.table("code_questions").delete().eq("question_id", question_id).execute()
     return {"deleted": True}
+
+
+# ── Exam Config Aliases (frontend uses /exam-config, backend has /exam/config) ─
+
+@router.get("/exam-config")
+async def get_exam_config_alias(title: Optional[str] = None, _: bool = Depends(verify_admin)):
+    """Alias for /exam/config — frontend compatibility."""
+    return await get_exam_config(title=title, _=_)
+
+@router.post("/exam-config")
+async def update_exam_config_alias(request: ExamConfigUpdate, _: bool = Depends(verify_admin)):
+    """Alias for POST /exam/config — frontend compatibility."""
+    return await update_exam_config(request=request, _=_)
+
+@router.get("/exam-config/{exam_id}")
+async def get_exam_config_by_id_alias(exam_id: str, _: bool = Depends(verify_admin)):
+    """Get exam config by id or title."""
+    db = get_supabase()
+    try:
+        result = db.table("exam_config").select("*").eq("id", exam_id).limit(1).execute()
+        if result.data:
+            row = result.data[0]
+            return ExamConfig(
+                id=row.get("id"),
+                is_active=row.get("is_active", True),
+                scheduled_start=row.get("scheduled_start"),
+                scheduled_end=row.get("scheduled_end"),
+                duration_minutes=row.get("duration_minutes", 60),
+                exam_title=row.get("exam_title", "ExamGuard Assessment"),
+                marks_per_question=row.get("marks_per_question", 4),
+                negative_marks=float(row.get("negative_marks") if row.get("negative_marks") is not None else -1.0),
+                shuffle_questions=row.get("shuffle_questions", False),
+                shuffle_options=row.get("shuffle_options", False),
+                max_attempts=row.get("max_attempts", 1),
+                show_answers_after=row.get("show_answers_after", True),
+                total_questions=row.get("total_questions", 30),
+                total_marks=row.get("total_marks", 120),
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=404, detail="Exam config not found")
+
+@router.patch("/exam-config/{exam_id}")
+async def patch_exam_config_alias(exam_id: str, request: ExamConfigUpdate, _: bool = Depends(verify_admin)):
+    """PATCH exam config by id."""
+    db = get_supabase()
+    update_data = {k: v for k, v in request.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        result = db.table("exam_config").update(update_data).eq("id", exam_id).execute()
+        if result.data:
+            row = result.data[0]
+            return ExamConfig(
+                id=row.get("id"),
+                is_active=row.get("is_active", True),
+                exam_title=row.get("exam_title", ""),
+                duration_minutes=row.get("duration_minutes", 60),
+                scheduled_start=row.get("scheduled_start"),
+                scheduled_end=row.get("scheduled_end"),
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=404, detail="Exam config not found")

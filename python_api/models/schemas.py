@@ -318,26 +318,39 @@ class LeaderboardEntry(BaseModel):
 
 class LeaderboardResponse(BaseModel):
     entries: List[LeaderboardEntry]
-    total: int
-    generated_at: str
+    total: int = 0
+    total_submitted: int = 0
+    generated_at: str = ""
+    updated_at: str = ""
 
 
 # ── Ingest ────────────────────────────────────────────────────
 
 class ParsedQuestion(BaseModel):
-    id: int
+    id: int = 0
     text: str
     options: List[str]
     correct_answer: str
+    marks: int = 1
+    branch: str = "CS"
+    order_index: int = 0
     confidence: float = 1.0
     needs_review: bool = False
     review_reason: Optional[str] = None
 
 
 class IngestPreviewResponse(BaseModel):
-    parsed: List[ParsedQuestion]
-    extracted_count: int
-    expected_count: int
+    questions: List[ParsedQuestion]
+    total: int = 0
+    source_file: Optional[str] = None
+    parse_warnings: List[str] = []
+    ai_powered: bool = False
+    ai_confidence_avg: float = 0.0
+    needs_review_count: int = 0
+    finesse_check: Optional[str] = None
+    # legacy aliases
+    extracted_count: int = 0
+    expected_count: int = 0
     warnings: List[str] = []
 
 
