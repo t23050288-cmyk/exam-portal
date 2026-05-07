@@ -39,7 +39,9 @@ export default function AdminDashboard({ examId = "", token = "" }: Props) {
   const [throttleLoading, setTL]  = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  // Use x-admin-secret header (same as adminFetch in lib/api.ts)
+  const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam";
+  const headers = { "Content-Type": "application/json", "x-admin-secret": adminSecret };
 
   const fetchAggregate = useCallback(async () => {
     try {

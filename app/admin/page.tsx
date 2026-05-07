@@ -27,6 +27,7 @@ import {
   BranchExamSummary,
   forceSubmitAdminStudent,
   cleanupStaleSessions,
+  fetchExamConfig,
 } from "@/lib/api";
 import { BRANCHES as BRANCH_LIST, BRANCH_IDS } from "@/lib/constants";
 import styles from "./admin.module.css";
@@ -245,6 +246,7 @@ export default function AdminPage() {
   const [liveStats, setLiveStats] = useState({ answers: 0, violations: 0, submittals: 0 });
   const [quizzes, setQuizzes] = useState<BranchExamSummary[]>([]);
   const [quizFilter, setQuizFilter] = useState<string>("all");
+  const [activeExamIds, setActiveExamIds] = useState<string[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -272,6 +274,14 @@ export default function AdminPage() {
       setPassError("Incorrect admin password.");
     }
   };
+
+  // Fetch active exam IDs for AdminDashboard
+  const fetchActiveExams = useCallback(async () => {
+    try {
+      const cfg = await fetchExamConfig();
+      if (cfg && cfg.id) setActiveExamIds([cfg.id]);
+    } catch { /* ignore */ }
+  }, []);
 
   const fetchStudents = useCallback(async () => {
     try {
@@ -302,6 +312,7 @@ export default function AdminPage() {
     if (!authed) return;
     setLoading(true);
     fetchStudents().finally(() => setLoading(false));
+    fetchActiveExams();
     fetchAdminQuestions().then(({ questions: qs }) => {
       const list: BranchExamSummary[] = [];
       qs.forEach(q => {
@@ -639,7 +650,7 @@ export default function AdminPage() {
 
       {/* ── New Feature Tabs ── */}
       {activeTab === "leaderboard" && <LeaderboardPage />}
-      {activeTab === "dashboard"   && <AdminDashboard />}
+      {activeTab === "dashboard"   && <AdminDashboard examId={activeExamIds[0] || ""} />}
       {activeTab === "ingest"      && <IngestPage />}
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}
