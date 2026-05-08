@@ -39,13 +39,21 @@
 
 /* ── Card Animation ── */
 @keyframes cardEntry {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Shield Crest ── */
 .crestWrap {
-  margin-bottom: -55px; /* Overlap with card top */
+  margin-bottom: -55px;
+  /* Overlap with card top */
   z-index: 10;
   display: flex;
   justify-content: center;
@@ -92,7 +100,8 @@
 }
 
 /* ── Laurel Wreaths (Anchored to Header) ── */
-.laurelLeft, .laurelRight {
+.laurelLeft,
+.laurelRight {
   position: absolute;
   top: 50%;
   width: 65px;
@@ -190,6 +199,7 @@
   font-family: inherit;
   width: 100%;
 }
+
 .inputField:-webkit-autofill,
 .inputField:-webkit-autofill:hover,
 .inputField:-webkit-autofill:focus {
@@ -285,13 +295,16 @@
 .dropdown::-webkit-scrollbar {
   width: 6px;
 }
+
 .dropdown::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .dropdown::-webkit-scrollbar-thumb {
   background: rgba(200, 170, 110, 0.3);
   border-radius: 10px;
 }
+
 .dropdown::-webkit-scrollbar-thumb:hover {
   background: rgba(200, 170, 110, 0.5);
 }
@@ -552,8 +565,13 @@
 }
 
 @keyframes tickerScroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 /* ── Sparkle decoration ── */
@@ -569,8 +587,13 @@
 }
 
 @keyframes sparkleRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Responsive ── */
@@ -692,6 +715,7 @@
   height: 100px;
   width: 100%;
 }
+
 .textareaField::placeholder {
   color: rgba(255, 255, 255, 0.4) !important;
 }
@@ -732,4 +756,3 @@
   color: #f0d87e;
   text-decoration: underline;
 }
-

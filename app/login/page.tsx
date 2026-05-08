@@ -18,10 +18,10 @@ const NEWS_ITEMS = [
 
 export default function LoginPage() {
   const router = useRouter();
-  
+
   // View State
   const [view, setView] = useState<"login" | "signup" | "forgot" | "support">("login");
-  
+
   // Shared & Form State
   const [usn, setUsn] = useState("");
   const [password, setPassword] = useState("");
@@ -29,14 +29,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [branch, setBranch] = useState("CS");
   const [supportMsg, setSupportMsg] = useState("");
-  
+
   // UI State
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [supportSuccess, setSupportSuccess] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
-  
+
   const selectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -149,7 +149,7 @@ export default function LoginPage() {
 
       <button className={styles.helpBtn} onClick={() => setView("support")}>
         <svg className={styles.helpIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
         Get Help
       </button>
@@ -157,10 +157,10 @@ export default function LoginPage() {
       <div className={styles.crestWrap}>
         <div className={styles.crestGlow}></div>
         <svg className={styles.crest} viewBox="0 0 100 110" fill="none">
-          <path d="M50 5 L90 20 L90 55 Q90 85 50 105 Q10 85 10 55 L10 20 Z" fill="url(#shieldGrad)" stroke="rgba(200,170,110,0.8)" strokeWidth="2"/>
+          <path d="M50 5 L90 20 L90 55 Q90 85 50 105 Q10 85 10 55 L10 20 Z" fill="url(#shieldGrad)" stroke="rgba(200,170,110,0.8)" strokeWidth="2" />
           <defs>
             <linearGradient id="shieldGrad" x1="50" y1="0" x2="50" y2="110" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#1e3a8a"/><stop offset="100%" stopColor="#1e1b4b"/>
+              <stop offset="0%" stopColor="#1e3a8a" /><stop offset="100%" stopColor="#1e1b4b" />
             </linearGradient>
           </defs>
         </svg>
@@ -169,10 +169,10 @@ export default function LoginPage() {
       <div className={styles.card}>
         <div className={styles.header}>
           <svg className={styles.laurelLeft} viewBox="0 0 50 120" fill="none">
-            <path d="M40 10 Q20 20 25 40 Q10 35 15 55 Q5 50 8 70 Q0 68 5 85 Q-2 85 5 100 Q8 110 20 115" stroke="rgba(200,170,110,0.3)" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+            <path d="M40 10 Q20 20 25 40 Q10 35 15 55 Q5 50 8 70 Q0 68 5 85 Q-2 85 5 100 Q8 110 20 115" stroke="rgba(200,170,110,0.3)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
           </svg>
           <svg className={styles.laurelRight} viewBox="0 0 50 120" fill="none">
-            <path d="M10 10 Q30 20 25 40 Q40 35 35 55 Q45 50 42 70 Q50 68 45 85 Q52 85 45 100 Q42 110 30 115" stroke="rgba(200,170,110,0.3)" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+            <path d="M10 10 Q30 20 25 40 Q40 35 35 55 Q45 50 42 70 Q50 68 45 85 Q52 85 45 100 Q42 110 30 115" stroke="rgba(200,170,110,0.3)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
           </svg>
 
           <p className={styles.topLabel}>CAMPUS NEXUS:</p>
@@ -191,11 +191,11 @@ export default function LoginPage() {
             <motion.div key="login" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <form onSubmit={handleLoginSubmit} className={styles.form}>
                 <div className={styles.inputWrap}>
-                  <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                   <input type="text" className={styles.inputField} placeholder="USN / Username" value={usn} onChange={(e) => setUsn(e.target.value.toUpperCase())} required />
                 </div>
                 <div className={styles.inputWrap}>
-                  <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                   <input type={showPassword ? "text" : "password"} className={styles.inputField} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                   <button type="button" className={styles.passToggle} onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? "Hide" : "Show"}
@@ -205,7 +205,7 @@ export default function LoginPage() {
                 {error && <div className={styles.error}>{error}</div>}
 
                 <button type="submit" className={styles.submitBtn} disabled={loading}>{loading ? "Verifying..." : "SECURE LOGIN"}</button>
-                
+
                 <div className={styles.linksRow}>
                   <button className={styles.link} type="button" onClick={() => setView("forgot")}>Forgot Password?</button>
                 </div>
