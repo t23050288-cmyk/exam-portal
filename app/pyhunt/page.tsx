@@ -17,11 +17,11 @@ interface CodingProblem {
 }
 interface JumbleProblem {
   title: string; description: string;
-  lines: string[]; /* correct order */
+  lines: string[];
 }
 
 /* ═══════════════════════════════════════════════
-   ROUND DATA  (admin can later move to DB)
+   ROUND DATA
 ═══════════════════════════════════════════════ */
 const MCQ_QUESTIONS: MCQQuestion[] = [
   {
@@ -166,46 +166,109 @@ const ROUND_CLUES = [
 ];
 
 /* ═══════════════════════════════════════════════
-   PYODIDE HOOK
+   NVIDIA AI HELPERS
+═══════════════════════════════════════════════ */
+async function aiCheckCode(problem: CodingProblem, code: string, roundNum: number) {
+  try {
+    const res = await fetch("/api/ai/check-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        problem_title: problem.title,
+        problem_description: problem.description,
+        code,
+        test_cases: problem.testCases,
+        round_num: roundNum,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function aiGetHint(problemTitle: string, code: string, error?: string) {
+  try {
+    const res = await fetch("/api/ai/hint", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem_title: problemTitle, code, error }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.hint as string;
+  } catch {
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   PYODIDE HOOK — Fixed to match worker format
 ═══════════════════════════════════════════════ */
 function usePyodide() {
   const workerRef = useRef<Worker | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const cbRef = useRef<Map<string, (r: any) => void>>(new Map());
 
   useEffect(() => {
-    const w = new Worker("/pyodide-worker.js");
-    workerRef.current = w;
-    w.onmessage = (e) => {
-      const { id, type } = e.data;
-      if (type === "ready") { setReady(true); return; }
-      const cb = cbRef.current.get(id);
-      if (cb) { cb(e.data); cbRef.current.delete(id); }
-    };
-    return () => w.terminate();
+    let w: Worker;
+    try {
+      w = new Worker("/pyodide-worker.js");
+      workerRef.current = w;
+      w.onmessage = (e) => {
+        const { id, type } = e.data;
+        if (type === "ready") { setReady(true); return; }
+        if (type === "error") { setLoadError(e.data.message); return; }
+        const cb = cbRef.current.get(id);
+        if (cb) { cb(e.data); cbRef.current.delete(id); }
+      };
+      w.onerror = (err) => {
+        setLoadError("Worker crashed: " + err.message);
+      };
+    } catch (err: any) {
+      setLoadError("Failed to start worker: " + err.message);
+    }
+    return () => { try { w?.terminate(); } catch {} };
   }, []);
 
-  const runCode = useCallback((code: string, testInput = ""): Promise<any> => {
+  /* runCode: sends { type:"run", code, stdin } and returns { stdout, stderr, error } */
+  const runCode = useCallback((code: string, stdin = ""): Promise<{ stdout: string; stderr: string; error: string | null }> => {
     return new Promise((resolve) => {
+      if (!workerRef.current) {
+        resolve({ stdout: "", stderr: "Worker not initialized", error: "Worker not initialized" });
+        return;
+      }
       const id = Math.random().toString(36).slice(2);
-      cbRef.current.set(id, resolve);
-      workerRef.current?.postMessage({ id, type: "run", code, stdin: testInput });
+      // 15s client-side timeout
+      const timer = setTimeout(() => {
+        cbRef.current.delete(id);
+        resolve({ stdout: "", stderr: "Timeout: code took too long", error: "Timeout" });
+      }, 15000);
+
+      cbRef.current.set(id, (data) => {
+        clearTimeout(timer);
+        resolve({
+          stdout: data.stdout || "",
+          stderr: data.stderr || "",
+          error: data.error || null,
+        });
+      });
+      workerRef.current.postMessage({ id, type: "run", code, stdin });
     });
   }, []);
 
-  return { ready, runCode };
+  return { ready, loadError, runCode };
 }
 
 /* ═══════════════════════════════════════════════
    COMPONENTS
 ═══════════════════════════════════════════════ */
-
-/** Stars background */
 function Stars() {
   return <div className={styles.stars} />;
 }
 
-/** Progress bar */
 function RoundProgress({ current, total }: { current: number; total: number }) {
   return (
     <div className={styles.progressWrap}>
@@ -221,14 +284,13 @@ function RoundProgress({ current, total }: { current: number; total: number }) {
   );
 }
 
-/** MCQ Round */
+/* MCQ Round */
 function RoundMCQ({ onComplete }: { onComplete: () => void }) {
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
-
   const q = MCQ_QUESTIONS[idx];
 
   const handleCheck = () => {
@@ -239,12 +301,8 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
 
   const handleNext = () => {
     if (idx + 1 < MCQ_QUESTIONS.length) {
-      setIdx(i => i + 1);
-      setSelected(null);
-      setChecked(false);
-    } else {
-      setDone(true);
-    }
+      setIdx(i => i + 1); setSelected(null); setChecked(false);
+    } else { setDone(true); }
   };
 
   if (done) {
@@ -277,30 +335,23 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
               cls = `${styles.option} ${styles.optionSelected}`;
             }
             return (
-              <button key={opt.label} className={cls}
-                disabled={checked}
-                onClick={() => setSelected(opt.label)}>
-                <span className={styles.optionLabel}>{opt.label}</span>
-                {opt.text}
+              <button key={opt.label} className={cls} disabled={checked} onClick={() => setSelected(opt.label)}>
+                <span className={styles.optionLabel}>{opt.label}</span>{opt.text}
               </button>
             );
           })}
         </div>
-        {checked && q.explanation && (
-          <div className={styles.explanation}>💡 {q.explanation}</div>
-        )}
+        {checked && q.explanation && <div className={styles.explanation}>💡 {q.explanation}</div>}
         {!checked
           ? <button className={styles.primaryBtn} disabled={!selected} onClick={handleCheck}>Check Answer</button>
-          : <button className={styles.primaryBtn} onClick={handleNext}>
-              {idx + 1 < MCQ_QUESTIONS.length ? "Next Question →" : "Finish Round 1 →"}
-            </button>
+          : <button className={styles.primaryBtn} onClick={handleNext}>{idx + 1 < MCQ_QUESTIONS.length ? "Next Question →" : "Finish Round 1 →"}</button>
         }
       </div>
     </div>
   );
 }
 
-/** Jumble Round */
+/* Jumble Round */
 function RoundJumble({ onComplete }: { onComplete: () => void }) {
   const correctLines = JUMBLE_PROBLEM.lines;
   const [lines, setLines] = useState<string[]>(() => [...correctLines].sort(() => Math.random() - 0.5));
@@ -326,13 +377,10 @@ function RoundJumble({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className={styles.roundWrap}>
-      <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round 2 · Code Jumble</span>
-      </div>
+      <div className={styles.roundHeader}><span className={styles.roundTag}>Round 2 · Code Jumble</span></div>
       <div className={styles.questionCard}>
         <h3 className={styles.problemTitle}>{JUMBLE_PROBLEM.title}</h3>
         <p className={styles.problemDesc}>{JUMBLE_PROBLEM.description}</p>
-
         <div className={styles.jumbleBoard}>
           {lines.map((line, i) => (
             <div key={i}
@@ -347,7 +395,6 @@ function RoundJumble({ onComplete }: { onComplete: () => void }) {
             </div>
           ))}
         </div>
-
         {!submitted ? (
           <button className={styles.primaryBtn} onClick={handleSubmit}>Submit Order</button>
         ) : correct ? (
@@ -368,54 +415,75 @@ function RoundJumble({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-/** Coding Round (Round 3 or 4) */
+/* Coding Round — Round 3 & 4 with REAL Pyodide execution + NVIDIA AI feedback */
 function RoundCoding({
   problem, roundNum, clue, onComplete,
 }: {
   problem: CodingProblem; roundNum: number; clue: string; onComplete: () => void;
 }) {
-  const { ready, runCode } = usePyodide();
+  const { ready, loadError, runCode } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [passed, setPassed] = useState(false);
   const [results, setResults] = useState<{ label: string; ok: boolean; got: string; expected: string }[]>([]);
+  const [aiFeedback, setAiFeedback] = useState<string>("");
+  const [aiHint, setAiHint] = useState<string>("");
+  const [loadingAi, setLoadingAi] = useState(false);
 
   const handleRun = async () => {
     if (!ready) return;
     setRunning(true);
     setOutput("");
+    setResults([]);
+    setAiFeedback("");
+    setAiHint("");
 
-    // Run all test cases
     const testResults: typeof results = [];
     let allPassed = true;
 
+    // Run each test case via Pyodide
     for (const tc of problem.testCases) {
-      // Inject test call based on function name
       const fnMatch = code.match(/^def (\w+)\(/m);
       const fnName = fnMatch ? fnMatch[1] : null;
       let runnable = code;
       if (fnName) {
-        // Check if test input is a number or string
         const inputVal = isNaN(Number(tc.input)) ? `"${tc.input}"` : tc.input;
         runnable += `\n_result = str(${fnName}(${inputVal}))\nprint("TESTRESULT:" + _result)`;
       }
 
       const res = await runCode(runnable, tc.input);
       const stdout: string = res.stdout || "";
+      const stderr: string = res.stderr || "";
       const lines = stdout.split("\n");
       const resultLine = lines.find((l: string) => l.startsWith("TESTRESULT:"));
-      const got = resultLine ? resultLine.replace("TESTRESULT:", "").trim() : stdout.trim();
+      const got = resultLine ? resultLine.replace("TESTRESULT:", "").trim() : (res.error ? `Error: ${res.error}` : stdout.trim());
       const ok = got === tc.expected;
       if (!ok) allPassed = false;
       testResults.push({ label: tc.input, ok, got, expected: tc.expected });
     }
 
-    // Also just run the code for stdout
+    // Also run plain for output display
     const fullRes = await runCode(code);
-    setOutput(fullRes.stdout || fullRes.stderr || "");
+    const displayOut = fullRes.stderr ? `${fullRes.stdout}\n⚠️ ${fullRes.stderr}` : fullRes.stdout;
+    setOutput(displayOut.trim());
     setResults(testResults);
-    if (allPassed) setPassed(true);
+
+    // NVIDIA AI feedback (non-blocking)
+    setLoadingAi(true);
+    if (allPassed) {
+      setPassed(true);
+      aiCheckCode(problem, code, roundNum).then(ai => {
+        if (ai?.feedback) setAiFeedback("🤖 " + ai.feedback);
+        setLoadingAi(false);
+      });
+    } else {
+      aiGetHint(problem.title, code, fullRes.stderr || undefined).then(hint => {
+        if (hint) setAiHint(hint);
+        setLoadingAi(false);
+      });
+    }
+
     setRunning(false);
   };
 
@@ -423,7 +491,8 @@ function RoundCoding({
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
         <span className={styles.roundTag}>Round {roundNum} · Python Coding</span>
-        {!ready && <span className={styles.loadingTag}>⏳ Loading Python…</span>}
+        {loadError && <span className={styles.errorTag}>⚠️ {loadError}</span>}
+        {!loadError && !ready && <span className={styles.loadingTag}>⏳ Loading Python…</span>}
         {ready && <span className={styles.readyTag}>🐍 Python Ready</span>}
       </div>
       <div className={styles.codingLayout}>
@@ -449,9 +518,14 @@ function RoundCoding({
             value={code}
             onChange={e => setCode(e.target.value)}
             spellCheck={false}
+            rows={14}
           />
-          <button className={styles.runBtn} onClick={handleRun} disabled={!ready || running}>
-            {running ? "▶ Running…" : "▶ Run Code"}
+          <button
+            className={styles.runBtn}
+            onClick={handleRun}
+            disabled={!ready || running}
+          >
+            {running ? "▶ Running…" : ready ? "▶ Run Code" : "⏳ Loading…"}
           </button>
 
           {results.length > 0 && (
@@ -471,6 +545,14 @@ function RoundCoding({
               <pre>{output}</pre>
             </div>
           )}
+
+          {loadingAi && <div className={styles.aiLoading}>🤖 AI is thinking…</div>}
+          {aiFeedback && <div className={styles.aiFeedback}>{aiFeedback}</div>}
+          {aiHint && !passed && (
+            <div className={styles.aiHint}>
+              <span className={styles.aiHintLabel}>💡 AI Hint:</span> {aiHint}
+            </div>
+          )}
         </div>
       </div>
 
@@ -486,40 +568,33 @@ function RoundCoding({
   );
 }
 
-/** Turtle Round */
+/* Turtle Round */
 function RoundTurtle({ onComplete }: { onComplete: () => void }) {
-  const { ready, runCode } = usePyodide();
+  const { ready, loadError, runCode } = usePyodide();
   const [code, setCode] = useState(TURTLE_ROUND5.starterCode);
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // We use a simplified turtle renderer via canvas
   const handleRun = async () => {
     if (!ready) return;
     setRunning(true);
 
-    // Intercept turtle calls — we parse the output and draw on canvas
     const shimCode = `
 import sys
 
 class _TurtleShim:
     def __init__(self):
-        self.x = 0.0
-        self.y = 0.0
-        self.angle = 0.0
-        self.pen = True
-        self.moves = []
+        self.x = 0.0; self.y = 0.0; self.angle = 90.0; self.pen = True; self.moves = []
     def speed(self, s): pass
     def penup(self): self.pen = False
     def pendown(self): self.pen = True
     def forward(self, d):
         import math
         nx = self.x + d * math.cos(math.radians(self.angle))
-        ny = self.y + d * math.sin(math.radians(self.angle))
-        if self.pen:
-            self.moves.append(('line', self.x, self.y, nx, ny))
+        ny = self.y - d * math.sin(math.radians(self.angle))
+        if self.pen: self.moves.append(('line', self.x, self.y, nx, ny))
         self.x, self.y = nx, ny
     def fd(self, d): self.forward(d)
     def right(self, a): self.angle -= a
@@ -533,26 +608,23 @@ class _TurtleShim:
     def circle(self, r):
         import math
         for _ in range(36):
-            self.forward(2 * math.pi * abs(r) / 36)
+            self.forward(2*math.pi*abs(r)/36)
             self.right(10 if r > 0 else -10)
-    def color(self, *a): pass
-    def fillcolor(self, *a): pass
-    def pencolor(self, *a): pass
+    def color(self,*a): pass
+    def fillcolor(self,*a): pass
+    def pencolor(self,*a): pass
     def begin_fill(self): pass
     def end_fill(self): pass
     def hideturtle(self): pass
     def showturtle(self): pass
-    def pensize(self, s): pass
-    def width(self, s): pass
+    def pensize(self,s): pass
+    def width(self,s): pass
     def reset(self): self.__init__()
-    def clear(self): self.moves = []
-    def home(self): self.x=0;self.y=0;self.angle=0
-    def position(self): return (self.x, self.y)
-    def heading(self): return self.angle
+    def clear(self): self.moves=[]
+    def home(self): self.x=0;self.y=0;self.angle=90
 
 class _TurtleModule:
-    def __init__(self):
-        self._t = _TurtleShim()
+    def __init__(self): self._t=_TurtleShim()
     def Turtle(self): return _TurtleShim()
     def done(self): pass
     def mainloop(self): pass
@@ -560,52 +632,48 @@ class _TurtleModule:
 
 sys.modules['turtle'] = _TurtleModule()
 
-${code.replace(/turtle\.done\(\)/g, "pass").replace(/turtle\.mainloop\(\)/g, "pass")}
+${code.replace(/turtle\.done\(\)/g,"pass").replace(/turtle\.mainloop\(\)/g,"pass")}
 
-# Collect moves
-_all_moves = []
-import sys as _sys
-_tm = _sys.modules['turtle']
-_inst = None
-# find turtle instances in locals/globals
-for _k, _v in list(globals().items()):
-    if hasattr(_v, 'moves'):
-        _all_moves.extend(_v.moves)
-if not _all_moves and hasattr(_tm, '_t'):
-    _all_moves = _tm._t.moves
-
-print("TURTLEMOVES:" + str(_all_moves))
+_all_moves=[]
+for _k,_v in list(globals().items()):
+    if hasattr(_v,'moves'): _all_moves.extend(_v.moves)
+_tm=sys.modules['turtle']
+if not _all_moves and hasattr(_tm,'_t'): _all_moves=_tm._t.moves
+print("TURTLEMOVES:"+str(_all_moves))
 `;
     const res = await runCode(shimCode);
     const stdout: string = res.stdout || "";
-    const movesLine = stdout.split("\n").find((l: string) => l.startsWith("TURTLEMOVES:"));
+    const movesLine = stdout.split("\n").find(l => l.startsWith("TURTLEMOVES:"));
     if (movesLine && canvasRef.current) {
       try {
-        const rawMoves = movesLine.replace("TURTLEMOVES:", "").trim();
-        // Parse python tuple list safely
-        const moves: any[] = eval(rawMoves.replace(/\(/g, "[").replace(/\)/g, "]").replace(/'/g, '"'));
+        const movesStr = movesLine.replace("TURTLEMOVES:", "").trim();
+        const moves: any[] = JSON.parse(
+          movesStr
+            .replace(/\(/g, "[").replace(/\)/g, "]")
+            .replace(/'/g, '"')
+        );
         const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d")!;
-        const W = canvas.width, H = canvas.height;
-        ctx.clearRect(0, 0, W, H);
-        ctx.strokeStyle = "#a0c8ff";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#00dcff";
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        moves.forEach((m: any) => {
+        ctx.shadowColor = "#00dcff";
+        ctx.shadowBlur = 6;
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        moves.forEach(m => {
           if (m[0] === "line") {
-            const x1 = W/2 + m[1], y1 = H/2 - m[2];
-            const x2 = W/2 + m[3], y2 = H/2 - m[4];
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
+            ctx.beginPath();
+            ctx.moveTo(cx + m[1], cy + m[2]);
+            ctx.lineTo(cx + m[3], cy + m[4]);
+            ctx.stroke();
           }
         });
-        ctx.stroke();
-        setOutput(`✓ Turtle drew ${moves.length} line segments.`);
+        setSubmitted(true);
       } catch (e) {
-        setOutput(res.stderr || "Could not render turtle output.");
+        setOutput("Parse error: " + e);
       }
     } else {
-      setOutput(res.stderr || res.stdout || "No turtle output.");
+      setOutput(res.stderr || res.stdout || "No turtle output");
     }
     setRunning(false);
   };
@@ -614,17 +682,15 @@ print("TURTLEMOVES:" + str(_all_moves))
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
         <span className={styles.roundTag}>Round 5 · Turtle Graphics</span>
-        {!ready && <span className={styles.loadingTag}>⏳ Loading Python…</span>}
-        {ready && <span className={styles.readyTag}>🐢 Turtle Ready</span>}
+        {loadError && <span className={styles.errorTag}>⚠️ {loadError}</span>}
+        {!loadError && !ready && <span className={styles.loadingTag}>⏳ Loading Python…</span>}
+        {ready && <span className={styles.readyTag}>🐍 Python Ready</span>}
       </div>
       <div className={styles.codingLayout}>
         <div className={styles.problemPane}>
           <h3 className={styles.problemTitle}>{TURTLE_ROUND5.title}</h3>
           <p className={styles.problemDesc}>{TURTLE_ROUND5.description}</p>
-          <div className={styles.turtleCanvas}>
-            <canvas ref={canvasRef} width={300} height={300} className={styles.canvas} />
-          </div>
-          {output && <div className={styles.outputBox} style={{ marginTop: 8 }}><pre>{output}</pre></div>}
+          <canvas ref={canvasRef} width={280} height={280} className={styles.turtleCanvas} />
         </div>
         <div className={styles.editorPane}>
           <textarea
@@ -632,24 +698,25 @@ print("TURTLEMOVES:" + str(_all_moves))
             value={code}
             onChange={e => setCode(e.target.value)}
             spellCheck={false}
+            rows={14}
           />
           <button className={styles.runBtn} onClick={handleRun} disabled={!ready || running}>
-            {running ? "🐢 Drawing…" : "🐢 Run Turtle"}
+            {running ? "▶ Running…" : ready ? "▶ Run & Draw" : "⏳ Loading…"}
           </button>
-          {!submitted && (
-            <button className={styles.primaryBtn} style={{ marginTop: 10 }} onClick={() => setSubmitted(true)}>
-              Submit & Finish
-            </button>
+          {output && (
+            <div className={styles.outputBox}>
+              <div className={styles.outputLabel}>Output</div>
+              <pre>{output}</pre>
+            </div>
           )}
         </div>
       </div>
-
       {submitted && (
         <div className={styles.roundDone} style={{ marginTop: 20 }}>
-          <div className={styles.doneIcon}>🏆</div>
-          <h2>PyHunt Complete!</h2>
-          <p>{ROUND_CLUES[4]}</p>
-          <button className={styles.primaryBtn} onClick={onComplete}>🎉 Finish</button>
+          <div className={styles.doneIcon}>🎨</div>
+          <h3>Star drawn! Nice work!</h3>
+          <p className={styles.clueBox}>{ROUND_CLUES[4]}</p>
+          <button className={styles.primaryBtn} onClick={onComplete}>🏁 Finish PyHunt!</button>
         </div>
       )}
     </div>
@@ -659,50 +726,45 @@ print("TURTLEMOVES:" + str(_all_moves))
 /* ═══════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════ */
-const STORAGE_KEY = "pyhunt_round";
-
 export default function PyHuntPage() {
   const router = useRouter();
-  const [round, setRound] = useState<number>(-1); // -1 = landing
+  const [round, setRound] = useState(0); // 0-indexed: 0=MCQ, 1=Jumble, 2=Coding3, 3=Coding4, 4=Turtle
   const [finished, setFinished] = useState(false);
-  const [studentName, setStudentName] = useState("Contestant");
+  const [studentName, setStudentName] = useState("Student");
 
   useEffect(() => {
-    // Restore round from session (so F5 doesn't reset)
-    const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved !== null) setRound(parseInt(saved));
-    // Get student name
-    try {
-      const s = JSON.parse(sessionStorage.getItem("exam_student") || "{}");
-      if (s.name) setStudentName(s.name.split(" ")[0]);
-    } catch { /* empty */ }
+    const raw = sessionStorage.getItem("exam_student");
+    if (raw) {
+      try { setStudentName(JSON.parse(raw).name || "Student"); } catch {}
+    }
   }, []);
 
-  const goToRound = (r: number) => {
-    setRound(r);
-    sessionStorage.setItem(STORAGE_KEY, String(r));
-  };
+  const next = useCallback(() => {
+    if (round < 4) setRound(r => r + 1);
+    else setFinished(true);
+  }, [round]);
 
-  const handleComplete = () => {
-    sessionStorage.removeItem(STORAGE_KEY);
-    setFinished(true);
-  };
-
-  const ROUNDS = [
-    <RoundMCQ key="r1" onComplete={() => goToRound(1)} />,
-    <RoundJumble key="r2" onComplete={() => goToRound(2)} />,
-    <RoundCoding key="r3" problem={CODING_ROUND3} roundNum={3} clue={ROUND_CLUES[2]} onComplete={() => goToRound(3)} />,
-    <RoundCoding key="r4" problem={CODING_ROUND4} roundNum={4} clue={ROUND_CLUES[3]} onComplete={() => goToRound(4)} />,
-    <RoundTurtle key="r5" onComplete={handleComplete} />,
-  ];
+  if (finished) {
+    return (
+      <div className={styles.page}>
+        <Stars />
+        <div className={styles.nebula1} /><div className={styles.nebula2} />
+        <div className={styles.finishScreen}>
+          <div className={styles.finishEmoji}>🏆</div>
+          <h1 className={styles.finishTitle}>PyHunt Complete!</h1>
+          <p className={styles.finishSub}>You conquered all 5 rounds, {studentName}!</p>
+          <p className={styles.clueBox}>{ROUND_CLUES[4]}</p>
+          <button className={styles.primaryBtn} onClick={() => router.push("/dashboard")}>← Back to Dashboard</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <Stars />
-      <div className={styles.nebula1} />
-      <div className={styles.nebula2} />
+      <div className={styles.nebula1} /><div className={styles.nebula2} />
 
-      {/* Header */}
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoIcon}>🐍</span>
@@ -711,67 +773,18 @@ export default function PyHuntPage() {
             <div className={styles.logoSub}>Python Treasure Hunt</div>
           </div>
         </div>
-        {round >= 0 && !finished && (
-          <RoundProgress current={round} total={5} />
-        )}
+        <RoundProgress current={round} total={5} />
         <div className={styles.headerRight}>
           <span className={styles.studentBadge}>👤 {studentName}</span>
         </div>
       </header>
 
-      <main className={styles.main}>
-
-        {/* Landing */}
-        {round === -1 && !finished && (
-          <div className={styles.landing}>
-            <div className={styles.landingBadge}>🔐 5-Round Challenge</div>
-            <h1 className={styles.landingTitle}>Welcome to PyHunt!</h1>
-            <p className={styles.landingDesc}>
-              A Python treasure hunt with 5 progressive rounds. Solve each challenge to unlock a
-              physical clue that leads you to the next problem.
-            </p>
-            <div className={styles.roundsPreview}>
-              {[
-                { num: 1, icon: "📋", name: "MCQ", desc: "5 Python multiple-choice questions" },
-                { num: 2, icon: "🔀", name: "Code Jumble", desc: "Rearrange jumbled code lines" },
-                { num: 3, icon: "💻", name: "Coding — Easy", desc: "Write a Python function" },
-                { num: 4, icon: "⚡", name: "Coding — Medium", desc: "Another Python challenge" },
-                { num: 5, icon: "🐢", name: "Turtle", desc: "Draw with Python turtle" },
-              ].map(r => (
-                <div key={r.num} className={styles.roundPreviewCard}>
-                  <span className={styles.roundPreviewIcon}>{r.icon}</span>
-                  <div>
-                    <div className={styles.roundPreviewName}>Round {r.num}: {r.name}</div>
-                    <div className={styles.roundPreviewDesc}>{r.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className={styles.startBtn} onClick={() => goToRound(0)}>
-              🚀 Start PyHunt
-            </button>
-          </div>
-        )}
-
-        {/* Active rounds */}
-        {round >= 0 && round < 5 && !finished && ROUNDS[round]}
-
-        {/* Finished */}
-        {finished && (
-          <div className={styles.finishedWrap}>
-            <div className={styles.trophyAnim}>🏆</div>
-            <h1 className={styles.finishedTitle}>You Completed PyHunt!</h1>
-            <p className={styles.finishedSub}>All 5 rounds completed. Show this screen to your facilitator.</p>
-            <div className={styles.finishedBadge}>
-              <div>🐍 PyHunt Champion</div>
-              <div className={styles.finishedName}>{studentName}</div>
-            </div>
-            <button className={styles.primaryBtn} onClick={() => router.push("/dashboard")}>
-              ← Back to Dashboard
-            </button>
-          </div>
-        )}
-
+      <main className={styles.content}>
+        {round === 0 && <RoundMCQ onComplete={next} />}
+        {round === 1 && <RoundJumble onComplete={next} />}
+        {round === 2 && <RoundCoding problem={CODING_ROUND3} roundNum={3} clue={ROUND_CLUES[2]} onComplete={next} />}
+        {round === 3 && <RoundCoding problem={CODING_ROUND4} roundNum={4} clue={ROUND_CLUES[3]} onComplete={next} />}
+        {round === 4 && <RoundTurtle onComplete={next} />}
       </main>
     </div>
   );
