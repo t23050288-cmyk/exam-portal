@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { id: "Aptitude", icon: "◎", label: "Aptitude Test" },
   { id: "Programming", icon: "◇", label: "Programming" },
   { id: "Others", icon: "◉", label: "Other Quiz" },
+  { id: "PyHunt", icon: "🐍", label: "PyHunt" },
   { id: "Profile", icon: "♟", label: "Profile" },
   { id: "Learning", icon: "◐", label: "Learning Path" },
   { id: "Insights", icon: "⫏", label: "Skills Insights" },
@@ -124,7 +125,7 @@ export default function DashboardPage() {
 
   const filteredExams = allExams.filter(e => {
     if (activeNav === "Home") return true;
-    if (["Profile", "Learning", "Insights"].includes(activeNav)) return false;
+    if (["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav)) return false;
     return e.category === activeNav;
   });
   const activeExams = filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now());
@@ -261,7 +262,7 @@ export default function DashboardPage() {
 
           <div className={styles.content}>
             {/* HOME / CATEGORY */}
-            {!["Profile", "Learning", "Insights"].includes(activeNav) && (
+            {!["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav) && (
               <>
                 {loading ? (
                   <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
@@ -311,6 +312,31 @@ export default function DashboardPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {/* PYHUNT */}
+            {activeNav === "PyHunt" && (
+              <div className={styles.pyhuntLaunchSection}>
+                <div className={styles.pyhuntCard}>
+                  <div className={styles.pyhuntEmoji}>🐍</div>
+                  <h2 className={styles.pyhuntTitle}>PyHunt</h2>
+                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 5 rounds of challenges to find hidden clues across campus!</p>
+                  <div className={styles.pyhuntRounds}>
+                    {["Round 1: MCQ", "Round 2: Code Jumble", "Round 3: Palindrome", "Round 4: FizzBuzz", "Round 5: Turtle Art"].map((r, i) => (
+                      <div key={i} className={styles.pyhuntRoundBadge}>
+                        <span className={styles.pyhuntRoundNum}>{i+1}</span>
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className={styles.pyhuntStartBtn}
+                    onClick={() => router.push("/pyhunt")}
+                  >
+                    🚀 Start PyHunt
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* PROFILE (View Mode) */}
@@ -427,3 +453,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
