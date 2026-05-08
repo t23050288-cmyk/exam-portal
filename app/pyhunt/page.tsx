@@ -2,6 +2,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
+import { getAICompletion } from "@/lib/ai-client";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ═══════════════════════════════════════════════
    TYPES
@@ -85,32 +87,6 @@ function loadPyHuntConfig(): PyHuntConfig {
       finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
     };
   } catch { return DEFAULT_CONFIG; }
-}
-
-/* ═══════════════════════════════════════════════
-   AI HELPERS
-═══════════════════════════════════════════════ */
-async function aiCheckCode(problem: CodingProblem, code: string, roundNum: number) {
-  try {
-    const res = await fetch("/api/ai/check-code", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ problem_title:problem.title, problem_description:problem.description, code, test_cases:problem.testCases, round_num:roundNum }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
-}
-
-async function aiGetHint(problemTitle: string, code: string, error?: string) {
-  try {
-    const res = await fetch("/api/ai/hint", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ problem_title:problemTitle, code, error }),
-    });
-    if (!res.ok) return null;
-    const d = await res.json();
-    return d.hint as string;
-  } catch { return null; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -414,6 +390,8 @@ function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem
   const [allPass, setAllPass] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string|null>(null);
   const [aiHint, setAiHint] = useState<string|null>(null);
+  const [aiReasoning, setAiReasoning] = useState<string|null>(null);
+  const [showReasoning, setShowReasoning] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
   const handleRun = async () => {
@@ -427,12 +405,44 @@ function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem
       const out = await runCode(code);
       setOutput(out);
       // AI feedback
-      setAiLoading(true);
-      const ai = await aiCheckCode(problem, code, roundNum);
-      if (ai) setAiFeedback(ai.feedback || ai.message || null);
+      setAiLoading(true); setAiReasoning(null);
+      const prompt = `Review this Python solution for round ${roundNum}.
+Problem Title: ${problem.title}
+Description: ${problem.description}
+Code:
+\`\`\`python
+${code}
+\`\`\`
+Test Cases: ${JSON.stringify(problem.testCases)}
+
+Please provide a brief, encouraging review of the logic. If it works, congratulate them. If it has issues, explain why without giving the full answer immediately. Keep it under 3 sentences.`;
+
+      const ai = await getAICompletion([
+        { role: "user", content: prompt }
+      ]);
+      
+      if (ai.choices?.[0]?.message) {
+        const msg = ai.choices[0].message;
+        setAiFeedback(msg.content);
+        setAiReasoning(msg.reasoning || msg.reasoning_content || null);
+      }
+
       if (!ap) {
-        const hint = await aiGetHint(problem.title, code, results.map((r,i)=>`Test ${i+1}: got "${r.got}", expected "${r.expected}"`).join("; "));
-        setAiHint(hint);
+        const hintPrompt = `The student is stuck on the Python problem: "${problem.title}".
+Code:
+\`\`\`python
+${code}
+\`\`\`
+Errors/Issues: ${results.map((r,i)=>`Test ${i+1}: got "${r.got}", expected "${r.expected}"`).join("; ")}
+
+Provide a subtle, helpful hint to guide them toward the solution. Do not provide the full code. Keep it one sentence.`;
+
+        const hintRes = await getAICompletion([
+          { role: "user", content: hintPrompt }
+        ]);
+        if (hintRes.choices?.[0]?.message) {
+          setAiHint(hintRes.choices[0].message.content);
+        }
       }
     } finally { setRunning(false); setAiLoading(false); }
   };
@@ -489,6 +499,31 @@ function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem
             </div>
           )}
           {aiLoading && <div className={styles.aiLoading}>🤖 DeepSeek is reviewing your code…</div>}
+          
+          {aiReasoning && (
+            <div className={styles.aiReasoningBox}>
+              <button 
+                className={styles.reasoningToggle} 
+                onClick={() => setShowReasoning(!showReasoning)}
+              >
+                {showReasoning ? "▼ Hide AI Thought Process" : "▶ Show AI Thought Process"}
+              </button>
+              <AnimatePresence>
+                {showReasoning && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className={styles.reasoningContent}
+                  >
+                    <div className={styles.reasoningLabel}>AI Reasoning:</div>
+                    <div className={styles.reasoningText}>{aiReasoning}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           {aiFeedback && <div className={styles.aiFeedback}>🤖 <strong>AI Feedback:</strong> {aiFeedback}</div>}
           {aiHint && <div className={styles.aiHint}><span className={styles.aiHintLabel}>💡 Hint: </span>{aiHint}</div>}
           {allPass && (

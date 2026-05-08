@@ -43,7 +43,7 @@ export interface AIResponse {
  * ```
  */
 export async function getAICompletion(messages: AIMessage[]): Promise<AIResponse> {
-  const res = await fetch("/api/ai-proxy", {
+  const res = await fetch("/api/ai/proctor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, stream: false }),
@@ -59,6 +59,7 @@ export async function getAICompletion(messages: AIMessage[]): Promise<AIResponse
   // Normalize DeepSeek reasoning fields into content if present
   if (data.choices?.[0]?.message) {
     const msg = data.choices[0].message;
+    // Prioritize content, but if empty, check reasoning fields
     if (!msg.content && (msg.reasoning || msg.reasoning_content)) {
       msg.content = msg.reasoning || msg.reasoning_content || "";
     }
@@ -70,27 +71,13 @@ export async function getAICompletion(messages: AIMessage[]): Promise<AIResponse
 /**
  * Stream a conversation from the NEXUS AI.
  * Handles DeepSeek's `reasoning` and `reasoning_content` delta fields.
- *
- * @param messages - Array of { role, content } messages
- * @param onToken  - Callback fired for each content token
- * @param onReasoning - Optional callback for reasoning/thinking tokens
- * @returns The complete assembled response text
- *
- * @example
- * ```ts
- * const full = await streamAICompletion(
- *   [{ role: "user", content: "What is a stack?" }],
- *   (token) => setOutput(prev => prev + token),
- *   (thought) => setThinking(prev => prev + thought)
- * );
- * ```
  */
 export async function streamAICompletion(
   messages: AIMessage[],
   onToken: (token: string) => void,
   onReasoning?: (token: string) => void
 ): Promise<string> {
-  const res = await fetch("/api/ai-proxy", {
+  const res = await fetch("/api/ai/proctor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, stream: true }),
@@ -133,11 +120,8 @@ export async function streamAICompletion(
         }
 
         // DeepSeek reasoning/thinking tokens
-        if (delta?.reasoning && onReasoning) {
-          onReasoning(delta.reasoning);
-        }
-        if (delta?.reasoning_content && onReasoning) {
-          onReasoning(delta.reasoning_content);
+        if ((delta?.reasoning || delta?.reasoning_content) && onReasoning) {
+          onReasoning(delta.reasoning || delta.reasoning_content);
         }
       } catch {
         // Skip malformed chunks
