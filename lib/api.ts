@@ -340,7 +340,7 @@ export async function reportViolation(
 }
 
 export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  const data = await fetch(`${API_BASE}/exam/config`);
+  const data = await fetch(`${API_BASE}/admin/exam/config/public`);
   if (!data.ok) return [];
   const json = await data.json();
   return Array.isArray(json) ? json : (json.configs || []);
@@ -348,11 +348,13 @@ export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
 
 export async function fetchExamConfig(title?: string): Promise<ExamConfig> {
   if (title) {
-    const all = await adminFetch<ExamConfig[]>("/admin/exam-config");
-    return (all.find((e) => e.exam_title === title) || all[0]) as ExamConfig;
+    const raw = await adminFetch<ExamConfig | ExamConfig[]>(`/admin/exam-config?title=${encodeURIComponent(title)}`);
+    if (Array.isArray(raw)) return (raw.find((e) => e.exam_title === title) || raw[0] || {}) as ExamConfig;
+    return raw as ExamConfig;
   }
-  const all = await adminFetch<ExamConfig[]>("/admin/exam-config");
-  return (all[0] || {}) as ExamConfig;
+  const raw = await adminFetch<ExamConfig | ExamConfig[]>("/admin/exam-config");
+  if (Array.isArray(raw)) return (raw[0] || {}) as ExamConfig;
+  return raw as ExamConfig;
 }
 
 export async function updateExamConfig(
@@ -360,16 +362,15 @@ export async function updateExamConfig(
   updates?: Partial<ExamConfig>
 ): Promise<ExamConfig> {
   if (typeof idOrUpdates === "string") {
-    // Update by ID — merge the id into the payload and call PUT
-    const payload = { ...updates, id: idOrUpdates };
-    return adminFetch<ExamConfig>("/admin/exam-config", {
-      method: "PUT",
-      body: JSON.stringify(payload),
+    // Update by ID — use PATCH on the specific config
+    return adminFetch<ExamConfig>(`/admin/exam-config/${idOrUpdates}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates || {}),
     });
   } else {
-    // Upsert by exam_title
+    // Upsert by exam_title — Python backend uses POST
     return adminFetch<ExamConfig>("/admin/exam-config", {
-      method: "PUT",
+      method: "POST",
       body: JSON.stringify(idOrUpdates),
     });
   }
@@ -418,7 +419,7 @@ export async function forceSubmitAdminStudent(id: string): Promise<void> {
 }
 
 export async function cleanupStaleSessions(): Promise<{ cleaned: number; count: number }> {
-  const res = await adminFetch<{ cleaned?: number; count?: number }>("/admin/cleanup-sessions", { method: "POST" });
+  const res = await adminFetch<{ cleaned?: number; count?: number; message?: string }>("/admin/students/cleanup-stale", { method: "POST" });
   const n = res.cleaned ?? res.count ?? 0;
   return { cleaned: n, count: n };
 }
@@ -433,27 +434,31 @@ export async function exportResults(branch?: string): Promise<Blob> {
 }
 
 export async function deleteAdminFolder(folderName: string): Promise<void> {
-  return adminFetch<void>("/admin/folder", { method: "DELETE", body: JSON.stringify({ folder: folderName }) });
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(folderName)}`, { method: "DELETE" });
 }
 
 export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
-  return adminFetch<void>("/admin/folder/rename", { method: "POST", body: JSON.stringify({ old_name: oldName, new_name: newName }) });
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(oldName)}`, { method: "PATCH", body: JSON.stringify({ new_name: newName }) });
 }
 
 export async function editAdminFolderBranch(folderName: string, branches: string | string[]): Promise<void> {
-  return adminFetch<void>("/admin/folder/branch", { method: "PATCH", body: JSON.stringify({ folder: folderName, branches }) });
+  const newBranch = Array.isArray(branches) ? branches[0] : branches;
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(folderName)}/branch`, { method: "PATCH", body: JSON.stringify({ new_branch: newBranch }) });
 }
 
-export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id: string }> {
+export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id?: string; image_url?: string }> {
   const fd = new FormData();
   fd.append("file", file);
   if (questionId) fd.append("question_id", questionId);
-  const res = await fetch(`${API_BASE}/admin/upload-image`, {
+  const res = await fetch(`${API_BASE}/admin/questions/upload`, {
     method: "POST",
     headers: { "X-Admin-Secret": ADMIN_SECRET },
     body: fd,
   });
-  if (!res.ok) throw new Error("Upload failed");
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "Upload failed");
+    throw new Error(errText);
+  }
   return res.json();
 }
 
@@ -481,7 +486,7 @@ export async function startExam(examTitle: string): Promise<{ session_id: string
 }
 
 export async function deleteAllLeaderboard(): Promise<void> {
-  return adminFetch<void>("/admin/leaderboard", { method: "DELETE" });
+  return adminFetch<void>("/admin/leaderboard/all", { method: "DELETE" });
 }
 
 export async function submitSupportRequest(usn_or_email: string, description: string): Promise<{ status: string; id: string }> {
