@@ -1,106 +1,108 @@
 /* ═══════════════════════════════════════════════════════════
-   NEXUS Candidate Portal — Dashboard Styles
-   Space glassmorphism theme, fully mobile-responsive
+   NEXUS Candidate Portal — Dashboard
+   Matching the dark space glassmorphism design in the mockup
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Page ── */
+/* ── Page wrapper ── */
 .page {
   display: flex;
   min-height: 100vh;
-  background: linear-gradient(160deg, #060a18 0%, #0b1030 45%, #130828 75%, #060a18 100%);
-  color: #c8d0e8;
+  background: linear-gradient(160deg, #06091a 0%, #0b1032 45%, #120826 75%, #06091a 100%);
+  color: #c0d0e8;
   font-family: 'Inter', -apple-system, sans-serif;
   position: relative;
   overflow-x: hidden;
 }
 
-/* ── Stars: dense static radial dots ── */
+/* ── Stars: dense dots via background-image ── */
 .stars {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   background-image:
-    radial-gradient(1.2px 1.2px at 5%  8%,  rgba(255,255,255,0.55), transparent),
-    radial-gradient(1px   1px   at 14% 22%, rgba(255,255,255,0.4),  transparent),
-    radial-gradient(1px   1px   at 23% 48%, rgba(255,255,255,0.3),  transparent),
-    radial-gradient(1.3px 1.3px at 33% 12%, rgba(255,255,255,0.5),  transparent),
-    radial-gradient(1px   1px   at 42% 35%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px   1px   at 51% 65%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(1.2px 1.2px at 60% 20%, rgba(255,255,255,0.45), transparent),
-    radial-gradient(1px   1px   at 68% 80%, rgba(255,255,255,0.32), transparent),
-    radial-gradient(1px   1px   at 74% 42%, rgba(255,255,255,0.38), transparent),
-    radial-gradient(1.3px 1.3px at 80% 10%, rgba(255,255,255,0.5),  transparent),
-    radial-gradient(1px   1px   at 86% 58%, rgba(255,255,255,0.3),  transparent),
-    radial-gradient(1px   1px   at 91% 28%, rgba(255,255,255,0.4),  transparent),
-    radial-gradient(1px   1px   at 96% 72%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(1px   1px   at 10% 88%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px   1px   at 28% 75%, rgba(255,255,255,0.3),  transparent),
-    radial-gradient(1px   1px   at 47% 92%, rgba(255,255,255,0.25), transparent),
-    radial-gradient(1.2px 1.2px at 63% 95%, rgba(255,255,255,0.38), transparent),
-    radial-gradient(1px   1px   at 78% 88%, rgba(255,255,255,0.3),  transparent),
-    radial-gradient(1px   1px   at 18% 55%, rgba(255,255,255,0.22), transparent),
-    radial-gradient(1px   1px   at 55% 5%,  rgba(255,255,255,0.42), transparent);
+    radial-gradient(1.2px 1.2px at 4%   6%,  rgba(255,255,255,0.60), transparent),
+    radial-gradient(1px   1px   at 11%  19%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1.3px 1.3px at 18%  38%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px   1px   at 24%  74%, rgba(255,255,255,0.40), transparent),
+    radial-gradient(1px   1px   at 31%  11%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1.2px 1.2px at 37%  55%, rgba(255,255,255,0.30), transparent),
+    radial-gradient(1px   1px   at 43%  88%, rgba(255,255,255,0.42), transparent),
+    radial-gradient(1px   1px   at 50%  27%, rgba(255,255,255,0.28), transparent),
+    radial-gradient(1.3px 1.3px at 56%  66%, rgba(255,255,255,0.48), transparent),
+    radial-gradient(1px   1px   at 62%  4%,  rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px   1px   at 68%  44%, rgba(255,255,255,0.32), transparent),
+    radial-gradient(1.2px 1.2px at 73%  82%, rgba(255,255,255,0.44), transparent),
+    radial-gradient(1px   1px   at 78%  16%, rgba(255,255,255,0.38), transparent),
+    radial-gradient(1px   1px   at 83%  60%, rgba(255,255,255,0.30), transparent),
+    radial-gradient(1.3px 1.3px at 88%  32%, rgba(255,255,255,0.52), transparent),
+    radial-gradient(1px   1px   at 93%  78%, rgba(255,255,255,0.36), transparent),
+    radial-gradient(1px   1px   at 97%  50%, rgba(255,255,255,0.42), transparent),
+    radial-gradient(1px   1px   at 8%   90%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px   1px   at 20%  50%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1.2px 1.2px at 47%  14%, rgba(255,255,255,0.46), transparent),
+    radial-gradient(1px   1px   at 60%  92%, rgba(255,255,255,0.30), transparent),
+    radial-gradient(1px   1px   at 75%  70%, rgba(255,255,255,0.28), transparent),
+    radial-gradient(1px   1px   at 90%  8%,  rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px   1px   at 15%  60%, rgba(255,255,255,0.22), transparent),
+    radial-gradient(1.2px 1.2px at 52%  40%, rgba(255,255,255,0.38), transparent);
 }
 
-/* ── Nebula blobs ── */
+/* ── Nebula glow blobs ── */
 .nebula1 {
   position: fixed;
-  top: 5%;
-  left: 15%;
-  width: 520px;
-  height: 520px;
-  background: radial-gradient(circle, rgba(50,90,200,0.1) 0%, transparent 70%);
-  border-radius: 50%;
+  top: 0;
+  left: 18%;
+  width: 600px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(30,70,180,0.13) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
-  animation: nebulaPulse 14s ease-in-out infinite;
+  animation: nebulaDrift 16s ease-in-out infinite;
 }
 
 .nebula2 {
   position: fixed;
-  bottom: 8%;
-  right: 12%;
-  width: 400px;
+  bottom: 0;
+  right: 10%;
+  width: 500px;
   height: 400px;
-  background: radial-gradient(circle, rgba(100,50,200,0.08) 0%, transparent 70%);
-  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(90,40,160,0.10) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
-  animation: nebulaPulse 18s ease-in-out infinite reverse;
+  animation: nebulaDrift 20s ease-in-out infinite reverse;
 }
 
-@keyframes nebulaPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.12); opacity: 0.7; }
+@keyframes nebulaDrift {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  50%       { transform: scale(1.08) translate(12px, -10px); }
 }
 
 /* ── Hamburger (mobile only) ── */
 .hamburger {
   display: none;
   position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 200;
+  top: 13px;
+  left: 13px;
+  z-index: 210;
   width: 40px;
   height: 40px;
-  background: rgba(12, 16, 38, 0.85);
-  border: 1px solid rgba(100, 140, 255, 0.25);
-  border-radius: 10px;
+  background: rgba(10, 15, 36, 0.88);
+  border: 1px solid rgba(80, 130, 240, 0.28);
+  border-radius: 9px;
   cursor: pointer;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 0;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .hamburger span {
   display: block;
-  width: 20px;
+  width: 19px;
   height: 2px;
-  background: #a0b8e0;
+  background: #90b0d8;
   border-radius: 2px;
 }
 
@@ -108,19 +110,19 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.58);
   backdrop-filter: blur(4px);
   z-index: 149;
 }
 
-/* ══════════════════════════════════════
-   SIDEBAR
-══════════════════════════════════════ */
+/* ════════════════════════════════════
+   SIDEBAR — matches the mockup exactly
+   ════════════════════════════════════ */
 .sidebar {
-  width: 232px;
+  width: 228px;
   flex-shrink: 0;
-  background: rgba(9, 12, 30, 0.92);
-  border-right: 1px solid rgba(80, 120, 200, 0.14);
+  background: rgba(8, 12, 28, 0.88);
+  border-right: 1px solid rgba(70, 110, 200, 0.15);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -128,51 +130,52 @@
   height: 100vh;
   z-index: 150;
   overflow-y: auto;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
-/* ── Logo ── */
+/* Logo row */
 .logoWrap {
-  padding: 24px 18px 18px;
+  padding: 22px 18px 16px;
   display: flex;
   align-items: center;
   gap: 11px;
-  border-bottom: 1px solid rgba(80, 120, 200, 0.1);
+  border-bottom: 1px solid rgba(70, 110, 200, 0.1);
 }
 
 .logoOrb {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(80, 140, 255, 0.25) 0%, rgba(50, 90, 180, 0.1) 100%);
-  border: 1.5px solid rgba(100, 160, 255, 0.4);
+  background: radial-gradient(circle, rgba(70, 130, 240, 0.22), rgba(40, 80, 160, 0.08));
+  border: 1.5px solid rgba(100, 160, 255, 0.38);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 14px rgba(80, 140, 255, 0.25);
+  box-shadow: 0 0 14px rgba(80, 140, 255, 0.22);
 }
 
 .logoTitle {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
-  color: #d4e8ff;
-  letter-spacing: 2px;
+  color: #cce0ff;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
 }
 
 .logoSub {
-  font-size: 10px;
-  color: #4a6080;
-  letter-spacing: 1.2px;
+  font-size: 9px;
+  color: #3a5070;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   font-weight: 500;
+  margin-top: 1px;
 }
 
-/* ── Nav ── */
+/* Nav */
 .nav {
-  padding: 14px 10px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -183,62 +186,65 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 14px;
-  border-radius: 10px;
-  border: 2px solid transparent;
+  padding: 10px 13px;
+  border-radius: 9px;
+  border: 1px solid transparent;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   background: transparent;
-  color: #5a7090;
-  transition: all 0.2s ease;
+  color: #4a6888;
+  transition: all 0.18s ease;
   width: 100%;
   text-align: left;
   font-family: inherit;
+  line-height: 1;
 }
 
 .navBtn:hover {
-  background: rgba(80, 120, 255, 0.07);
-  color: #a0b8d8;
+  background: rgba(70, 120, 220, 0.08);
+  color: #8ab0d0;
 }
 
-.navBtnActive {
-  background: linear-gradient(135deg, rgba(70, 120, 255, 0.2), rgba(50, 90, 200, 0.12));
+/* Active nav — matches the silver/glass highlight in mockup */
+.navActive {
+  background: linear-gradient(135deg, rgba(100, 150, 255, 0.18), rgba(60, 100, 200, 0.10));
   color: #a8c8ff;
   font-weight: 600;
-  border-left-color: rgba(100, 170, 255, 0.7);
+  border-color: rgba(100, 160, 255, 0.22);
+}
+
+.navActive:hover {
+  background: linear-gradient(135deg, rgba(100, 150, 255, 0.22), rgba(60, 100, 200, 0.14));
 }
 
 .navIcon {
-  width: 22px;
+  width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  opacity: 0.85;
 }
 
-.navLabel {
-  flex: 1;
-}
-
-.navArrow {
+.navChevron {
   margin-left: auto;
-  font-size: 16px;
-  color: rgba(100, 170, 255, 0.7);
+  font-size: 15px;
+  color: rgba(100, 170, 255, 0.6);
   font-weight: 700;
 }
 
-/* ── Bottom atom decoration ── */
-.sidebarBottom {
-  padding: 20px;
+/* Bottom atom */
+.sidebarAtom {
+  padding: 18px;
   display: flex;
   justify-content: center;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
-/* ══════════════════════════════════════
+/* ════════════════════════════════════
    MAIN AREA
-══════════════════════════════════════ */
+   ════════════════════════════════════ */
 .main {
   flex: 1;
   display: flex;
@@ -246,43 +252,37 @@
   z-index: 1;
   min-width: 0;
   min-height: 100vh;
+  overflow-y: auto;
 }
 
-/* ── Top Bar ── */
-.topBar {
+/* Top section: header banner + user card side by side */
+.topSection {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 28px;
   gap: 16px;
+  padding: 22px 26px 0;
+  align-items: flex-start;
   flex-wrap: wrap;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(8, 12, 28, 0.8);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(80, 120, 200, 0.1);
 }
 
-/* Header card — "Upcoming Exams" banner */
-.headerCard {
-  background: rgba(12, 18, 40, 0.65);
-  border: 1px solid rgba(80, 120, 220, 0.18);
-  border-radius: 14px;
-  padding: 18px 22px;
+/* ── Header banner (Upcoming Exams) ── */
+.headerBanner {
   flex: 1;
   min-width: 200px;
+  background: rgba(10, 16, 38, 0.70);
+  border: 1px solid rgba(70, 110, 220, 0.18);
+  border-radius: 14px;
+  padding: 20px 22px;
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
-.constellationBg {
+.headerConstellation {
   position: absolute;
   right: 0;
   top: 0;
-  width: 160px;
+  width: 55%;
   height: 100%;
   pointer-events: none;
 }
@@ -290,153 +290,51 @@
 .headerTitle {
   font-size: 19px;
   font-weight: 700;
-  color: #dde8ff;
-  margin: 0 0 4px;
+  color: #dce8ff;
+  margin: 0 0 5px;
   position: relative;
+  z-index: 1;
 }
 
 .headerSub {
   font-size: 12px;
-  color: #4a6080;
+  color: #3a5570;
   margin: 0;
   position: relative;
+  z-index: 1;
 }
 
-/* ── Right side: notif + user ── */
-.topRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* ── User card (top right) — matches mockup exactly ── */
+.userCard {
+  width: 250px;
   flex-shrink: 0;
-}
-
-/* ── Bell button ── */
-.notifWrap {
-  position: relative;
-}
-
-.bellBtn {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: rgba(80, 130, 255, 0.1);
-  border: 1px solid rgba(80, 130, 255, 0.22);
-  color: #8ab0d8;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.bellBtn:hover {
-  background: rgba(80, 130, 255, 0.18);
-}
-
-.bellBadge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 16px;
-  height: 16px;
-  background: #4a7eff;
-  border-radius: 50%;
-  font-size: 9px;
-  font-weight: 700;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #070b1c;
-}
-
-/* ── Notification Dropdown ── */
-.notifDropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 272px;
-  background: rgba(10, 16, 38, 0.97);
-  border: 1px solid rgba(80, 130, 255, 0.22);
+  background: rgba(10, 16, 38, 0.82);
+  border: 1px solid rgba(70, 110, 220, 0.20);
   border-radius: 14px;
   overflow: hidden;
-  z-index: 300;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
-.notifItem {
-  padding: 11px 16px;
+.userCardTop {
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid rgba(80, 120, 200, 0.08);
-  font-size: 12px;
-  color: #a0b8d0;
-  transition: background 0.15s;
-}
-
-.notifItem:hover {
-  background: rgba(80, 130, 255, 0.07);
-}
-
-.notifBell {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.notifCheck {
-  width: 18px;
-  height: 18px;
-  border: 1px solid rgba(100, 180, 255, 0.35);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: #60a8ff;
-  flex-shrink: 0;
-}
-
-.notifOptions {
-  padding: 10px 16px;
-  font-size: 12px;
-  color: #6070a0;
+  gap: 9px;
+  padding: 14px 14px 10px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  border-bottom: 1px solid rgba(70, 110, 200, 0.1);
 }
 
-.notifOptions:hover {
-  background: rgba(80, 130, 255, 0.07);
-}
-
-/* ── User Chip ── */
-.userChip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(10, 18, 42, 0.8);
-  border: 1px solid rgba(80, 120, 200, 0.2);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  backdrop-filter: blur(12px);
-}
-
-.userChip:hover {
-  border-color: rgba(100, 160, 255, 0.4);
+.userCardTop:hover {
+  background: rgba(70, 110, 220, 0.05);
 }
 
 .userAvatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(60, 100, 200, 0.3);
-  border: 1.5px solid rgba(100, 160, 255, 0.45);
+  background: rgba(50, 90, 180, 0.28);
+  border: 1.5px solid rgba(100, 160, 255, 0.42);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -453,65 +351,156 @@
 .userAvatar span {
   font-size: 14px;
   font-weight: 700;
-  color: #90b8e8;
+  color: #80b0e0;
 }
 
 .userName {
   font-size: 13px;
   font-weight: 600;
-  color: #c8d8f0;
-  white-space: nowrap;
+  color: #c0d4f0;
+  line-height: 1.2;
 }
 
 .userRole {
   font-size: 10px;
-  color: #4a6080;
-  white-space: nowrap;
+  color: #3a5070;
+  margin-top: 1px;
 }
 
-/* ══════════════════════════════════════
+.bellBtn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(70, 120, 220, 0.12);
+  border: 1px solid rgba(70, 120, 220, 0.22);
+  color: #7090c0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.18s;
+}
+
+.bellBtn:hover {
+  background: rgba(70, 120, 220, 0.22);
+}
+
+.bellDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  background: #4a7eff;
+  border-radius: 50%;
+  border: 1.5px solid #06091a;
+}
+
+/* Notification list inside user card */
+.notifList {
+  display: flex;
+  flex-direction: column;
+}
+
+.notifRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(70, 110, 200, 0.08);
+  transition: background 0.15s;
+}
+
+.notifRow:hover {
+  background: rgba(70, 110, 220, 0.06);
+}
+
+.notifBell {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.notifText {
+  flex: 1;
+  font-size: 11px;
+  color: #8098b8;
+  line-height: 1.3;
+}
+
+.notifCheck {
+  width: 17px;
+  height: 17px;
+  border: 1px solid rgba(80, 160, 255, 0.35);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #50a0ff;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.notifOptions {
+  padding: 9px 14px;
+  font-size: 11px;
+  color: #4a6080;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notifOptions:hover {
+  background: rgba(70, 110, 220, 0.06);
+}
+
+/* ════════════════════════════════════
    CONTENT
-══════════════════════════════════════ */
+   ════════════════════════════════════ */
 .content {
   flex: 1;
-  padding: 24px 28px 40px;
-  overflow-y: auto;
+  padding: 20px 26px 40px;
 }
 
-/* ── Exam Grid ── */
+/* ── Exam Grid — 2 columns matching mockup ── */
 .examGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 18px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
 }
 
 /* ── Exam Card ── */
 .examCard {
-  background: rgba(10, 16, 38, 0.72);
-  border: 1px solid rgba(80, 120, 220, 0.16);
-  border-radius: 16px;
-  padding: 22px;
+  background: rgba(10, 16, 38, 0.70);
+  border: 1px solid rgba(70, 110, 220, 0.17);
+  border-radius: 14px;
+  padding: 20px 20px 18px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
 }
 
 .examCard:hover {
-  border-color: rgba(100, 160, 255, 0.38);
-  box-shadow: 0 0 28px rgba(60, 120, 255, 0.14), 0 4px 20px rgba(0, 0, 0, 0.45);
+  border-color: rgba(100, 160, 255, 0.36);
+  box-shadow: 0 0 28px rgba(50, 110, 255, 0.13), 0 4px 20px rgba(0,0,0,0.4);
   transform: translateY(-2px);
 }
 
-/* Constellation inside card */
-.cardConst {
+/* Deco (constellation / code icon) */
+.examCardDeco {
   position: absolute;
   top: 0;
   right: 0;
-  width: 130px;
-  height: 90px;
+  width: 45%;
+  height: 100%;
   pointer-events: none;
 }
 
@@ -519,15 +508,16 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: 13px;
   gap: 8px;
   position: relative;
+  z-index: 1;
 }
 
 .examCardTitle {
   font-size: 17px;
   font-weight: 700;
-  color: #dde8ff;
+  color: #dce8ff;
   margin: 0;
   line-height: 1.2;
 }
@@ -537,281 +527,222 @@
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(80, 130, 255, 0.18);
-  color: #80b4ff;
-  border: 1px solid rgba(80, 130, 255, 0.28);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  flex-shrink: 0;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.examBadgeActive {
-  background: rgba(20, 180, 100, 0.15);
-  color: #5ee0a0;
-  border-color: rgba(20, 180, 100, 0.28);
+.badgeScheduled {
+  background: rgba(70, 120, 240, 0.16);
+  color: #70a0f0;
+  border: 1px solid rgba(70, 120, 240, 0.28);
+}
+
+.badgeActive {
+  background: rgba(20, 180, 100, 0.14);
+  color: #50d890;
+  border: 1px solid rgba(20, 180, 100, 0.26);
 }
 
 .examMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px 14px;
+  margin-bottom: 15px;
   font-size: 12px;
-  color: #5a7090;
+  color: #4a6888;
   position: relative;
-}
-
-.examMeta span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  z-index: 1;
 }
 
 /* Progress bar */
 .progressTrack {
   width: 100%;
-  height: 5px;
-  background: rgba(80, 120, 200, 0.12);
-  border-radius: 3px;
-  margin-bottom: 18px;
+  height: 4px;
+  background: rgba(70, 110, 200, 0.12);
+  border-radius: 2px;
+  margin-bottom: 16px;
   overflow: hidden;
   position: relative;
+  z-index: 1;
 }
 
 .progressFill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.6s ease;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(60, 110, 240, 0.7), rgba(60, 110, 240, 1));
+  transition: width 0.7s ease;
 }
 
 .examFooter {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   position: relative;
+  z-index: 1;
 }
 
+/* Start Exam button — matches image style */
 .startBtn {
-  padding: 9px 22px;
-  border-radius: 8px;
-  border: 1px solid rgba(80, 130, 255, 0.45);
-  background: rgba(60, 110, 255, 0.18);
-  color: #a0c0ff;
+  padding: 8px 20px;
+  border-radius: 7px;
+  border: 1px solid rgba(70, 120, 240, 0.45);
+  background: rgba(50, 100, 220, 0.18);
+  color: #90b8ff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.2s;
-  box-shadow: 0 0 12px rgba(60, 110, 255, 0.15);
+  transition: all 0.18s;
 }
 
 .startBtn:hover:not(:disabled) {
-  background: rgba(60, 110, 255, 0.28);
-  box-shadow: 0 0 20px rgba(60, 110, 255, 0.3);
+  background: rgba(50, 100, 220, 0.30);
+  box-shadow: 0 0 16px rgba(50, 100, 240, 0.28);
   transform: translateY(-1px);
 }
 
 .startBtn:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
 }
 
 .countdown {
-  font-size: 12px;
-  color: #4a6080;
+  font-size: 11px;
+  color: #3a5878;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .liveTag {
-  font-size: 12px;
-  color: #5ee0a0;
+  font-size: 11px;
+  color: #50d890;
   font-weight: 600;
 }
 
-/* ── Empty / Loading ── */
-.emptyState {
+/* Empty state */
+.emptyBox {
   text-align: center;
-  padding: 60px 24px;
+  padding: 56px 24px;
   background: rgba(10, 16, 38, 0.5);
-  border: 1px dashed rgba(80, 120, 200, 0.15);
-  border-radius: 16px;
-  margin-bottom: 28px;
-}
-
-.emptyIcon {
-  font-size: 34px;
-  margin-bottom: 12px;
-  opacity: 0.55;
+  border: 1px dashed rgba(70, 110, 200, 0.14);
+  border-radius: 14px;
+  margin-bottom: 22px;
 }
 
 .emptyTitle {
   font-size: 15px;
   font-weight: 600;
-  color: #6878a8;
+  color: #5a7898;
   margin-bottom: 6px;
 }
 
 .emptySub {
   font-size: 12px;
-  color: #4a5878;
+  color: #3a5070;
 }
 
-/* Skeleton */
-.skeletonCard {
+/* Skeleton loader */
+.skeleton {
   animation: skPulse 1.8s ease-in-out infinite;
 }
 
 @keyframes skPulse {
-  0%, 100% { opacity: 0.7; }
-  50%       { opacity: 0.4; }
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 0.30; }
 }
 
-.skLine {
-  background: rgba(80, 120, 200, 0.12);
-  border-radius: 6px;
-}
-
-/* ══════════════════════════════════════
-   QUICK INSIGHTS
-══════════════════════════════════════ */
-.insightsSection {
-  margin-top: 4px;
-}
-
-.insightsTitle {
-  font-size: 16px;
-  font-weight: 700;
-  color: #9ab0d0;
-  margin: 0 0 14px;
-}
-
-/* Two-column layout matching the target image */
-.insightsRow {
+/* ════════════════════════════════════
+   QUICK INSIGHTS — matches image exactly
+   Left: "Completed Exams / 8 (big)"
+   Right: "Skill Score: / 85th Percentile (large)"
+   ════════════════════════════════════ */
+.insightsPanel {
+  background: rgba(10, 16, 38, 0.70);
+  border: 1px solid rgba(70, 110, 220, 0.17);
+  border-radius: 14px;
+  padding: 22px 26px;
   display: flex;
-  gap: 16px;
+  gap: 32px;
+  align-items: flex-start;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   flex-wrap: wrap;
 }
 
-.insightCard {
-  background: rgba(10, 16, 38, 0.72);
-  border: 1px solid rgba(80, 120, 220, 0.16);
-  border-radius: 14px;
-  padding: 22px 26px;
+/* Left block */
+.insightCompleted {
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+/* Right block */
+.insightScore {
   flex: 1;
-  min-width: 140px;
-  backdrop-filter: blur(14px);
-  transition: border-color 0.2s;
+  min-width: 180px;
 }
 
-.insightCard:hover {
-  border-color: rgba(100, 160, 255, 0.3);
+/* Shared small label */
+.insightSmLabel {
+  font-size: 12px;
+  color: #4a6888;
+  font-weight: 500;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
 }
 
-.insightWide {
-  flex: 2;
-  min-width: 220px;
-}
-
-.insightLabel {
-  font-size: 11px;
-  color: #5a7090;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-/* Large bold number — matches "8" in target */
+/* Big number — "8" in the image */
 .insightBigNum {
-  font-size: 48px;
+  font-size: 52px;
   font-weight: 900;
-  color: #a0c0ff;
+  color: #c0d4f0;
   line-height: 1;
+  letter-spacing: -2px;
 }
 
-/* "85th Percentile" large text */
+/* "85th Percentile" text */
 .insightPercentile {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
-  color: #a0c0ff;
-  margin-bottom: 12px;
-  line-height: 1.2;
+  color: #c0d4f0;
+  line-height: 1.15;
 }
 
-.skillBar {
-  width: 100%;
-  height: 5px;
-  background: rgba(80, 120, 200, 0.12);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-
-.skillBarFill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #4060ff, #9060e0);
-  transition: width 0.8s ease;
-}
-
-/* ══════════════════════════════════════
-   INFO PAGES (Profile / History)
-══════════════════════════════════════ */
-.infoCard {
-  background: rgba(10, 16, 38, 0.72);
-  border: 1px solid rgba(80, 120, 220, 0.16);
-  border-radius: 16px;
-  padding: 36px 32px;
+/* ════════════════════════════════════
+   GLASS CARD (used on profile/history)
+   ════════════════════════════════════ */
+.glassCard {
+  background: rgba(10, 16, 38, 0.70);
+  border: 1px solid rgba(70, 110, 220, 0.17);
+  border-radius: 14px;
+  padding: 28px;
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
+/* ── Profile styles ── */
 .bigAvatar {
-  width: 80px;
-  height: 80px;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
-  background: rgba(50, 90, 180, 0.3);
-  border: 2px solid rgba(100, 160, 255, 0.45);
+  background: rgba(50, 90, 180, 0.28);
+  border: 2px solid rgba(100, 160, 255, 0.40);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 18px;
+  margin: 0 auto 16px;
 }
 
-.bigAvatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.bigAvatar img { width: 100%; height: 100%; object-fit: cover; }
+.bigAvatar span { font-size: 26px; font-weight: 700; color: #80b0e0; }
 
-.bigAvatar span {
-  font-size: 28px;
-  font-weight: 700;
-  color: #90b8e8;
-}
-
-.profileName {
-  font-size: 18px;
-  font-weight: 700;
-  color: #dde8ff;
-  margin: 0 0 4px;
-}
-
-.profileEmail {
-  font-size: 13px;
-  color: #4a6080;
-  margin: 0 0 12px;
-}
-
-.profileBranch {
-  font-size: 13px;
-  color: #8098c0;
-  margin: 0 0 22px;
-}
+.profileName  { font-size: 17px; font-weight: 700; color: #dce8ff; margin-bottom: 4px; }
+.profileEmail { font-size: 13px; color: #3a5878; margin-bottom: 10px; }
+.profileBranch{ font-size: 13px; color: #7090b0; margin-bottom: 22px; }
 
 .profileActions {
   display: flex;
@@ -820,47 +751,44 @@
   justify-content: center;
 }
 
-.uploadBtn {
+.btnSecondary {
   padding: 9px 18px;
-  border-radius: 8px;
-  background: rgba(60, 110, 255, 0.15);
-  border: 1px solid rgba(60, 110, 255, 0.35);
-  color: #90b8ff;
-  font-size: 13px;
+  border-radius: 7px;
+  background: rgba(50, 100, 220, 0.14);
+  border: 1px solid rgba(50, 100, 220, 0.32);
+  color: #80a8e8;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s;
+  transition: background 0.18s;
+  display: inline-block;
 }
 
-.uploadBtn:hover {
-  background: rgba(60, 110, 255, 0.25);
-}
+.btnSecondary:hover { background: rgba(50, 100, 220, 0.24); }
 
-.dangerBtn {
+.btnDanger {
   padding: 9px 18px;
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(200, 50, 50, 0.12);
-  border: 1px solid rgba(200, 50, 50, 0.3);
-  color: #e07070;
-  font-size: 13px;
+  border: 1px solid rgba(200, 50, 50, 0.28);
+  color: #d07070;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.2s;
+  transition: background 0.18s;
 }
 
-.dangerBtn:hover {
-  background: rgba(200, 50, 50, 0.22);
-}
+.btnDanger:hover { background: rgba(200, 50, 50, 0.22); }
 
-/* ══════════════════════════════════════
-   PROFILE MODAL
-══════════════════════════════════════ */
+/* ════════════════════════════════════
+   MODAL
+   ════════════════════════════════════ */
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 5, 18, 0.75);
+  background: rgba(0, 4, 16, 0.78);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 500;
@@ -872,125 +800,95 @@
 
 .modalBox {
   width: 100%;
-  max-width: 400px;
-  background: rgba(9, 14, 35, 0.97);
-  border: 1px solid rgba(80, 130, 255, 0.22);
-  border-radius: 20px;
-  padding: 34px 30px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  max-width: 390px;
+  background: rgba(8, 14, 34, 0.97);
+  border: 1px solid rgba(70, 120, 240, 0.22);
+  border-radius: 18px;
+  padding: 32px 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.72);
 }
 
 .modalTitle {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
-  color: #d0e0ff;
-  margin: 0 0 22px;
+  color: #c8d8f8;
+  margin: 0 0 20px;
   text-align: center;
 }
 
-.closeBtn {
+.btnClose {
   padding: 10px;
-  border-radius: 8px;
-  background: rgba(60, 110, 255, 0.1);
-  border: 1px solid rgba(60, 110, 255, 0.22);
-  color: #8098c0;
-  font-size: 13px;
+  border-radius: 7px;
+  background: rgba(50, 100, 220, 0.08);
+  border: 1px solid rgba(50, 100, 220, 0.20);
+  color: #6080a8;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   width: 100%;
-  transition: background 0.2s;
+  transition: background 0.18s;
 }
 
-.closeBtn:hover {
-  background: rgba(60, 110, 255, 0.18);
-}
+.btnClose:hover { background: rgba(50, 100, 220, 0.16); }
 
-/* ══════════════════════════════════════
+/* ════════════════════════════════════
    RESPONSIVE — MOBILE
-══════════════════════════════════════ */
+   ════════════════════════════════════ */
 @media (max-width: 768px) {
   /* Show hamburger */
-  .hamburger {
-    display: flex;
-  }
+  .hamburger { display: flex; }
 
-  /* Sidebar becomes a drawer */
+  /* Sidebar: fixed drawer, slides in */
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     height: 100vh;
     transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.6);
+    transition: transform 0.26s ease;
+    box-shadow: 4px 0 28px rgba(0, 0, 0, 0.6);
   }
 
-  .sidebarOpen {
-    transform: translateX(0);
+  .sidebarOpen { transform: translateX(0); }
+
+  /* Offset for hamburger */
+  .topSection {
+    padding: 14px 14px 0;
+    padding-left: 58px;
   }
 
-  /* Main: no sidebar indent, allow scroll */
-  .main {
-    margin-left: 0;
-    overflow-y: auto;
-  }
-
-  /* TopBar */
-  .topBar {
-    padding: 14px 16px;
-    padding-left: 64px; /* space for hamburger */
-    flex-wrap: nowrap;
-  }
-
-  .headerCard {
-    padding: 13px 14px;
-    min-width: 0;
-  }
-
-  .headerTitle {
-    font-size: 15px;
-  }
-
-  /* Content */
   .content {
-    padding: 16px 14px 32px;
+    padding: 16px 14px 36px;
   }
 
-  /* Exam grid: single column */
+  /* Single column grid */
   .examGrid {
     grid-template-columns: 1fr;
-    gap: 14px;
   }
 
-  /* Insights row: stack */
-  .insightsRow {
-    flex-direction: column;
-  }
-
-  .insightWide {
-    flex: unset;
+  /* User card: below header on mobile */
+  .userCard {
     width: 100%;
   }
 
-  /* User chip — trim text on small screens */
-  .userName {
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-@media (max-width: 400px) {
-  .topBar {
-    padding: 12px 12px 12px 56px;
+  /* Insights row: stack if needed */
+  .insightsPanel {
+    flex-direction: column;
+    gap: 20px;
   }
 
   .insightBigNum {
-    font-size: 36px;
+    font-size: 40px;
   }
 
   .insightPercentile {
-    font-size: 18px;
+    font-size: 20px;
   }
+}
+
+@media (max-width: 420px) {
+  .topSection { padding-left: 52px; }
+  .headerTitle { font-size: 16px; }
+  .examCardTitle { font-size: 15px; }
 }
