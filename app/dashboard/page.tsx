@@ -389,6 +389,47 @@ export default function DashboardPage() {
             </>
           )}
 
+
+              {/* ── PyHunt Banner (Home only) ── */}
+              {activeNav === "Home" && (
+                <div
+                  onClick={() => router.push("/pyhunt")}
+                  style={{
+                    marginTop: 18,
+                    background: "linear-gradient(135deg, rgba(60,40,120,0.45), rgba(30,70,180,0.35))",
+                    border: "1px solid rgba(120,80,240,0.35)",
+                    borderRadius: 14,
+                    padding: "20px 26px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 18,
+                    cursor: "pointer",
+                    backdropFilter: "blur(14px)",
+                    transition: "all 0.22s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(160,100,255,0.6)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(120,80,240,0.35)"; }}
+                >
+                  <div style={{ fontSize: 42, flexShrink: 0 }}>🐍</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#d0c0ff", marginBottom: 4 }}>
+                      PyHunt — Python Treasure Hunt
+                    </div>
+                    <div style={{ fontSize: 13, color: "#7060a8" }}>
+                      5 rounds · MCQ → Code Jumble → Coding → Coding → Turtle
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "9px 20px", borderRadius: 8,
+                    background: "linear-gradient(135deg, #5040c0, #9040c0)",
+                    color: "#fff", fontWeight: 700, fontSize: 13,
+                    flexShrink: 0,
+                    boxShadow: "0 0 18px rgba(100,60,220,0.4)",
+                  }}>
+                    Enter Hunt →
+                  </div>
+                </div>
+              )}
           {/* === PROFILE === */}
           {activeNav === "Profile" && (
             <div className={styles.profileSection}>
@@ -529,3 +570,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
