@@ -10,7 +10,7 @@ router = APIRouter()
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MODEL = "meta/llama-3.1-8b-instruct"
+MODEL = "deepseek-ai/deepseek-r1-0528"
 
 class CodeCheckRequest(BaseModel):
     problem_title: str
