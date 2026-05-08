@@ -162,15 +162,17 @@ function usePyodide() {
       const timeout = setTimeout(() => {
         cbRef.current.delete(id);
         resolve({results:[],allPass:false});
-      }, 20000);
+      }, 25000);
       cbRef.current.set(id, (data) => {
         clearTimeout(timeout);
+        // Worker v4 returns: { results:[{pass,got,expected}], allPass }
         const results = (data.results || []).map((r:any, i:number) => ({
-          pass: r.pass ?? (r.stdout?.trim() === testCases[i]?.expected?.trim()),
-          got: r.stdout || r.output || r.got || "",
-          expected: testCases[i]?.expected || "",
+          pass: r.pass === true,
+          got: (r.got || r.stdout || r.output || "").trim(),
+          expected: (r.expected || testCases[i]?.expected || "").trim(),
         }));
-        resolve({ results, allPass: results.every((r:any) => r.pass) });
+        const allPass = data.allPass === true || (results.length > 0 && results.every((r:any) => r.pass));
+        resolve({ results, allPass });
       });
       workerRef.current.postMessage({ type:"testCases", id, code, testCases });
     });
@@ -421,7 +423,7 @@ function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem
       // Run tests
       const { results, allPass: ap } = await runTests(code, problem.testCases);
       setTestResults(results); setAllPass(ap);
-      // Also get stdout
+      // Also get stdout for display
       const out = await runCode(code);
       setOutput(out);
       // AI feedback
@@ -661,3 +663,4 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
