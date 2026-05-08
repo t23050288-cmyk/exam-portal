@@ -39,9 +39,19 @@ export default function LoginPage() {
 
   const selectRef = useRef<HTMLDivElement>(null);
 
+  // Load saved USN on mount (locked after first signup)
+  const [usnLocked, setUsnLocked] = useState(false);
+
   useEffect(() => {
     router.prefetch("/instructions");
     router.prefetch("/exam");
+
+    // If student signed up before, lock their USN
+    const savedUsn = localStorage.getItem("nexus_usn");
+    if (savedUsn) {
+      setUsn(savedUsn);
+      setUsnLocked(true);
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
@@ -69,12 +79,14 @@ export default function LoginPage() {
         id: data.student_id,
         name: data.student_name,
         examStartTime: data.exam_start_time,
-        examDurationMinutes: 60,
+        examDurationMinutes: data.exam_duration_minutes || 60,
         examTitle: data.exam_title,
         totalQuestions: data.total_questions,
         email: data.email,
         branch: data.branch
       }));
+      // Persist USN so it stays locked on future visits
+      localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed.");
@@ -103,12 +115,15 @@ export default function LoginPage() {
         id: data.student_id,
         name: data.student_name,
         examStartTime: data.exam_start_time,
-        examDurationMinutes: 60,
+        examDurationMinutes: data.exam_duration_minutes || 60,
         examTitle: data.exam_title,
         totalQuestions: data.total_questions,
         email: data.email,
         branch: data.branch
       }));
+      // Lock USN permanently after signup
+      localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
+      setUsnLocked(true);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Registration failed.");
@@ -192,7 +207,8 @@ export default function LoginPage() {
               <form onSubmit={handleLoginSubmit} className={styles.form}>
                 <div className={styles.inputWrap}>
                   <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                  <input type="text" className={styles.inputField} placeholder="USN / Username" value={usn} onChange={(e) => setUsn(e.target.value.toUpperCase())} required />
+                  <input type="text" className={styles.inputField} placeholder="USN / Username" value={usn} onChange={(e) => { if (!usnLocked) setUsn(e.target.value.toUpperCase()); }} readOnly={usnLocked} style={usnLocked ? { opacity: 0.7, cursor: 'not-allowed' } : {}} required />
+                  {usnLocked && <span style={{ position: 'absolute', right: 16, fontSize: 14, color: 'rgba(200,170,110,0.7)' }}>🔒</span>}
                 </div>
                 <div className={styles.inputWrap}>
                   <svg className={styles.inputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
@@ -223,7 +239,8 @@ export default function LoginPage() {
             <motion.div key="signup" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <form onSubmit={handleSignupSubmit} className={styles.form}>
                 <div className={styles.inputWrap}>
-                  <input type="text" className={styles.inputField} placeholder="USN Number" value={usn} onChange={(e) => setUsn(e.target.value.toUpperCase())} required />
+                  <input type="text" className={styles.inputField} placeholder="USN Number" value={usn} onChange={(e) => { if (!usnLocked) setUsn(e.target.value.toUpperCase()); }} readOnly={usnLocked} style={usnLocked ? { opacity: 0.7, cursor: 'not-allowed' } : {}} required />
+                  {usnLocked && <span style={{ position: 'absolute', right: 16, fontSize: 12, color: 'rgba(200,170,110,0.6)' }}>🔒 Locked</span>}
                 </div>
                 <div className={styles.inputWrap}>
                   <input type="text" className={styles.inputField} placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
