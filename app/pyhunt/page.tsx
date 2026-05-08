@@ -166,6 +166,27 @@ const ROUND_CLUES = [
 ];
 
 /* ═══════════════════════════════════════════════
+   LOAD CONFIG FROM ADMIN (localStorage)
+═══════════════════════════════════════════════ */
+function getStoredConfig() {
+  if (typeof window === "undefined") return null;
+  try {
+    const s = localStorage.getItem("nexus_pyhunt_config");
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+function usePyHuntConfig() {
+  const stored = typeof window !== "undefined" ? getStoredConfig() : null;
+  return {
+    mcqQuestions: stored?.mcqQuestions || MCQ_QUESTIONS,
+    jumbleProblem: stored?.jumbleProblem || JUMBLE_PROBLEM,
+    round3: stored?.round3 || CODING_ROUND3,
+    round4: stored?.round4 || CODING_ROUND4,
+    clues: stored?.clues || ROUND_CLUES,
+  };
+}
+
+/* ═══════════════════════════════════════════════
    NVIDIA AI HELPERS
 ═══════════════════════════════════════════════ */
 async function aiCheckCode(problem: CodingProblem, code: string, roundNum: number) {
@@ -285,13 +306,13 @@ function RoundProgress({ current, total }: { current: number; total: number }) {
 }
 
 /* MCQ Round */
-function RoundMCQ({ onComplete }: { onComplete: () => void }) {
+function RoundMCQ({ questions, clue, onComplete }: { questions: MCQQuestion[]; clue: string; onComplete: () => void }) {
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
-  const q = MCQ_QUESTIONS[idx];
+  const q = questions[idx];
 
   const handleCheck = () => {
     if (!selected) return;
@@ -300,7 +321,7 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleNext = () => {
-    if (idx + 1 < MCQ_QUESTIONS.length) {
+    if (idx + 1 < questions.length) {
       setIdx(i => i + 1); setSelected(null); setChecked(false);
     } else { setDone(true); }
   };
@@ -310,8 +331,8 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
       <div className={styles.roundDone}>
         <div className={styles.doneIcon}>🎯</div>
         <h2>Round 1 Complete!</h2>
-        <p className={styles.scoreText}>Score: <strong>{score}/{MCQ_QUESTIONS.length}</strong></p>
-        <p className={styles.clueBox}>{ROUND_CLUES[0]}</p>
+        <p className={styles.scoreText}>Score: <strong>{score}/{questions.length}</strong></p>
+        <p className={styles.clueBox}>{clue}</p>
         <button className={styles.primaryBtn} onClick={onComplete}>I found the clue → Round 2</button>
       </div>
     );
@@ -321,7 +342,7 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
         <span className={styles.roundTag}>Round 1 · MCQ</span>
-        <span className={styles.questionCount}>Q {idx + 1} / {MCQ_QUESTIONS.length}</span>
+        <span className={styles.questionCount}>Q {idx + 1} / {questions.length}</span>
       </div>
       <div className={styles.questionCard}>
         <p className={styles.questionText}>{q.question}</p>
@@ -344,7 +365,7 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
         {checked && q.explanation && <div className={styles.explanation}>💡 {q.explanation}</div>}
         {!checked
           ? <button className={styles.primaryBtn} disabled={!selected} onClick={handleCheck}>Check Answer</button>
-          : <button className={styles.primaryBtn} onClick={handleNext}>{idx + 1 < MCQ_QUESTIONS.length ? "Next Question →" : "Finish Round 1 →"}</button>
+          : <button className={styles.primaryBtn} onClick={handleNext}>{idx + 1 < questions.length ? "Next Question →" : "Finish Round 1 →"}</button>
         }
       </div>
     </div>
@@ -352,8 +373,8 @@ function RoundMCQ({ onComplete }: { onComplete: () => void }) {
 }
 
 /* Jumble Round */
-function RoundJumble({ onComplete }: { onComplete: () => void }) {
-  const correctLines = JUMBLE_PROBLEM.lines;
+function RoundJumble({ problem: jumbleProblem, clue: jumbleClue, onComplete }: { problem: JumbleProblem; clue: string; onComplete: () => void }) {
+  const correctLines = jumbleProblem.lines;
   const [lines, setLines] = useState<string[]>(() => [...correctLines].sort(() => Math.random() - 0.5));
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -379,8 +400,8 @@ function RoundJumble({ onComplete }: { onComplete: () => void }) {
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}><span className={styles.roundTag}>Round 2 · Code Jumble</span></div>
       <div className={styles.questionCard}>
-        <h3 className={styles.problemTitle}>{JUMBLE_PROBLEM.title}</h3>
-        <p className={styles.problemDesc}>{JUMBLE_PROBLEM.description}</p>
+        <h3 className={styles.problemTitle}>{jumbleProblem.title}</h3>
+        <p className={styles.problemDesc}>{jumbleProblem.description}</p>
         <div className={styles.jumbleBoard}>
           {lines.map((line, i) => (
             <div key={i}
@@ -401,7 +422,7 @@ function RoundJumble({ onComplete }: { onComplete: () => void }) {
           <div className={styles.roundDone}>
             <div className={styles.doneIcon}>✅</div>
             <h3>Correct order!</h3>
-            <p className={styles.clueBox}>{ROUND_CLUES[1]}</p>
+            <p className={styles.clueBox}>{jumbleClue}</p>
             <button className={styles.primaryBtn} onClick={onComplete}>I found the clue → Round 3</button>
           </div>
         ) : (
@@ -569,7 +590,7 @@ function RoundCoding({
 }
 
 /* Turtle Round */
-function RoundTurtle({ onComplete }: { onComplete: () => void }) {
+function RoundTurtle({ clue: turtleClue, onComplete }: { clue: string; onComplete: () => void }) {
   const { ready, loadError, runCode } = usePyodide();
   const [code, setCode] = useState(TURTLE_ROUND5.starterCode);
   const [output, setOutput] = useState("");
@@ -715,7 +736,7 @@ print("TURTLEMOVES:"+str(_all_moves))
         <div className={styles.roundDone} style={{ marginTop: 20 }}>
           <div className={styles.doneIcon}>🎨</div>
           <h3>Star drawn! Nice work!</h3>
-          <p className={styles.clueBox}>{ROUND_CLUES[4]}</p>
+          <p className={styles.clueBox}>{turtleClue}</p>
           <button className={styles.primaryBtn} onClick={onComplete}>🏁 Finish PyHunt!</button>
         </div>
       )}
@@ -728,6 +749,7 @@ print("TURTLEMOVES:"+str(_all_moves))
 ═══════════════════════════════════════════════ */
 export default function PyHuntPage() {
   const router = useRouter();
+  const cfg = usePyHuntConfig();
   const [round, setRound] = useState(0); // 0-indexed: 0=MCQ, 1=Jumble, 2=Coding3, 3=Coding4, 4=Turtle
   const [finished, setFinished] = useState(false);
   const [studentName, setStudentName] = useState("Student");
@@ -753,7 +775,7 @@ export default function PyHuntPage() {
           <div className={styles.finishEmoji}>🏆</div>
           <h1 className={styles.finishTitle}>PyHunt Complete!</h1>
           <p className={styles.finishSub}>You conquered all 5 rounds, {studentName}!</p>
-          <p className={styles.clueBox}>{ROUND_CLUES[4]}</p>
+          <p className={styles.clueBox}>{turtleClue}</p>
           <button className={styles.primaryBtn} onClick={() => router.push("/dashboard")}>← Back to Dashboard</button>
         </div>
       </div>
@@ -780,11 +802,11 @@ export default function PyHuntPage() {
       </header>
 
       <main className={styles.content}>
-        {round === 0 && <RoundMCQ onComplete={next} />}
-        {round === 1 && <RoundJumble onComplete={next} />}
-        {round === 2 && <RoundCoding problem={CODING_ROUND3} roundNum={3} clue={ROUND_CLUES[2]} onComplete={next} />}
-        {round === 3 && <RoundCoding problem={CODING_ROUND4} roundNum={4} clue={ROUND_CLUES[3]} onComplete={next} />}
-        {round === 4 && <RoundTurtle onComplete={next} />}
+        {round === 0 && <RoundMCQ questions={cfg.mcqQuestions} clue={cfg.clues[0]} onComplete={next} />}
+        {round === 1 && <RoundJumble problem={cfg.jumbleProblem} clue={cfg.clues[1]} onComplete={next} />}
+        {round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} clue={cfg.clues[2]} onComplete={next} />}
+        {round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} clue={cfg.clues[3]} onComplete={next} />}
+        {round === 4 && <RoundTurtle clue={cfg.clues[4]} onComplete={next} />}
       </main>
     </div>
   );
