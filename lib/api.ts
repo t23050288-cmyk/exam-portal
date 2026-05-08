@@ -510,23 +510,18 @@ export async function fetchBranchExamSummary(): Promise<BranchExamSummary[]> {
   return adminFetch<BranchExamSummary[]>("/admin/branch-summary");
 }
 
-export async function startExam(examTitle: string): Promise<{ session_id: string; started_at: string; expires_at: string }> {
+export async function startExam(examTitle: string): Promise<{ started_at: string; status: string }> {
   const token = typeof window !== "undefined" ? sessionStorage.getItem("exam_token") || "" : "";
-  const res = await fetch(`${API_BASE}/exam/start`, {
+  const res = await fetch(`${API_BASE}/exam/start-exam?title=${encodeURIComponent(examTitle)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ exam_name: examTitle }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to start exam");
   }
   const data = await res.json();
-  // Store session_id for sync engine
-  if (typeof window !== "undefined" && data.session_id) {
-    sessionStorage.setItem("exam_session_id", data.session_id);
-  }
-  return { session_id: data.session_id, started_at: data.started_at || new Date().toISOString(), expires_at: data.expires_at };
+  return { started_at: data.started_at || new Date().toISOString(), status: data.status || "active" };
 }
 
 export async function deleteAllLeaderboard(): Promise<void> {

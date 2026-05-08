@@ -10,6 +10,7 @@ interface ExamNode {
   id: string; exam_name: string; branch: string; is_active: boolean;
   duration_minutes: number; scheduled_start: string | null;
   question_count?: number; category: string;
+  submitted?: boolean; score?: number; total_marks?: number;
 }
 interface StudentInfo {
   id: string; name: string; email: string; branch: string;
@@ -91,22 +92,49 @@ export default function DashboardPage() {
       const configs = await fetchPublicExamConfig();
       const active = configs.filter((c: any) => c.is_active);
       const { data: qData } = await supabase.from("questions").select("branch, exam_name, category");
+
+      // Check submitted status for this student
+      const studentRaw = sessionStorage.getItem("exam_student");
+      const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
+      let submittedMap: Record<string, { score: number; total_marks: number }> = {};
+      if (studentId) {
+        try {
+          const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
+          const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks").eq("student_id", studentId);
+          if (statusData) {
+            for (const s of statusData) {
+              if (s.status === "submitted") {
+                const r = resultsData?.[0] || {};
+                submittedMap[s.exam_title || ""] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
       const nodes: ExamNode[] = []; const seen = new Set<string>();
       if (qData && active.length > 0) {
         for (const cfg of active) {
           const qs = (qData || []).filter((q: any) => q.exam_name === cfg.exam_title);
           const groups: Record<string, { count: number; category: string }> = {};
           qs.forEach((q: any) => {
-            const br = q.branch || "CS", cat = q.category || "Others";
+            const br = q.branch || "CS";
+            // Category logic: if not 'Aptitude' or 'Programming', default to 'Others'
+            let cat = q.category || "";
+            if (cat !== "Aptitude" && cat !== "Programming") cat = "Others";
             if (!groups[br]) groups[br] = { count: 0, category: cat };
             groups[br].count++;
           });
           Object.entries(groups).forEach(([branch, data]) => {
             const nid = `${cfg.exam_title}-${branch}`;
             if (!seen.has(nid)) {
+              const sub = submittedMap[cfg.exam_title];
               nodes.push({ id: nid, exam_name: cfg.exam_title, branch, is_active: cfg.is_active,
                 duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
-                question_count: data.count, category: data.category });
+                question_count: data.count,
+                category: data.category,
+                submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
+              });
               seen.add(nid);
             }
           });
@@ -128,8 +156,10 @@ export default function DashboardPage() {
     if (["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav)) return false;
     return e.category === activeNav;
   });
+  // Active exams: schedule time has passed (or no schedule)
   const activeExams = filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now());
-  const inactiveExams = filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now());
+  // Upcoming exams: scheduled in the future (only show on Home)
+  const upcomingExams = filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now());
 
   let completedCount = 0, avgScore = 0;
   try {
@@ -169,25 +199,45 @@ export default function DashboardPage() {
   };
   const hdr = headerText();
 
-  const renderExamCard = (exam: ExamNode, i: number) => {
+  const renderExamCard = (exam: ExamNode, i: number, isUpcoming = false) => {
     const timeUntil = getTimeUntil(exam.scheduled_start);
     const schedDate = exam.scheduled_start ? new Date(exam.scheduled_start) : null;
+    const isSubmitted = exam.submitted;
     return (
       <motion.div key={exam.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: i * 0.06, duration: 0.3 }} className={styles.examCard}>
+        transition={{ delay: i * 0.06, duration: 0.3 }} className={styles.examCard}
+        style={isSubmitted ? { opacity: 0.7, borderColor: 'rgba(0,220,100,0.3)' } : undefined}>
         <div className={styles.examCardHeader}>
           <h3 className={styles.examCardTitle}>{exam.exam_name}</h3>
-          <span className={styles.examLiveBadge}>LIVE</span>
+          {isSubmitted ? (
+            <span className={styles.examLiveBadge} style={{ background: 'rgba(0,220,100,0.2)', color: '#00dc64' }}>SUBMITTED</span>
+          ) : isUpcoming ? (
+            <span className={styles.examLiveBadge} style={{ background: 'rgba(255,180,0,0.2)', color: '#ffb400' }}>UPCOMING</span>
+          ) : (
+            <span className={styles.examLiveBadge}>LIVE</span>
+          )}
         </div>
         <div className={styles.examMeta}>
           <span>📅 {schedDate ? schedDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}</span>
           <span>🕐 {schedDate ? schedDate.toTimeString().slice(0, 5) : "14:00"} • {exam.duration_minutes} min</span>
-          <span className={styles.examScore}>✅ Score: +4 / -1</span>
+          {isSubmitted ? (
+            <span className={styles.examScore} style={{ color: '#00dc64' }}>✅ Score: {exam.score}/{exam.total_marks}</span>
+          ) : (
+            <span className={styles.examScore}>✅ Score: +4 / -1</span>
+          )}
         </div>
         <div className={styles.examProgress}><div className={styles.examProgressBar} /></div>
         <div className={styles.examFooter}>
-          <button className={styles.startBtn} onClick={() => handleLaunch(exam)}>START EXAM</button>
-          {timeUntil ? <span className={styles.countdown}>Starts in {timeUntil}</span> : <span className={styles.readyText}>Ready</span>}
+          {isSubmitted ? (
+            <span style={{ color: '#00dc64', fontWeight: 700, fontSize: '0.9rem' }}>✅ Exam Submitted — Score: {exam.score}/{exam.total_marks}</span>
+          ) : isUpcoming ? (
+            <span className={styles.countdown}>Starts in {timeUntil}</span>
+          ) : (
+            <>
+              <button className={styles.startBtn} onClick={() => handleLaunch(exam)}>START EXAM</button>
+              {timeUntil ? <span className={styles.countdown}>Starts in {timeUntil}</span> : <span className={styles.readyText}>Ready</span>}
+            </>
+          )}
         </div>
       </motion.div>
     );
@@ -275,13 +325,13 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Inactive Exams */}
-                    {activeNav === "Home" && inactiveExams.length > 0 && (
+                    {/* Upcoming Exams (Home only) */}
+                    {activeNav === "Home" && upcomingExams.length > 0 && (
                       <>
-                        <div className={styles.sectionTitle}>Inactive Exams</div>
-                        <div className={styles.sectionSub}>Scheduled, expired, or deactivated assessments</div>
+                        <div className={styles.sectionTitle}>Upcoming Exams</div>
+                        <div className={styles.sectionSub}>Scheduled assessments — available when the time arrives</div>
                         <div className={styles.examGrid}>
-                          {inactiveExams.map((exam, i) => renderExamCard(exam, i))}
+                          {upcomingExams.map((exam, i) => renderExamCard(exam, i, true))}
                         </div>
                       </>
                     )}

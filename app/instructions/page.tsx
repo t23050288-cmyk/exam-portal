@@ -78,6 +78,13 @@ export default function InstructionsPage() {
     try {
       const res = await startExam(studentInfo?.examTitle || "Initial Assessment");
       
+      // If already submitted, redirect to a results view
+      if (res.status === "submitted") {
+        alert("You have already submitted this exam.");
+        setStarting(false);
+        return;
+      }
+
       // Store the specific title being used for the exam page
       sessionStorage.setItem("exam_selected_title", studentInfo?.examTitle || "Online Assessment");
 
@@ -90,9 +97,13 @@ export default function InstructionsPage() {
       }
 
       router.push("/exam");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start exam", err);
-      alert("Error starting exam. Please try again.");
+      if (err.message?.includes("already submitted")) {
+        alert("You have already submitted this exam. You cannot retake it.");
+      } else {
+        alert("Error starting exam. Please try again.");
+      }
       setStarting(false);
     }
   };
