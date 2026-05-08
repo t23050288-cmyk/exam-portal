@@ -42,6 +42,7 @@ const OrbitalControl    = nextDynamic(() => import("@/components/admin/control-p
 const AdminDashboard    = nextDynamic(() => import("@/components/admin/AdminDashboard"),                { ssr: false });
 const GradingQueue      = nextDynamic(() => import("@/components/admin/grading/GradingQueuePanel"),    { ssr: false });
 const SOSAdminPage      = nextDynamic(() => import("@/app/admin/sos/page"),                         { ssr: false });
+const PyHuntAdminTab    = nextDynamic(() => import("@/components/admin/PyHuntAdminTab"),                { ssr: false });
 
 
 // ── Types ─────────────────────────────────────────────────────
