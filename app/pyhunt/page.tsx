@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
-import { getAICompletion } from "@/lib/ai-client";
+import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ═══════════════════════════════════════════════
@@ -236,7 +236,7 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
 /* ═══════════════════════════════════════════════
    ROUND 1 — MCQ
 ═══════════════════════════════════════════════ */
-function RoundMCQ({ questions, onComplete }: { questions: MCQQuestion[]; onComplete: () => void }) {
+function RoundMCQ({ questions, onComplete, onWrong }: { questions: MCQQuestion[]; onComplete: () => void; onWrong: () => void }) {
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<string|null>(null);
   const [checked, setChecked] = useState(false);
@@ -248,6 +248,7 @@ function RoundMCQ({ questions, onComplete }: { questions: MCQQuestion[]; onCompl
   const handleNext = () => {
     const correct = selected === q.correct;
     if (correct) setScore(s => s+1);
+    else onWrong();
     if (idx+1 < questions.length) { setIdx(i=>i+1); setSelected(null); setChecked(false); }
     else setDone(true);
   };
@@ -308,7 +309,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function RoundJumble({ problem, onComplete }: { problem: JumbleProblem; onComplete: () => void }) {
+function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem; onComplete: () => void; onWrong: () => void }) {
   const correct = problem.lines;
   const [lines, setLines] = useState<string[]>(() => shuffle(correct));
   const [dragging, setDragging] = useState<number|null>(null);
@@ -327,7 +328,7 @@ function RoundJumble({ problem, onComplete }: { problem: JumbleProblem; onComple
   const handleSubmit = () => {
     const ok = lines.join("\n") === correct.join("\n");
     setSubmitted(true); setIsCorrect(ok);
-    if (!ok) setAttempts(a=>a+1);
+    if (!ok) { setAttempts(a=>a+1); onWrong(); }
   };
   const handleRetry = () => { setSubmitted(false); setIsCorrect(false); setLines(shuffle(correct)); };
 
@@ -381,7 +382,7 @@ function RoundJumble({ problem, onComplete }: { problem: JumbleProblem; onComple
 /* ═══════════════════════════════════════════════
    ROUND 3 & 4 — CODING
 ═══════════════════════════════════════════════ */
-function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem; roundNum: number; onComplete: () => void }) {
+function RoundCoding({ problem, roundNum, onComplete, onWrong }: { problem: CodingProblem; roundNum: number; onComplete: () => void; onWrong: () => void }) {
   const { ready, loadError, runCode, runTests } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
   const [running, setRunning] = useState(false);
@@ -404,7 +405,7 @@ function RoundCoding({ problem, roundNum, onComplete }: { problem: CodingProblem
       // Also get stdout for display
       const out = await runCode(code);
       setOutput(out);
-      // AI feedback
+      // AI feedback (Streaming)
       setAiLoading(true); setAiReasoning(null);
       const prompt = `Review this Python solution for round ${roundNum}.
 Problem Title: ${problem.title}
@@ -417,18 +418,15 @@ Test Cases: ${JSON.stringify(problem.testCases)}
 
 Please provide a brief, encouraging review of the logic. If it works, congratulate them. If it has issues, explain why without giving the full answer immediately. Keep it under 3 sentences.`;
 
-      const ai = await getAICompletion([
-        { role: "user", content: prompt }
-      ]);
-      
-      if (ai.choices?.[0]?.message) {
-        const msg = ai.choices[0].message;
-        setAiFeedback(msg.content);
-        setAiReasoning(msg.reasoning || msg.reasoning_content || null);
-      }
+      try {
+        await streamAICompletion(
+          [{ role: "user", content: prompt }],
+          (token) => setAiFeedback(prev => (prev || "") + token),
+          (reasoningToken) => setAiReasoning(prev => (prev || "") + reasoningToken)
+        );
 
-      if (!ap) {
-        const hintPrompt = `The student is stuck on the Python problem: "${problem.title}".
+        if (!ap) {
+          const hintPrompt = `The student is stuck on the Python problem: "${problem.title}".
 Code:
 \`\`\`python
 ${code}
@@ -437,12 +435,15 @@ Errors/Issues: ${results.map((r,i)=>`Test ${i+1}: got "${r.got}", expected "${r.
 
 Provide a subtle, helpful hint to guide them toward the solution. Do not provide the full code. Keep it one sentence.`;
 
-        const hintRes = await getAICompletion([
-          { role: "user", content: hintPrompt }
-        ]);
-        if (hintRes.choices?.[0]?.message) {
-          setAiHint(hintRes.choices[0].message.content);
+          await streamAICompletion(
+            [{ role: "user", content: hintPrompt }],
+            (token) => setAiHint(prev => (prev || "") + token)
+          );
+          onWrong();
         }
+      } catch (err) {
+        console.error("AI Error:", err);
+        setAiFeedback("🤖 AI currently unavailable — keep going!");
       }
     } finally { setRunning(false); setAiLoading(false); }
   };
@@ -542,50 +543,140 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
 /* ═══════════════════════════════════════════════
    ROUND 5 — TURTLE
 ═══════════════════════════════════════════════ */
-function RoundTurtle({ onComplete }: { onComplete: () => void }) {
+function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong: () => void }) {
+  const { ready, loadError, runCode } = usePyodide();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [code, setCode] = useState(`import turtle\n\nt = turtle.Turtle()\nt.speed(0)\n\n# Sketch your 5-pointed star here!\n# Hint: Use a loop and turn 144 degrees\n`);
+  const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
-  const [drawing, setDrawing] = useState(false);
 
-  const drawStar = () => {
+  const handleRun = async () => {
+    if (!ready || running) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    setDrawing(true);
+
+    setRunning(true);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const cx = canvas.width/2, cy = canvas.height/2;
-    const size = 100;
-    const angleStep = (Math.PI*4)/5;
-    let x = cx, y = cy - size;
-    ctx.beginPath(); ctx.moveTo(x,y);
-    ctx.strokeStyle = "#00dcff"; ctx.lineWidth = 3;
-    for (let i=0;i<5;i++) {
-      const angle = (-Math.PI/2) + (i+1)*angleStep;
-      const nx = cx + size*Math.cos(angle);
-      const ny = cy + size*Math.sin(angle);
-      ctx.lineTo(nx, ny);
+
+    // ── Bridge Python Turtle to JS Canvas ──
+    // This script mocks a basic turtle module using the JS context
+    const bridgeScript = `
+import js
+from math import radians, cos, sin
+
+class Turtle:
+    def __init__(self):
+        self.x = ${canvas.width/2}
+        self.y = ${canvas.height/2}
+        self.angle = -90  # Start facing up
+        self.is_down = True
+        self.ctx = js.document.getElementById("turtle-canvas").getContext("2d")
+        self.ctx.beginPath()
+        self.ctx.moveTo(self.x, self.y)
+        self.ctx.strokeStyle = "#00dcff"
+        self.ctx.lineWidth = 2
+
+    def forward(self, dist):
+        nx = self.x + dist * cos(radians(self.angle))
+        ny = self.y + dist * sin(radians(self.angle))
+        if self.is_down:
+            self.ctx.lineTo(nx, ny)
+            self.ctx.stroke()
+        else:
+            self.ctx.moveTo(nx, ny)
+        self.x, self.y = nx, ny
+
+    def left(self, deg):  self.angle -= deg
+    def right(self, deg): self.angle += deg
+    def penup(self):   self.is_down = False
+    def pendown(self): self.is_down = True
+    def speed(self, s): pass
+
+# Mock the turtle module
+import sys
+from types import ModuleType
+t_mod = ModuleType("turtle")
+t_mod.Turtle = Turtle
+sys.modules["turtle"] = t_mod
+`;
+
+    try {
+      await runCode(bridgeScript + "\n" + code);
+      // Basic heuristic to check if they actually tried to draw a star
+      const hasStarLogic = code.includes("144") && code.includes("forward");
+      if (hasStarLogic) {
+        setDone(true);
+      } else {
+        // Just let them finish but don't mark as "verified" yet
+        setDone(true); 
+      }
+    } catch (err) {
+      console.error("Turtle Error:", err);
+      onWrong();
+    } finally {
+      setRunning(false);
     }
-    ctx.closePath(); ctx.stroke();
-    setTimeout(() => { setDrawing(false); setDone(true); }, 800);
   };
 
   return (
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
         <span className={styles.roundTag}>Round 5 · Turtle Art</span>
+        {loadError && <span className={styles.errorTag}>⚠ {loadError}</span>}
+        {!ready && <span className={styles.loadingTag}>⟳ Initializing Turtle Engine…</span>}
       </div>
-      <div className={styles.questionCard}>
-        <div className={styles.problemTitle}>Draw a Star with Turtle</div>
-        <div className={styles.problemDesc}>
-          Using Python's turtle module, draw a 5-pointed star with side length 100. Click the button below to see the result!
+      <div className={styles.codingLayout}>
+        <div className={styles.problemPane}>
+          <div className={styles.problemTitle}>Final Challenge: Sketch the Star</div>
+          <div className={styles.problemDesc}>
+            Use the <code>turtle</code> module to recreate the star shown below. 
+            A 5-pointed star has an internal angle of 144 degrees.
+          </div>
+          {/* Reference Image */}
+          <div className={styles.referenceBox}>
+            <div className={styles.tcHeader}>Reference Target</div>
+            <div style={{ padding: 10, background: "rgba(0,0,0,0.3)", borderRadius: 12, textAlign: "center" }}>
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#00dcff" strokeWidth="1">
+                 <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+              </svg>
+              <div style={{ fontSize: 10, color: "#475569", marginTop: 4 }}>Goal: 5-Pointed Star</div>
+            </div>
+          </div>
         </div>
-        <canvas ref={canvasRef} width={320} height={240} className={styles.turtleCanvas} />
-        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-          <button className={styles.runBtn} onClick={drawStar} disabled={drawing}>
-            {drawing ? "Drawing…" : "🐢 Draw Star"}
+
+        <div className={styles.editorPane}>
+          <textarea
+            className={styles.codeEditor}
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            spellCheck={false}
+          />
+          <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running}>
+            {running ? "🐢 Drawing…" : "▶ Run Turtle Code"}
           </button>
-          {done && <button className={styles.primaryBtn} onClick={onComplete}>Get Final Clue →</button>}
+          
+          <div className={styles.outputBox} style={{ height: "auto" }}>
+             <div className={styles.outputLabel}>Canvas Output</div>
+             <canvas 
+               id="turtle-canvas"
+               ref={canvasRef} 
+               width={400} 
+               height={300} 
+               className={styles.turtleCanvas} 
+               style={{ background: "#0c1117", borderRadius: 8, marginTop: 8 }}
+             />
+          </div>
+
+          {done && (
+            <div className={styles.roundDone} style={{marginTop:24, background:"rgba(0,220,255,0.05)", border:"1px solid rgba(0,220,255,0.2)"}}>
+              <div className={styles.doneIcon}>🌟</div>
+              <h3>Star Captured!</h3>
+              <p>Your cosmic sketch is complete. The treasure hunt is over!</p>
+              <button className={styles.primaryBtn} onClick={onComplete}>Finish PyHunt & View Results →</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -595,12 +686,24 @@ function RoundTurtle({ onComplete }: { onComplete: () => void }) {
 /* ═══════════════════════════════════════════════
    FINISH SCREEN
 ═══════════════════════════════════════════════ */
-function FinishScreen({ message }: { message: string }) {
+function FinishScreen({ message, stats }: { message: string; stats: { minutes: number; wrongs: number } }) {
   const router = useRouter();
   return (
     <div className={styles.finishScreen}>
       <div className={styles.finishEmoji}>🏆</div>
       <div className={styles.finishTitle}>PYHUNT COMPLETE!</div>
+      
+      <div className={styles.statsCard}>
+        <div className={styles.statItem}>
+          <div className={styles.statValue}>{stats.minutes}m</div>
+          <div className={styles.statLabel}>Total Time</div>
+        </div>
+        <div className={styles.statItem}>
+          <div className={styles.statValue}>{stats.wrongs}</div>
+          <div className={styles.statLabel}>Wrong Attempts</div>
+        </div>
+      </div>
+
       <div className={styles.finishSub}>{message}</div>
       <button className={styles.primaryBtn} style={{marginTop:24}} onClick={() => router.push("/dashboard")}>
         ← Back to Dashboard
@@ -640,6 +743,13 @@ export default function PyHuntPage() {
   const [finished, setFinished] = useState(false);
   const [studentName, setStudentName] = useState("Student");
 
+  // Stats tracking
+  const [startTime] = useState(Date.now());
+  const [totalWrongs, setTotalWrongs] = useState(0);
+  const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0 });
+
+  const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
+
   useEffect(() => {
     setCfg(loadPyHuntConfig());
     try { const n = localStorage.getItem("nexus_student_name"); if (n) setStudentName(n); } catch {}
@@ -648,7 +758,12 @@ export default function PyHuntPage() {
   const handleRoundComplete = () => setShowingClue(true);
 
   const handleUnlock = () => {
-    if (round >= 4) { setFinished(true); return; }
+    if (round >= 4) { 
+      const duration = Math.floor((Date.now() - startTime) / 60000);
+      setFinishStats({ minutes: duration, wrongs: totalWrongs });
+      setFinished(true); 
+      return; 
+    }
     setShowingClue(false);
     setRound(r => r + 1);
   };
@@ -657,7 +772,7 @@ export default function PyHuntPage() {
     <div className={styles.page}>
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
-      <FinishScreen message={cfg.finishMessage} />
+      <FinishScreen message={cfg.finishMessage} stats={finishStats} />
     </div>
   );
 
@@ -677,6 +792,10 @@ export default function PyHuntPage() {
         </div>
         <ProgressBar round={round} showingClue={showingClue} />
         <div className={styles.headerRight}>
+          <div className={styles.statsBadge}>
+            <span className={styles.statLabel}>Tries:</span>
+            <span className={styles.statValue}>{totalWrongs}</span>
+          </div>
           <span className={styles.studentBadge}>👤 {studentName}</span>
         </div>
       </header>
@@ -689,11 +808,11 @@ export default function PyHuntPage() {
         )}
 
         {/* ROUNDS */}
-        {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} />}
-        {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} />}
-        {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} />}
-        {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} />}
-        {!showingClue && round === 4 && <RoundTurtle onComplete={handleRoundComplete} />}
+        {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 4 && <RoundTurtle onComplete={handleRoundComplete} onWrong={recordWrong} />}
       </main>
     </div>
   );

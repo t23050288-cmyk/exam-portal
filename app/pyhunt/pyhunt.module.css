@@ -508,3 +508,72 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* ── Stats Card (Finish Screen) ── */
+.statsCard {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.statItem {
+  background: rgba(0, 220, 255, 0.05);
+  border: 1px solid rgba(0, 220, 255, 0.15);
+  padding: 16px 24px;
+  border-radius: 16px;
+  text-align: center;
+  min-width: 120px;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 900;
+  color: #00dcff;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #4a6888;
+  letter-spacing: 1px;
+}
+
+/* ── Reference Box ── */
+.referenceBox {
+  margin-top: 12px;
+  border: 1px dashed rgba(0, 220, 255, 0.2);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.statsBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-right: 12px;
+}
+
+.statsBadge .statLabel {
+  font-size: 10px;
+  color: #f87171;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statsBadge .statValue {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 700;
+}
+
+
+
