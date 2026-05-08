@@ -48,7 +48,7 @@ try:
 
     from db.supabase_client import get_supabase
     from core.config import get_settings
-    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support
+    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support, nvidia_ai
 
     logging.basicConfig(
         level=logging.INFO,
@@ -60,7 +60,7 @@ try:
 
     # Single mount with /api prefix for consistency
     # Define routers list
-    routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support]
+    routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support, nvidia_ai]
 
     # Mount routers with /api prefix only
     # Vercel routes /api/* → this lambda, so root-mounting is redundant and wastes memory
@@ -111,3 +111,4 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": str(exc), "traceback": traceback.format_exc()},
     )
+
