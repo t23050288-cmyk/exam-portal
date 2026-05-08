@@ -84,7 +84,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos" | "pyhunt";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -424,6 +424,7 @@ export default function AdminPage() {
     { id: "control",     label: "Control",     icon: "🛸" },
     { id: "grading",     label: "Grading",     icon: "⚙️" },
     { id: "sos",         label: "SOS",         icon: "🆘" },
+    { id: "pyhunt",      label: "PyHunt",      icon: "🐍" },
   ];
 
   return (
@@ -662,6 +663,7 @@ export default function AdminPage() {
       {activeTab === "questions"   && <QuestionsTab />}
       {activeTab === "students"    && <StudentsTab />}
       {activeTab === "sos"         && <SOSAdminPage />}
+      {activeTab === "pyhunt"      && <PyHuntAdminTab />}
     </div>
   );
 }
@@ -1656,3 +1658,4 @@ function StudentsTab() {
     </div>
   );
 }
+
