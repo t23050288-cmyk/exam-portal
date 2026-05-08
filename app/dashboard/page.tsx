@@ -40,37 +40,34 @@ function getTimeUntil(dateStr: string | null) {
   return `${d}D ${h}H`;
 }
 
-/* ── 3D Wireframe Mountain SVG — Cinematic Edition ── */
+/* ── Wireframe Mountain SVG ── */
 function MountainGraph({ percentile }: { percentile: number }) {
-  const peaks = "M0,80 L40,60 L75,35 L95,15 L120,30 L150,50 L190,25 L225,45 L260,65 L300,40 L340,60 L390,45 L430,70 L480,80";
-  const baseFill = `${peaks} L480,90 L0,90 Z`;
+  const peaks = "M0,80 L30,55 L55,30 L70,12 L85,25 L110,40 L140,20 L165,35 L190,50 L220,30 L250,45 L280,60 L310,40 L340,55 L360,80";
+  const baseFill = `M0,80 L30,55 L55,30 L70,12 L85,25 L110,40 L140,20 L165,35 L190,50 L220,30 L250,45 L280,60 L310,40 L340,55 L360,80 Z`;
   return (
-    <svg viewBox="0 0 480 90" className={styles.mountainSvg} preserveAspectRatio="xMidYMax meet">
+    <svg viewBox="0 0 360 90" className={styles.mountainSvg} preserveAspectRatio="xMidYMax meet">
       <defs>
         <linearGradient id="mtnGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,160,0,0.5)" />
-          <stop offset="100%" stopColor="rgba(255,100,0,0.02)" />
+          <stop offset="0%" stopColor="rgba(255,180,60,0.4)" />
+          <stop offset="100%" stopColor="rgba(255,140,0,0.02)" />
         </linearGradient>
         <linearGradient id="mtnStroke" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#ff8c00" />
-          <stop offset="50%" stopColor="#ffcc00" />
+          <stop offset="50%" stopColor="#ffb860" />
           <stop offset="100%" stopColor="#ff8c00" />
         </linearGradient>
       </defs>
-      {/* Dynamic Grid Background */}
-      {[20, 40, 60, 80].map(y => (
-        <line key={y} x1="0" y1={y} x2="480" y2={y} stroke="rgba(0,220,255,0.08)" strokeWidth="0.5" />
+      {/* Grid lines */}
+      {[20,40,60].map(y => (
+        <line key={y} x1="0" y1={y} x2="360" y2={y} stroke="rgba(0,220,255,0.06)" strokeWidth="0.5" />
       ))}
-      {/* Glow Fill */}
+      {/* Fill */}
       <path d={baseFill} fill="url(#mtnGrad)" />
-      {/* Wireframe Neon Line */}
-      <path d={peaks} fill="none" stroke="url(#mtnStroke)" strokeWidth="2.5" strokeLinejoin="round" />
-      {/* High-Contrast Interactive Nodes */}
-      {[[95, 15], [190, 25], [300, 40], [390, 45]].map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r="5" fill="rgba(255,160,0,0.2)" />
-          <circle cx={x} cy={y} r="2.5" fill="#ffcc00" />
-        </g>
+      {/* Wireframe line */}
+      <path d={peaks} fill="none" stroke="url(#mtnStroke)" strokeWidth="2" strokeLinejoin="round" />
+      {/* Glowing dots at peaks */}
+      {[[70,12],[140,20],[220,30],[310,40]].map(([x,y],i) => (
+        <circle key={i} cx={x} cy={y} r="3" fill="#ffb060" opacity="0.8" />
       ))}
     </svg>
   );
@@ -86,10 +83,12 @@ export default function DashboardPage() {
   const [warpActive, setWarpActive] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
+  // Profile
   const [profile, setProfile] = useState<ProfileData>({ name: "", email: "", course: "", photo: null });
   const [editingProfile, setEditingProfile] = useState(false);
   const [draft, setDraft] = useState<ProfileData>({ name: "", email: "", course: "", photo: null });
 
+  // ── Auth + Profile Load ──
   useEffect(() => {
     const raw = sessionStorage.getItem("exam_student");
     const token = sessionStorage.getItem("exam_token");
@@ -109,6 +108,7 @@ export default function DashboardPage() {
     setDraft(prof);
   }, [router]);
 
+  // ── Load Exams ──
   const loadExams = useCallback(async () => {
     try {
       const configs = await fetchPublicExamConfig();
@@ -147,12 +147,14 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [loadExams]);
 
+  // ── Filters ──
   const filteredExams = allExams.filter(e => {
     if (activeNav === "Home") return true;
     if (["Profile", "History", "Insights"].includes(activeNav)) return false;
     return e.category === activeNav;
   });
 
+  // ── Stats (start at 0) ──
   let completedCount = 0;
   let avgScore = 0;
   try {
@@ -163,6 +165,7 @@ export default function DashboardPage() {
       : 0;
   } catch { /* empty */ }
 
+  // ── Actions ──
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
     setWarpActive(true);
@@ -177,6 +180,7 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
+  // ── Profile Handlers ──
   const handleSaveProfile = () => {
     localStorage.setItem("nexus_profile", JSON.stringify({ name: draft.name, email: draft.email, course: draft.course }));
     if (draft.photo) localStorage.setItem("nexus_profile_photo", draft.photo);
@@ -194,6 +198,10 @@ export default function DashboardPage() {
     }
   };
 
+  const startEditing = () => { setDraft({ ...profile }); setEditingProfile(true); };
+  const cancelEditing = () => { setDraft({ ...profile }); setEditingProfile(false); };
+
+  // ── Header text ──
   const headerText = () => {
     switch (activeNav) {
       case "Home": return { title: "Upcoming Exams", sub: "View your scheduled assessments" };
@@ -208,6 +216,8 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.page}>
+      <div className={styles.stars} />
+
       {/* ── Hamburger (mobile) ── */}
       <button className={styles.hamburger} onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Menu">
         <span /><span /><span />
@@ -216,7 +226,7 @@ export default function DashboardPage() {
       {/* ── Backdrop (mobile) ── */}
       {sidebarOpen && <div className={styles.backdrop} onClick={() => setSidebarOpen(false)} />}
 
-      {/* ═══ SIDEBAR — Pointed Banner Shape ═══ */}
+      {/* ═══ SIDEBAR — Banner Shape ═══ */}
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ""}`}>
         <div className={styles.logo}>
           <div className={styles.logoIcon}>⚛</div>
@@ -240,23 +250,22 @@ export default function DashboardPage() {
           ))}
         </nav>
 
+        {/* Atom decoration */}
         <div className={styles.sidebarAtom}>
           <div className={styles.atomIcon}>⚛</div>
         </div>
-
-        <button className={styles.signOut} onClick={handleLogout}>Sign Out</button>
       </aside>
 
       {/* ═══ MAIN AREA ═══ */}
       <div className={styles.main}>
-        {/* Top Header Section */}
+        {/* Top Section */}
         <div className={styles.topSection}>
           <div className={styles.headerCard}>
             <h2 className={styles.headerTitle}>{hdr.title}</h2>
             <p className={styles.headerSub}>{hdr.sub}</p>
           </div>
 
-          {/* User Profile Card */}
+          {/* User Card */}
           <div className={styles.userCard} onClick={() => setUserDropdown(!userDropdown)}>
             <div className={styles.userAvatar}>
               {profile.photo
@@ -272,71 +281,98 @@ export default function DashboardPage() {
             {userDropdown && (
               <div className={styles.dropdown} onClick={e => e.stopPropagation()}>
                 <div className={styles.dropdownItem}>
-                  {completedCount > 0 ? "✅" : "⬜"} Results: {completedCount > 0 ? "Ready" : "None"}
+                  {completedCount > 0 ? "✅" : "⬜"} Aptitude results {completedCount > 0 ? "ready" : "pending"}
                 </div>
-                <div className={styles.dropdownItem} style={{ cursor: "pointer", color: "#00dcff" }}
+                <div className={styles.dropdownItem}>
+                  {completedCount > 0 ? "✅" : "⬜"} Programming results {completedCount > 0 ? "ready" : "pending"}
+                </div>
+                <div className={styles.dropdownItem} style={{ cursor: "pointer", color: "#80e0ff" }}
                   onClick={() => { setActiveNav("Profile"); setUserDropdown(false); }}>
-                  ⚙️ Settings
+                  ⚙️ Options
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* ── Content ── */}
         <div className={styles.content}>
+
+          {/* === HOME / CATEGORY VIEW === */}
           {!["Profile", "History", "Insights"].includes(activeNav) && (
             <>
               {loading ? (
-                <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
+                <div className={styles.loadingWrap}>
+                  <div className={styles.spinner} />
+                </div>
               ) : (
                 <div className={styles.examGrid}>
                   {filteredExams.map((exam, i) => {
                     const timeUntil = getTimeUntil(exam.scheduled_start);
+                    const scheduled = !!exam.scheduled_start;
                     const schedDate = exam.scheduled_start ? new Date(exam.scheduled_start) : null;
+                    const catIcon = CATEGORY_ICONS[exam.category] || "📋";
+
                     return (
-                      <motion.div key={exam.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className={styles.examCard}>
+                      <motion.div key={exam.id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.06, duration: 0.3 }}
+                        className={styles.examCard}
+                      >
+                        <div className={styles.examCategoryIcon}>{catIcon}</div>
+
                         <div className={styles.examCardHeader}>
                           <h3 className={styles.examCardTitle}>{exam.exam_name}</h3>
-                          <span className={`${styles.examBadge} ${!exam.scheduled_start ? styles.examBadgeActive : ""}`}>
-                            {exam.scheduled_start ? "Scheduled" : "Active"}
+                          <span className={`${styles.examBadge} ${!scheduled ? styles.examBadgeActive : ""}`}>
+                            {scheduled ? "Scheduled" : "Active"}
                           </span>
                         </div>
+
                         <div className={styles.examMeta}>
-                          {schedDate && <span>📅 {schedDate.toLocaleDateString()}</span>}
+                          {schedDate && <span>📅 {schedDate.toISOString().split("T")[0]}</span>}
+                          {schedDate && <span>🕐 {schedDate.toTimeString().slice(0, 5)}</span>}
                           <span>⏱ {exam.duration_minutes} min</span>
-                          <span>📦 {exam.category}</span>
                         </div>
+
                         <div className={styles.examFooter}>
-                          <button className={styles.startBtn} onClick={() => handleLaunch(exam)}>Start Exam</button>
+                          <button className={styles.startBtn} onClick={() => handleLaunch(exam)}>
+                            Start Exam
+                          </button>
                           {timeUntil && <span className={styles.countdown}>Starts in {timeUntil}</span>}
                         </div>
                       </motion.div>
                     );
                   })}
+
                   {filteredExams.length === 0 && (
                     <div className={styles.emptyState}>
                       <div className={styles.emptyIcon}>📋</div>
-                      <div className={styles.emptyTitle}>No Assessments Found</div>
+                      <div className={styles.emptyTitle}>No exams available</div>
+                      <div className={styles.emptySub}>Check back later for new assessments.</div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* ── High-Fidelity Insights Section ── */}
+              {/* ── Quick Insights with Mountain Graph (Home only) ── */}
               {activeNav === "Home" && !loading && (
                 <div className={styles.insightsSection}>
-                  <h3 className={styles.insightsTitle}>Performance Matrix</h3>
+                  <h3 className={styles.insightsTitle}>Quick Insights</h3>
                   <div className={styles.insightsRow}>
-                    <div className={styles.insightCard}>
-                      <div className={styles.insightLabel}>Completed</div>
-                      <div className={styles.insightValue}>{completedCount}</div>
+                    {/* Stats */}
+                    <div className={styles.insightsStats}>
+                      <div className={styles.insightCard}>
+                        <div className={styles.insightLabel}>Completed Exams</div>
+                        <div className={styles.insightValue}>{completedCount}</div>
+                      </div>
+                      <div className={styles.insightCard}>
+                        <div className={styles.insightLabel}>Available</div>
+                        <div className={styles.insightValue}>{allExams.length}</div>
+                      </div>
                     </div>
-                    <div className={styles.insightCard}>
-                      <div className={styles.insightLabel}>Available</div>
-                      <div className={styles.insightValue}>{allExams.length}</div>
-                    </div>
-                    {/* Wireframe Mountain Graph */}
+
+                    {/* Mountain Graph Card */}
                     <div className={styles.mountainCard}>
                       <div className={styles.mountainLabel}>Skill Score</div>
                       <div className={styles.mountainValue}>
@@ -350,7 +386,7 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* === PROFILE SECTION === */}
+          {/* === PROFILE === */}
           {activeNav === "Profile" && (
             <div className={styles.profileSection}>
               <div className={styles.profileCard}>
@@ -358,37 +394,132 @@ export default function DashboardPage() {
                   <div className={styles.profilePhoto}>
                     {(editingProfile ? draft.photo : profile.photo)
                       ? <img src={(editingProfile ? draft.photo : profile.photo)!} alt="" />
-                      : <span>{profile.name?.[0]}</span>}
+                      : <span>{(editingProfile ? draft.name : profile.name)?.[0] || "S"}</span>}
                   </div>
                   {editingProfile && (
-                    <label className={styles.photoLabel}>📷 Change Photo<input type="file" onChange={handlePhotoChange} /></label>
+                    <>
+                      <label className={styles.photoLabel}>
+                        📷 Change Photo
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                      </label>
+                      {draft.photo && (
+                        <button className={styles.removePhotoBtn} onClick={() => setDraft(d => ({ ...d, photo: null }))}>
+                          Remove Photo
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
+
                 <div className={styles.profileInstitution}>RATHINAM INSTITUTE OF TECHNOLOGY</div>
+
                 <div className={styles.profileFields}>
-                  <div className={styles.fieldGroup}><label className={styles.fieldLabel}>Name</label>
-                    {editingProfile ? <input className={styles.fieldInput} value={draft.name} onChange={e => setDraft({...draft, name: e.target.value})} /> : <div className={styles.fieldValue}>{profile.name}</div>}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Name</label>
+                    {editingProfile ? (
+                      <input className={styles.fieldInput} value={draft.name}
+                        onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} placeholder="Your name" />
+                    ) : (
+                      <div className={styles.fieldValue}>{profile.name || "—"}</div>
+                    )}
                   </div>
-                  <div className={styles.fieldGroup}><label className={styles.fieldLabel}>USN</label><div className={`${styles.fieldValue} ${styles.fieldReadonly}`}>{student?.id}</div></div>
-                  <div className={styles.fieldGroup}><label className={styles.fieldLabel}>Email</label>
-                    {editingProfile ? <input className={styles.fieldInput} value={draft.email} onChange={e => setDraft({...draft, email: e.target.value})} /> : <div className={styles.fieldValue}>{profile.email}</div>}
+
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>USN</label>
+                    <div className={`${styles.fieldValue} ${styles.fieldReadonly}`}>{student?.id || "—"}</div>
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Gmail</label>
+                    {editingProfile ? (
+                      <input className={styles.fieldInput} type="email" value={draft.email}
+                        onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} placeholder="Email address" />
+                    ) : (
+                      <div className={styles.fieldValue}>{profile.email || "—"}</div>
+                    )}
+                  </div>
+
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Course</label>
+                    {editingProfile ? (
+                      <input className={styles.fieldInput} value={draft.course}
+                        onChange={e => setDraft(d => ({ ...d, course: e.target.value }))} placeholder="e.g. B.Tech CSE" />
+                    ) : (
+                      <div className={styles.fieldValue}>{profile.course || "—"}</div>
+                    )}
                   </div>
                 </div>
+
                 <div className={styles.profileActions}>
                   {editingProfile ? (
-                    <> <button className={styles.btnPrimary} onClick={handleSaveProfile}>Save</button> <button className={styles.btnSecondary} onClick={() => setEditingProfile(false)}>Cancel</button> </>
-                  ) : ( <button className={styles.btnPrimary} onClick={() => {setDraft(profile); setEditingProfile(true)}}>Edit Profile</button> )}
+                    <>
+                      <button className={styles.btnPrimary} onClick={handleSaveProfile}>Save Changes</button>
+                      <button className={styles.btnSecondary} onClick={cancelEditing}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className={styles.btnPrimary} onClick={startEditing}>Edit Profile</button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 10, color: "#405570", marginTop: 14, textAlign: "center" }}>
+                  📱 Profile data is stored locally on this device
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* === HISTORY === */}
+          {activeNav === "History" && (
+            <div className={styles.historyEmpty}>
+              <div className={styles.emptyIcon}>📜</div>
+              <div className={styles.emptyTitle}>No exam history yet</div>
+              <div className={styles.emptySub}>Your completed exams will appear here.</div>
+            </div>
+          )}
+
+          {/* === SKILLS INSIGHTS === */}
+          {activeNav === "Insights" && (
+            <div>
+              <div className={styles.insightsRow}>
+                <div className={styles.insightsStats}>
+                  <div className={styles.insightCard}>
+                    <div className={styles.insightLabel}>Completed Exams</div>
+                    <div className={styles.insightValue}>{completedCount}</div>
+                  </div>
+                  <div className={styles.insightCard}>
+                    <div className={styles.insightLabel}>Branch</div>
+                    <div className={styles.insightValueSmall}>{student?.branch || "—"}</div>
+                  </div>
+                </div>
+                <div className={styles.mountainCard}>
+                  <div className={styles.mountainLabel}>Skill Score</div>
+                  <div className={styles.mountainValue}>
+                    {completedCount > 0 ? `${avgScore}th Percentile` : "0th Percentile"}
+                  </div>
+                  <MountainGraph percentile={avgScore} />
+                </div>
+              </div>
+              {completedCount === 0 && (
+                <div style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: "#5a80a0" }}>
+                  Complete exams to see your skill insights and percentile ranking.
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
+      {/* ── Warp Overlay ── */}
       <AnimatePresence>
         {warpActive && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={styles.warpOverlay}>
-            <div className={styles.warpContent}><div className={styles.warpIcon}>🚀</div><div className={styles.warpText}>Entering Portal...</div></div>
+            <div className={styles.warpContent}>
+              <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+                transition={{ repeat: Infinity, duration: 1.4 }}>
+                <div className={styles.warpIcon}>📝</div>
+                <div className={styles.warpText}>Entering Exam...</div>
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
