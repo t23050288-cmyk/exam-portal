@@ -21,20 +21,8 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Allow Pyodide Web Worker + CDN
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "Cross-Origin-Embedder-Policy",
-            value: "require-corp",
-          },
-          {
-            key: "Cross-Origin-Opener-Policy",
-            value: "same-origin",
-          },
-        ],
-      },
+      // NOTE: COEP/COOP removed — breaks Supabase realtime WS + face-api CDN models.
+      // If Pyodide SharedArrayBuffer is needed, scope COEP only to /exam route via middleware.
       // Next.js static files already get hashed names, so 1yr is safe
       {
         source: "/_next/static/(.*)",

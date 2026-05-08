@@ -62,11 +62,10 @@ try:
     # Define routers list
     routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support]
 
-    # Mount routers with /api prefix (for frontend compatibility)
-    # AND at root (some Vercel environments strip the /api prefix)
+    # Mount routers with /api prefix only
+    # Vercel routes /api/* → this lambda, so root-mounting is redundant and wastes memory
     for r in routers_list:
         app.include_router(r.router, prefix="/api")
-        app.include_router(r.router)
 
 
     # Cron
