@@ -1,894 +1,547 @@
 /* ═══════════════════════════════════════════════════════════
-   NEXUS Candidate Portal — Dashboard
-   Matching the dark space glassmorphism design in the mockup
+   NEXUS Candidate Portal — Cinematic Deep-Space Dashboard
+   Neon cyan · Electric orange · Deep navy · Glassmorphism
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Page wrapper ── */
+/* ── Page ── */
 .page {
   display: flex;
   min-height: 100vh;
-  background: linear-gradient(160deg, #06091a 0%, #0b1032 45%, #120826 75%, #06091a 100%);
-  color: #c0d0e8;
+  background: linear-gradient(135deg, #020515 0%, #0a0d2e 30%, #0f0628 60%, #050218 100%);
+  color: #c8daf0;
   font-family: 'Inter', -apple-system, sans-serif;
   position: relative;
   overflow-x: hidden;
 }
 
-/* ── Stars: dense dots via background-image ── */
-.stars {
+/* Deep-space nebula blobs */
+.page::before, .page::after {
+  content: "";
   position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(1.2px 1.2px at 4%   6%,  rgba(255,255,255,0.60), transparent),
-    radial-gradient(1px   1px   at 11%  19%, rgba(255,255,255,0.45), transparent),
-    radial-gradient(1.3px 1.3px at 18%  38%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px   1px   at 24%  74%, rgba(255,255,255,0.40), transparent),
-    radial-gradient(1px   1px   at 31%  11%, rgba(255,255,255,0.50), transparent),
-    radial-gradient(1.2px 1.2px at 37%  55%, rgba(255,255,255,0.30), transparent),
-    radial-gradient(1px   1px   at 43%  88%, rgba(255,255,255,0.42), transparent),
-    radial-gradient(1px   1px   at 50%  27%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(1.3px 1.3px at 56%  66%, rgba(255,255,255,0.48), transparent),
-    radial-gradient(1px   1px   at 62%  4%,  rgba(255,255,255,0.55), transparent),
-    radial-gradient(1px   1px   at 68%  44%, rgba(255,255,255,0.32), transparent),
-    radial-gradient(1.2px 1.2px at 73%  82%, rgba(255,255,255,0.44), transparent),
-    radial-gradient(1px   1px   at 78%  16%, rgba(255,255,255,0.38), transparent),
-    radial-gradient(1px   1px   at 83%  60%, rgba(255,255,255,0.30), transparent),
-    radial-gradient(1.3px 1.3px at 88%  32%, rgba(255,255,255,0.52), transparent),
-    radial-gradient(1px   1px   at 93%  78%, rgba(255,255,255,0.36), transparent),
-    radial-gradient(1px   1px   at 97%  50%, rgba(255,255,255,0.42), transparent),
-    radial-gradient(1px   1px   at 8%   90%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px   1px   at 20%  50%, rgba(255,255,255,0.25), transparent),
-    radial-gradient(1.2px 1.2px at 47%  14%, rgba(255,255,255,0.46), transparent),
-    radial-gradient(1px   1px   at 60%  92%, rgba(255,255,255,0.30), transparent),
-    radial-gradient(1px   1px   at 75%  70%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(1px   1px   at 90%  8%,  rgba(255,255,255,0.50), transparent),
-    radial-gradient(1px   1px   at 15%  60%, rgba(255,255,255,0.22), transparent),
-    radial-gradient(1.2px 1.2px at 52%  40%, rgba(255,255,255,0.38), transparent);
-}
-
-/* ── Nebula glow blobs ── */
-.nebula1 {
-  position: fixed;
-  top: 0;
-  left: 18%;
-  width: 600px;
-  height: 500px;
-  background: radial-gradient(ellipse, rgba(30,70,180,0.13) 0%, transparent 65%);
-  pointer-events: none;
-  z-index: 0;
-  animation: nebulaDrift 16s ease-in-out infinite;
-}
-
-.nebula2 {
-  position: fixed;
-  bottom: 0;
-  right: 10%;
-  width: 500px;
-  height: 400px;
-  background: radial-gradient(ellipse, rgba(90,40,160,0.10) 0%, transparent 65%);
-  pointer-events: none;
-  z-index: 0;
-  animation: nebulaDrift 20s ease-in-out infinite reverse;
-}
-
-@keyframes nebulaDrift {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  50%       { transform: scale(1.08) translate(12px, -10px); }
-}
-
-/* ── Hamburger (mobile only) ── */
-.hamburger {
-  display: none;
-  position: fixed;
-  top: 13px;
-  left: 13px;
-  z-index: 210;
-  width: 40px;
-  height: 40px;
-  background: rgba(10, 15, 36, 0.88);
-  border: 1px solid rgba(80, 130, 240, 0.28);
-  border-radius: 9px;
-  cursor: pointer;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  backdrop-filter: blur(12px);
-}
-
-.hamburger span {
-  display: block;
-  width: 19px;
-  height: 2px;
-  background: #90b0d8;
-  border-radius: 2px;
-}
-
-/* ── Mobile backdrop ── */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.58);
-  backdrop-filter: blur(4px);
-  z-index: 149;
-}
-
-/* ════════════════════════════════════
-   SIDEBAR — matches the mockup exactly
-   ════════════════════════════════════ */
-.sidebar {
-  width: 228px;
-  flex-shrink: 0;
-  background: rgba(8, 12, 28, 0.88);
-  border-right: 1px solid rgba(70, 110, 200, 0.15);
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  z-index: 150;
-  overflow-y: auto;
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-}
-
-/* Logo row */
-.logoWrap {
-  padding: 22px 18px 16px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  border-bottom: 1px solid rgba(70, 110, 200, 0.1);
-}
-
-.logoOrb {
-  width: 36px;
-  height: 36px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(70, 130, 240, 0.22), rgba(40, 80, 160, 0.08));
-  border: 1.5px solid rgba(100, 160, 255, 0.38);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 14px rgba(80, 140, 255, 0.22);
+  pointer-events: none;
+  z-index: 0;
+}
+.page::before {
+  top: -15%; left: 30%; width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(40,80,200,0.12) 0%, transparent 70%);
+  filter: blur(60px);
+}
+.page::after {
+  bottom: -10%; right: 10%; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(120,40,180,0.1) 0%, transparent 70%);
+  filter: blur(60px);
 }
 
+/* Static stars */
+.stars {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 38% 8%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1.2px 1.2px at 62% 32%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1px 1px at 82% 55%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1px 1px at 22% 72%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px 1px at 50% 48%, rgba(255,255,255,0.2), transparent),
+    radial-gradient(1px 1px at 88% 15%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 6% 42%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 72% 78%, rgba(255,255,255,0.2), transparent),
+    radial-gradient(1.3px 1.3px at 33% 90%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(0.8px 0.8px at 92% 88%, rgba(255,255,255,0.25), transparent);
+}
+
+/* ── Hamburger (mobile) ── */
+.hamburger {
+  display: none; position: fixed; top: 16px; left: 16px; z-index: 60;
+  width: 42px; height: 42px;
+  background: rgba(8,12,30,0.85);
+  border: 1px solid rgba(0,220,255,0.2);
+  border-radius: 10px; cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 0;
+  box-shadow: 0 0 12px rgba(0,220,255,0.1);
+}
+.hamburger span {
+  display: block; width: 20px; height: 2px;
+  background: #00dcff; border-radius: 2px;
+  transition: transform 0.2s;
+}
+
+/* ── Backdrop (mobile) ── */
+.backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 40;
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR — Banner shape with pointed bottom
+   ═══════════════════════════════════════ */
+.sidebar {
+  width: 230px; flex-shrink: 0; z-index: 50;
+  background: rgba(8,12,30,0.9);
+  border-right: 1px solid rgba(0,220,255,0.12);
+  display: flex; flex-direction: column;
+  position: relative; overflow: visible;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 30px), 50% 100%, 0 calc(100% - 30px));
+  min-height: 100vh;
+}
+
+.logo {
+  padding: 24px 18px 18px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid rgba(0,220,255,0.08);
+}
+.logoIcon {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,220,255,0.25), rgba(0,100,200,0.1));
+  border: 1.5px solid rgba(0,220,255,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #00dcff;
+  box-shadow: 0 0 14px rgba(0,220,255,0.3);
+  text-shadow: 0 0 8px rgba(0,220,255,0.6);
+}
 .logoTitle {
-  font-size: 16px;
-  font-weight: 800;
-  color: #cce0ff;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
+  font-size: 18px; font-weight: 800; color: #e0f0ff;
+  letter-spacing: 2px; text-transform: uppercase;
 }
-
 .logoSub {
-  font-size: 9px;
-  color: #3a5070;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin-top: 1px;
+  font-size: 10px; color: #5a80a0; font-weight: 500;
+  letter-spacing: 1px; text-transform: uppercase;
 }
 
 /* Nav */
 .nav {
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
+  padding: 16px 10px; display: flex;
+  flex-direction: column; gap: 2px; flex: 1;
 }
-
 .navBtn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 13px;
-  border-radius: 9px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  background: transparent;
-  color: #4a6888;
-  transition: all 0.18s ease;
-  width: 100%;
-  text-align: left;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 10px; border: none;
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  background: transparent; color: #6080a0;
+  transition: all 0.2s; width: 100%; text-align: left;
   font-family: inherit;
-  line-height: 1;
 }
-
 .navBtn:hover {
-  background: rgba(70, 120, 220, 0.08);
-  color: #8ab0d0;
+  background: rgba(0,220,255,0.06); color: #a0d0ff;
 }
-
-/* Active nav — matches the silver/glass highlight in mockup */
-.navActive {
-  background: linear-gradient(135deg, rgba(100, 150, 255, 0.18), rgba(60, 100, 200, 0.10));
-  color: #a8c8ff;
-  font-weight: 600;
-  border-color: rgba(100, 160, 255, 0.22);
+.navBtnActive {
+  background: linear-gradient(135deg, rgba(0,220,255,0.12), rgba(0,150,255,0.08));
+  color: #00dcff; font-weight: 600;
+  border-left: 2px solid #00dcff;
+  box-shadow: 0 0 12px rgba(0,220,255,0.08);
 }
+.navIcon { font-size: 16px; width: 22px; text-align: center; }
+.navArrow { margin-left: auto; font-size: 16px; color: #00dcff; font-weight: 700; }
 
-.navActive:hover {
-  background: linear-gradient(135deg, rgba(100, 150, 255, 0.22), rgba(60, 100, 200, 0.14));
-}
-
-.navIcon {
-  width: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-
-.navChevron {
-  margin-left: auto;
-  font-size: 15px;
-  color: rgba(100, 170, 255, 0.6);
-  font-weight: 700;
-}
-
-/* Bottom atom */
+/* Atom decoration at sidebar bottom */
 .sidebarAtom {
-  padding: 18px;
-  display: flex;
-  justify-content: center;
-  opacity: 0.7;
+  display: flex; justify-content: center;
+  padding: 20px 0 50px; /* extra bottom padding for clip-path */
+}
+.atomIcon {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,220,255,0.15), transparent);
+  border: 1px solid rgba(0,220,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; opacity: 0.5;
+  text-shadow: 0 0 10px rgba(0,220,255,0.4);
 }
 
-/* ════════════════════════════════════
+.signOut {
+  margin: 10px 10px 40px; padding: 10px; border-radius: 10px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  color: #f87171; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.2s;
+}
+.signOut:hover { background: rgba(239,68,68,0.15); }
+
+/* ═══════════════════════════════════════
    MAIN AREA
-   ════════════════════════════════════ */
+   ═══════════════════════════════════════ */
 .main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  z-index: 1;
-  min-width: 0;
-  min-height: 100vh;
-  overflow-y: auto;
+  flex: 1; display: flex; flex-direction: column;
+  z-index: 1; min-width: 0; overflow-y: auto;
 }
 
-/* Top section: header banner + user card side by side */
+/* ── Top Section ── */
 .topSection {
-  display: flex;
-  gap: 16px;
-  padding: 22px 26px 0;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  display: flex; justify-content: space-between;
+  align-items: flex-start; padding: 24px 32px 0; gap: 20px; flex-wrap: wrap;
 }
 
-/* ── Header banner (Upcoming Exams) ── */
-.headerBanner {
-  flex: 1;
-  min-width: 200px;
-  background: rgba(10, 16, 38, 0.70);
-  border: 1px solid rgba(70, 110, 220, 0.18);
-  border-radius: 14px;
-  padding: 20px 22px;
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+.headerCard {
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 14px; padding: 18px 24px;
+  flex: 1; min-width: 220px;
+  box-shadow: 0 0 20px rgba(0,220,255,0.04);
 }
+.headerTitle { font-size: 20px; font-weight: 700; color: #e0f0ff; margin-bottom: 4px; }
+.headerSub { font-size: 13px; color: #5a80a0; }
 
-.headerConstellation {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 55%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.headerTitle {
-  font-size: 19px;
-  font-weight: 700;
-  color: #dce8ff;
-  margin: 0 0 5px;
-  position: relative;
-  z-index: 1;
-}
-
-.headerSub {
-  font-size: 12px;
-  color: #3a5570;
-  margin: 0;
-  position: relative;
-  z-index: 1;
-}
-
-/* ── User card (top right) — matches mockup exactly ── */
+/* ── User Card ── */
 .userCard {
-  width: 250px;
-  flex-shrink: 0;
-  background: rgba(10, 16, 38, 0.82);
-  border: 1px solid rgba(70, 110, 220, 0.20);
-  border-radius: 14px;
-  overflow: hidden;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 14px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; transition: border-color 0.2s;
+  position: relative; flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(0,220,255,0.04);
 }
-
-.userCardTop {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 14px 14px 10px;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(70, 110, 200, 0.1);
-}
-
-.userCardTop:hover {
-  background: rgba(70, 110, 220, 0.05);
-}
+.userCard:hover { border-color: rgba(0,220,255,0.3); }
 
 .userAvatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: rgba(50, 90, 180, 0.28);
-  border: 1.5px solid rgba(100, 160, 255, 0.42);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(0,220,255,0.1);
+  border: 2px solid rgba(0,220,255,0.35);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
+.userAvatar img { width: 100%; height: 100%; object-fit: cover; }
+.userAvatar span { font-size: 16px; font-weight: 700; color: #00dcff; }
 
-.userAvatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.userName { font-size: 13px; font-weight: 600; color: #d0e8ff; }
+.userRole { font-size: 11px; color: #5a80a0; }
+.userArrow { font-size: 12px; color: #5a80a0; margin-left: 4px; }
+
+/* User dropdown */
+.dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: rgba(8,14,35,0.95);
+  border: 1px solid rgba(0,220,255,0.15);
+  border-radius: 12px; padding: 10px 0;
+  min-width: 230px; z-index: 30;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
-
-.userAvatar span {
-  font-size: 14px;
-  font-weight: 700;
-  color: #80b0e0;
-}
-
-.userName {
-  font-size: 13px;
-  font-weight: 600;
-  color: #c0d4f0;
-  line-height: 1.2;
-}
-
-.userRole {
-  font-size: 10px;
-  color: #3a5070;
-  margin-top: 1px;
-}
-
-.bellBtn {
-  margin-left: auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: rgba(70, 120, 220, 0.12);
-  border: 1px solid rgba(70, 120, 220, 0.22);
-  color: #7090c0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  flex-shrink: 0;
-  transition: background 0.18s;
-}
-
-.bellBtn:hover {
-  background: rgba(70, 120, 220, 0.22);
-}
-
-.bellDot {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 7px;
-  height: 7px;
-  background: #4a7eff;
-  border-radius: 50%;
-  border: 1.5px solid #06091a;
-}
-
-/* Notification list inside user card */
-.notifList {
-  display: flex;
-  flex-direction: column;
-}
-
-.notifRow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 14px;
-  border-bottom: 1px solid rgba(70, 110, 200, 0.08);
+.dropdownItem {
+  padding: 9px 16px; font-size: 12px; color: #80a8c8;
+  display: flex; align-items: center; gap: 8px;
   transition: background 0.15s;
 }
+.dropdownItem:hover { background: rgba(0,220,255,0.06); }
 
-.notifRow:hover {
-  background: rgba(70, 110, 220, 0.06);
-}
+/* ═══════════════════════════════════════
+   CONTENT AREA
+   ═══════════════════════════════════════ */
+.content { flex: 1; padding: 24px 32px 32px; }
 
-.notifBell {
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.notifText {
-  flex: 1;
-  font-size: 11px;
-  color: #8098b8;
-  line-height: 1.3;
-}
-
-.notifCheck {
-  width: 17px;
-  height: 17px;
-  border: 1px solid rgba(80, 160, 255, 0.35);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  color: #50a0ff;
-  flex-shrink: 0;
-  font-weight: 700;
-}
-
-.notifOptions {
-  padding: 9px 14px;
-  font-size: 11px;
-  color: #4a6080;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.notifOptions:hover {
-  background: rgba(70, 110, 220, 0.06);
-}
-
-/* ════════════════════════════════════
-   CONTENT
-   ════════════════════════════════════ */
-.content {
-  flex: 1;
-  padding: 20px 26px 40px;
-}
-
-/* ── Exam Grid — 2 columns matching mockup ── */
+/* ── Exam Grid ── */
 .examGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 16px;
-  margin-bottom: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px; margin-bottom: 28px;
 }
 
-/* ── Exam Card ── */
+/* ── Exam Card — Neon cyan glass panels ── */
 .examCard {
-  background: rgba(10, 16, 38, 0.70);
-  border: 1px solid rgba(70, 110, 220, 0.17);
-  border-radius: 14px;
-  padding: 20px 20px 18px;
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.15);
+  border-radius: 16px; padding: 22px;
+  position: relative; overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+  box-shadow: 0 0 16px rgba(0,220,255,0.04);
 }
-
 .examCard:hover {
-  border-color: rgba(100, 160, 255, 0.36);
-  box-shadow: 0 0 28px rgba(50, 110, 255, 0.13), 0 4px 20px rgba(0,0,0,0.4);
+  border-color: rgba(0,220,255,0.35);
+  box-shadow: 0 0 28px rgba(0,220,255,0.1), 0 4px 20px rgba(0,0,0,0.4);
   transform: translateY(-2px);
 }
 
-/* Deco (constellation / code icon) */
-.examCardDeco {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 45%;
-  height: 100%;
-  pointer-events: none;
+/* Corner network SVG decoration */
+.examCardNetwork {
+  position: absolute; top: 12px; right: 12px;
+  width: 70px; height: 50px; opacity: 0.12;
+}
+
+.examCategoryIcon {
+  position: absolute; top: 16px; right: 16px;
+  font-size: 28px; opacity: 0.12;
 }
 
 .examCardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 13px;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 14px;
 }
-
-.examCardTitle {
-  font-size: 17px;
-  font-weight: 700;
-  color: #dce8ff;
-  margin: 0;
-  line-height: 1.2;
-}
+.examCardTitle { font-size: 18px; font-weight: 700; color: #e0f0ff; }
 
 .examBadge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 10px;
+  font-size: 10px; font-weight: 600; padding: 3px 10px;
   border-radius: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  white-space: nowrap;
-  flex-shrink: 0;
+  background: rgba(0,220,255,0.1);
+  color: #80e0ff;
+  border: 1px solid rgba(0,220,255,0.2);
+  text-transform: uppercase; letter-spacing: 0.5px;
 }
-
-.badgeScheduled {
-  background: rgba(70, 120, 240, 0.16);
-  color: #70a0f0;
-  border: 1px solid rgba(70, 120, 240, 0.28);
-}
-
-.badgeActive {
-  background: rgba(20, 180, 100, 0.14);
-  color: #50d890;
-  border: 1px solid rgba(20, 180, 100, 0.26);
+.examBadgeActive {
+  background: rgba(16,185,129,0.12);
+  color: #6ee7b7;
+  border-color: rgba(16,185,129,0.25);
 }
 
 .examMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-bottom: 15px;
-  font-size: 12px;
-  color: #4a6888;
-  position: relative;
-  z-index: 1;
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-bottom: 18px; font-size: 12px; color: #6090b0;
 }
-
-/* Progress bar */
-.progressTrack {
-  width: 100%;
-  height: 4px;
-  background: rgba(70, 110, 200, 0.12);
-  border-radius: 2px;
-  margin-bottom: 16px;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-.progressFill {
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, rgba(60, 110, 240, 0.7), rgba(60, 110, 240, 1));
-  transition: width 0.7s ease;
-}
+.examMeta span { display: flex; align-items: center; gap: 4px; }
 
 .examFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
+  display: flex; justify-content: space-between; align-items: center;
 }
 
-/* Start Exam button — matches image style */
+/* ── Start Button — Electric Orange ── */
 .startBtn {
-  padding: 8px 20px;
-  border-radius: 7px;
-  border: 1px solid rgba(70, 120, 240, 0.45);
-  background: rgba(50, 100, 220, 0.18);
-  color: #90b8ff;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.18s;
+  padding: 9px 24px; border-radius: 8px;
+  border: 1px solid rgba(255,140,0,0.5);
+  background: linear-gradient(135deg, rgba(255,140,0,0.25), rgba(255,100,0,0.15));
+  color: #ffb060; font-weight: 700; font-size: 13px;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.2s;
+  box-shadow: 0 0 12px rgba(255,140,0,0.15);
+  text-shadow: 0 0 6px rgba(255,140,0,0.3);
 }
-
-.startBtn:hover:not(:disabled) {
-  background: rgba(50, 100, 220, 0.30);
-  box-shadow: 0 0 16px rgba(50, 100, 240, 0.28);
+.startBtn:hover {
+  background: linear-gradient(135deg, rgba(255,140,0,0.4), rgba(255,100,0,0.25));
+  border-color: rgba(255,140,0,0.7);
+  box-shadow: 0 0 20px rgba(255,140,0,0.3);
   transform: translateY(-1px);
 }
 
-.startBtn:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-  transform: none;
-}
+.countdown { font-size: 12px; color: #5a80a0; font-weight: 600; }
 
-.countdown {
-  font-size: 11px;
-  color: #3a5878;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.liveTag {
-  font-size: 11px;
-  color: #50d890;
-  font-weight: 600;
-}
-
-/* Empty state */
-.emptyBox {
-  text-align: center;
-  padding: 56px 24px;
-  background: rgba(10, 16, 38, 0.5);
-  border: 1px dashed rgba(70, 110, 200, 0.14);
+/* ── Empty State ── */
+.emptyState {
+  grid-column: 1 / -1; text-align: center; padding: 60px 20px;
+  background: rgba(8,14,35,0.4);
+  border: 1px dashed rgba(0,220,255,0.1);
   border-radius: 14px;
-  margin-bottom: 22px;
+}
+.emptyIcon { font-size: 36px; margin-bottom: 10px; }
+.emptyTitle { font-size: 15px; font-weight: 600; color: #6090b0; margin-bottom: 4px; }
+.emptySub { font-size: 12px; color: #405570; }
+
+/* ═══════════════════════════════════════
+   QUICK INSIGHTS — with wireframe mountain
+   ═══════════════════════════════════════ */
+.insightsSection { margin-top: 8px; }
+.insightsTitle {
+  font-size: 17px; font-weight: 700; color: #e0f0ff; margin-bottom: 14px;
 }
 
-.emptyTitle {
-  font-size: 15px;
-  font-weight: 600;
-  color: #5a7898;
-  margin-bottom: 6px;
+.insightsRow {
+  display: flex; gap: 20px; flex-wrap: wrap;
 }
 
-.emptySub {
-  font-size: 12px;
-  color: #3a5070;
+/* Stats column */
+.insightsStats {
+  display: flex; flex-direction: column; gap: 14px;
+  min-width: 160px;
 }
 
-/* Skeleton loader */
-.skeleton {
-  animation: skPulse 1.8s ease-in-out infinite;
+.insightCard {
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 14px; padding: 20px; text-align: center;
+  box-shadow: 0 0 14px rgba(0,220,255,0.03);
+}
+.insightLabel {
+  font-size: 11px; color: #5a80a0; margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.insightValue { font-size: 28px; font-weight: 800; color: #00dcff; }
+.insightValueSmall { font-size: 18px; font-weight: 700; color: #d0e8ff; }
+
+/* Mountain graph card */
+.mountainCard {
+  flex: 1; min-width: 280px;
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 16px; padding: 24px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 0 14px rgba(0,220,255,0.03);
+  position: relative; overflow: hidden;
+}
+.mountainLabel {
+  font-size: 12px; color: #5a80a0; margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.mountainValue {
+  font-size: 22px; font-weight: 800; color: #ffb060;
+  margin-bottom: 16px;
+  text-shadow: 0 0 10px rgba(255,140,0,0.3);
+}
+.mountainSvg {
+  width: 100%; max-width: 360px; height: auto;
 }
 
-@keyframes skPulse {
-  0%, 100% { opacity: 0.55; }
-  50%       { opacity: 0.30; }
+/* Fallback grid for insights page */
+.insightsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
 }
 
-/* ════════════════════════════════════
-   QUICK INSIGHTS — matches image exactly
-   Left: "Completed Exams / 8 (big)"
-   Right: "Skill Score: / 85th Percentile (large)"
-   ════════════════════════════════════ */
-.insightsPanel {
-  background: rgba(10, 16, 38, 0.70);
-  border: 1px solid rgba(70, 110, 220, 0.17);
-  border-radius: 14px;
-  padding: 22px 26px;
-  display: flex;
-  gap: 32px;
-  align-items: flex-start;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  flex-wrap: wrap;
+/* ═══════════════════════════════════════
+   PROFILE SECTION
+   ═══════════════════════════════════════ */
+.profileSection { max-width: 500px; }
+
+.profileCard {
+  background: rgba(8,14,35,0.6);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 16px; padding: 28px;
+  box-shadow: 0 0 20px rgba(0,220,255,0.04);
 }
 
-/* Left block */
-.insightCompleted {
-  flex-shrink: 0;
-  min-width: 110px;
+.profilePhotoWrap {
+  display: flex; flex-direction: column;
+  align-items: center; margin-bottom: 24px;
+}
+.profilePhoto {
+  width: 90px; height: 90px; border-radius: 50%;
+  background: rgba(0,220,255,0.08);
+  border: 3px solid rgba(0,220,255,0.3);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+  box-shadow: 0 0 18px rgba(0,220,255,0.12);
+}
+.profilePhoto img { width: 100%; height: 100%; object-fit: cover; }
+.profilePhoto span { font-size: 32px; font-weight: 700; color: #00dcff; }
+
+.photoLabel {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 14px; border-radius: 8px;
+  background: rgba(0,220,255,0.08);
+  border: 1px solid rgba(0,220,255,0.2);
+  color: #80e0ff; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background 0.2s;
+}
+.photoLabel:hover { background: rgba(0,220,255,0.15); }
+.photoLabel input { display: none; }
+
+.removePhotoBtn {
+  background: none; border: none; color: #f87171;
+  font-size: 11px; cursor: pointer; margin-top: 6px; font-family: inherit;
 }
 
-/* Right block */
-.insightScore {
-  flex: 1;
-  min-width: 180px;
+.profileInstitution {
+  text-align: center; font-size: 11px; font-weight: 600;
+  color: #00dcff; letter-spacing: 0.5px; text-transform: uppercase;
+  margin-bottom: 20px; padding: 8px;
+  background: rgba(0,220,255,0.05);
+  border: 1px solid rgba(0,220,255,0.1);
+  border-radius: 8px;
 }
 
-/* Shared small label */
-.insightSmLabel {
-  font-size: 12px;
-  color: #4a6888;
-  font-weight: 500;
-  margin-bottom: 6px;
-  letter-spacing: 0.2px;
+.profileFields { display: flex; flex-direction: column; gap: 14px; }
+
+.fieldGroup { display: flex; flex-direction: column; gap: 4px; }
+.fieldLabel {
+  font-size: 11px; font-weight: 600; color: #5a80a0;
+  text-transform: uppercase; letter-spacing: 0.3px;
 }
-
-/* Big number — "8" in the image */
-.insightBigNum {
-  font-size: 52px;
-  font-weight: 900;
-  color: #c0d4f0;
-  line-height: 1;
-  letter-spacing: -2px;
+.fieldValue {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(0,220,255,0.08);
+  border-radius: 10px; font-size: 14px; color: #c8daf0;
 }
-
-/* "85th Percentile" text */
-.insightPercentile {
-  font-size: 26px;
-  font-weight: 800;
-  color: #c0d4f0;
-  line-height: 1.15;
+.fieldInput {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(0,220,255,0.25);
+  border-radius: 10px; font-size: 14px; color: #e0f0ff !important;
+  font-family: inherit; outline: none; width: 100%;
+  transition: border-color 0.2s;
 }
+.fieldInput:focus { border-color: rgba(0,220,255,0.5); box-shadow: 0 0 8px rgba(0,220,255,0.1); }
+.fieldReadonly { opacity: 0.6; }
 
-/* ════════════════════════════════════
-   GLASS CARD (used on profile/history)
-   ════════════════════════════════════ */
-.glassCard {
-  background: rgba(10, 16, 38, 0.70);
-  border: 1px solid rgba(70, 110, 220, 0.17);
-  border-radius: 14px;
-  padding: 28px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+.profileActions { display: flex; gap: 10px; margin-top: 18px; }
+
+.btnPrimary {
+  flex: 1; padding: 11px; border-radius: 10px;
+  background: rgba(0,220,255,0.12);
+  border: 1px solid rgba(0,220,255,0.3);
+  color: #80e0ff; font-weight: 600; font-size: 13px;
+  cursor: pointer; font-family: inherit; transition: all 0.2s;
 }
-
-/* ── Profile styles ── */
-.bigAvatar {
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  background: rgba(50, 90, 180, 0.28);
-  border: 2px solid rgba(100, 160, 255, 0.40);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-}
-
-.bigAvatar img { width: 100%; height: 100%; object-fit: cover; }
-.bigAvatar span { font-size: 26px; font-weight: 700; color: #80b0e0; }
-
-.profileName  { font-size: 17px; font-weight: 700; color: #dce8ff; margin-bottom: 4px; }
-.profileEmail { font-size: 13px; color: #3a5878; margin-bottom: 10px; }
-.profileBranch{ font-size: 13px; color: #7090b0; margin-bottom: 22px; }
-
-.profileActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
+.btnPrimary:hover { background: rgba(0,220,255,0.2); box-shadow: 0 0 12px rgba(0,220,255,0.15); }
 
 .btnSecondary {
-  padding: 9px 18px;
-  border-radius: 7px;
-  background: rgba(50, 100, 220, 0.14);
-  border: 1px solid rgba(50, 100, 220, 0.32);
-  color: #80a8e8;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.18s;
-  display: inline-block;
+  flex: 1; padding: 11px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #8098b0; font-weight: 600; font-size: 13px;
+  cursor: pointer; font-family: inherit; transition: background 0.2s;
+}
+.btnSecondary:hover { background: rgba(255,255,255,0.06); }
+
+/* ── History ── */
+.historyEmpty {
+  text-align: center; padding: 60px 20px;
+  background: rgba(8,14,35,0.4);
+  border: 1px solid rgba(0,220,255,0.08);
+  border-radius: 14px;
 }
 
-.btnSecondary:hover { background: rgba(50, 100, 220, 0.24); }
-
-.btnDanger {
-  padding: 9px 18px;
-  border-radius: 7px;
-  background: rgba(200, 50, 50, 0.12);
-  border: 1px solid rgba(200, 50, 50, 0.28);
-  color: #d07070;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.18s;
+/* ── Warp Overlay ── */
+.warpOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(2,5,21,0.96);
 }
+.warpContent { text-align: center; }
+.warpIcon { font-size: 40px; margin-bottom: 12px; }
+.warpText { font-size: 18px; font-weight: 700; color: #00dcff; text-shadow: 0 0 12px rgba(0,220,255,0.4); }
 
-.btnDanger:hover { background: rgba(200, 50, 50, 0.22); }
-
-/* ════════════════════════════════════
-   MODAL
-   ════════════════════════════════════ */
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 4, 16, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+/* ── Loading Spinner ── */
+.loadingWrap { display: flex; justify-content: center; padding: 60px; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid rgba(0,220,255,0.1);
+  border-top-color: #00dcff; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.modalBox {
-  width: 100%;
-  max-width: 390px;
-  background: rgba(8, 14, 34, 0.97);
-  border: 1px solid rgba(70, 120, 240, 0.22);
-  border-radius: 18px;
-  padding: 32px 28px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.72);
-}
-
-.modalTitle {
-  font-size: 16px;
-  font-weight: 700;
-  color: #c8d8f8;
-  margin: 0 0 20px;
-  text-align: center;
-}
-
-.btnClose {
-  padding: 10px;
-  border-radius: 7px;
-  background: rgba(50, 100, 220, 0.08);
-  border: 1px solid rgba(50, 100, 220, 0.20);
-  color: #6080a8;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  width: 100%;
-  transition: background 0.18s;
-}
-
-.btnClose:hover { background: rgba(50, 100, 220, 0.16); }
-
-/* ════════════════════════════════════
-   RESPONSIVE — MOBILE
-   ════════════════════════════════════ */
-@media (max-width: 768px) {
-  /* Show hamburger */
+/* ════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════ */
+@media (max-width: 1024px) {
   .hamburger { display: flex; }
 
-  /* Sidebar: fixed drawer, slides in */
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    transform: translateX(-100%);
-    transition: transform 0.26s ease;
-    box-shadow: 4px 0 28px rgba(0, 0, 0, 0.6);
+    position: fixed; left: -260px; top: 0; bottom: 0;
+    width: 250px; transition: left 0.25s ease; z-index: 50;
+    background: rgba(5,8,22,0.97);
+    clip-path: none; /* remove banner shape on mobile overlay */
+    min-height: auto; height: 100vh;
   }
+  .sidebarOpen { left: 0; }
+  .backdrop { display: block; }
 
-  .sidebarOpen { transform: translateX(0); }
-
-  /* Offset for hamburger */
-  .topSection {
-    padding: 14px 14px 0;
-    padding-left: 58px;
-  }
-
-  .content {
-    padding: 16px 14px 36px;
-  }
-
-  /* Single column grid */
-  .examGrid {
-    grid-template-columns: 1fr;
-  }
-
-  /* User card: below header on mobile */
-  .userCard {
-    width: 100%;
-  }
-
-  /* Insights row: stack if needed */
-  .insightsPanel {
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .insightBigNum {
-    font-size: 40px;
-  }
-
-  .insightPercentile {
-    font-size: 20px;
-  }
+  .topSection { padding: 68px 20px 0; flex-direction: column; }
+  .headerCard, .userCard { width: 100%; }
+  .content { padding: 20px; }
+  .examGrid { grid-template-columns: 1fr; }
+  .insightsRow { flex-direction: column; }
+  .insightsGrid { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media (max-width: 420px) {
-  .topSection { padding-left: 52px; }
-  .headerTitle { font-size: 16px; }
-  .examCardTitle { font-size: 15px; }
+@media (max-width: 480px) {
+  .topSection { padding: 64px 14px 0; }
+  .content { padding: 16px 14px 24px; }
+  .headerCard { padding: 14px 18px; }
+  .headerTitle { font-size: 17px; }
+  .examCard { padding: 18px; }
+  .examCardTitle { font-size: 16px; }
+  .insightsGrid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .insightCard { padding: 16px; }
+  .insightValue { font-size: 24px; }
+  .profileCard { padding: 20px; }
+  .profilePhoto { width: 76px; height: 76px; }
+  .insightsStats { flex-direction: row; flex-wrap: wrap; }
 }
