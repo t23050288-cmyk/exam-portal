@@ -359,17 +359,58 @@ export async function updateExamConfig(
   idOrUpdates: string | Partial<ExamConfig>,
   updates?: Partial<ExamConfig>
 ): Promise<ExamConfig> {
+  // Use Supabase directly — the PUT endpoint returns 405
+  const { supabase } = await import("@/lib/supabase");
+
   if (typeof idOrUpdates === "string") {
-    return adminFetch<ExamConfig>(`/admin/exam-config/${idOrUpdates}`, {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    });
+    // Update by ID
+    const { data, error } = await supabase
+      .from("exam_config")
+      .update(updates || {})
+      .eq("id", idOrUpdates)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as ExamConfig;
   } else {
-    // Called with just the config object (find/create by exam_title)
-    return adminFetch<ExamConfig>(`/admin/exam-config`, {
-      method: "PUT",
-      body: JSON.stringify(idOrUpdates),
-    });
+    // Upsert by exam_title
+    const title = idOrUpdates.exam_title;
+    if (!title) throw new Error("exam_title is required");
+
+    // Check if config exists
+    const { data: existing } = await supabase
+      .from("exam_config")
+      .select("*")
+      .eq("exam_title", title)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing
+      const { data, error } = await supabase
+        .from("exam_config")
+        .update(idOrUpdates)
+        .eq("exam_title", title)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return data as ExamConfig;
+    } else {
+      // Insert new config
+      const newConfig = {
+        exam_title: title,
+        is_active: idOrUpdates.is_active ?? false,
+        duration_minutes: idOrUpdates.duration_minutes ?? 30,
+        scheduled_start: idOrUpdates.scheduled_start ?? null,
+        ...idOrUpdates,
+      };
+      const { data, error } = await supabase
+        .from("exam_config")
+        .insert(newConfig)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return data as ExamConfig;
+    }
   }
 }
 

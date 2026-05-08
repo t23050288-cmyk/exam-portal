@@ -957,6 +957,43 @@ function QuestionsTab() {
     }
   };
 
+  // ── Schedule + Duration Modal State ──
+  const [configModal, setConfigModal] = useState<{ name: string; mode: "schedule" | "duration" } | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [durationMin, setDurationMin] = useState("30");
+
+  const handleScheduleFolder = async (folderName: string) => {
+    if (!scheduleDate || !scheduleTime) { alert("Please set both date and time."); return; }
+    const scheduled = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+    try {
+      setLoading(true);
+      await updateExamConfig({ exam_title: folderName, scheduled_start: scheduled, is_active: true });
+      setActiveExamTitles(prev => prev.includes(folderName) ? prev : [...prev, folderName]);
+      setConfigModal(null);
+      alert(`Exam "${folderName}" scheduled for ${scheduleDate} at ${scheduleTime}. It will auto-start for students at that time.`);
+    } catch (error: any) {
+      alert(`Failed to schedule exam: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetDuration = async (folderName: string) => {
+    const mins = parseInt(durationMin, 10);
+    if (isNaN(mins) || mins < 1) { alert("Enter a valid duration (1+ minutes)."); return; }
+    try {
+      setLoading(true);
+      await updateExamConfig({ exam_title: folderName, duration_minutes: mins });
+      setConfigModal(null);
+      alert(`Exam "${folderName}" duration set to ${mins} minutes.`);
+    } catch (error: any) {
+      alert(`Failed to set duration: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredQuestions = questions.filter((q) => {
     const branchMatch = selectedBranch === "All" || q.branch === selectedBranch;
     const categoryMatch = selectedCategory === "All" || q.category === selectedCategory;
@@ -1087,12 +1124,14 @@ function QuestionsTab() {
                         </div>
                       </div>
                       {!expandedClusters[clusterKey] && (
-                        <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                          {/* 1. ACTIVATE */}
                           {activeExamTitles.includes(name) ? (
                             <>
                               <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
                                 ✅ Active
                               </span>
+                              {/* 2. DEACTIVATE */}
                               <button
                                 style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(211,47,47,0.3)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
                                 onClick={(e) => { e.stopPropagation(); handleDeactivateFolder(name); }}
@@ -1104,6 +1143,16 @@ function QuestionsTab() {
                               onClick={(e) => { e.stopPropagation(); handleActivateFolder(name); }}
                             >Activate</button>
                           )}
+                          {/* 3. SCHEDULE */}
+                          <button
+                            style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(25,118,210,0.4)", background: "transparent", color: "#1976d2", cursor: "pointer", fontWeight: 600 }}
+                            onClick={(e) => { e.stopPropagation(); setConfigModal({ name, mode: "schedule" }); setScheduleDate(""); setScheduleTime(""); }}
+                          >📅 Schedule</button>
+                          {/* 4. DURATION */}
+                          <button
+                            style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(103,58,183,0.4)", background: "transparent", color: "#7c4dff", cursor: "pointer", fontWeight: 600 }}
+                            onClick={(e) => { e.stopPropagation(); setConfigModal({ name, mode: "duration" }); setDurationMin("30"); }}
+                          >🕐 Timings</button>
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: `1px solid ${palette.border}`, background: "transparent", color: palette.accent, cursor: "pointer", fontWeight: 600 }}
                             onClick={(e) => { e.stopPropagation(); handleRenameFolder(name); }}
@@ -1447,6 +1496,109 @@ function QuestionsTab() {
               <button className="btn btn-outline" onClick={() => setFolderBranchModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSaveFolderBranch}>Update Branches</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Schedule / Duration Config Modal ── */}
+      {configModal && (
+        <div className={adminStyles.modalOverlay} onClick={() => setConfigModal(null)}>
+          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            {configModal.mode === "schedule" ? (
+              <>
+                <h3>📅 Schedule Exam</h3>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+                  Set a date and time for <strong>{configModal.name}</strong> to auto-start for students.
+                </p>
+                <div className={adminStyles.formGroup}>
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    className={adminStyles.input}
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                <div className={adminStyles.formGroup} style={{ marginTop: 12 }}>
+                  <label>Time</label>
+                  <input
+                    type="time"
+                    className={adminStyles.input}
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                {scheduleDate && scheduleTime && (
+                  <div style={{
+                    marginTop: 12, padding: "10px 14px", borderRadius: 10,
+                    background: "rgba(25,118,210,0.08)", border: "1px solid rgba(25,118,210,0.2)",
+                    fontSize: 13, color: "#64b5f6",
+                  }}>
+                    ⏰ Exam will auto-start at: <strong>{scheduleDate} {scheduleTime}</strong>
+                  </div>
+                )}
+                <div className={adminStyles.modalActions} style={{ marginTop: 24 }}>
+                  <button className="btn btn-outline" onClick={() => setConfigModal(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={() => handleScheduleFolder(configModal.name)} disabled={!scheduleDate || !scheduleTime}>
+                    Set Schedule
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3>🕐 Set Exam Duration</h3>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+                  Set how long <strong>{configModal.name}</strong> will last. Students get exactly this much time.
+                </p>
+                <div className={adminStyles.formGroup}>
+                  <label>Duration (minutes)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="300"
+                    className={adminStyles.input}
+                    value={durationMin}
+                    onChange={(e) => setDurationMin(e.target.value)}
+                    placeholder="e.g. 20"
+                    style={{ width: "100%", fontSize: 16, fontWeight: 700 }}
+                  />
+                </div>
+                <div style={{
+                  display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap",
+                }}>
+                  {[10, 15, 20, 30, 45, 60, 90, 120].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setDurationMin(String(m))}
+                      style={{
+                        padding: "6px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        cursor: "pointer",
+                        border: durationMin === String(m) ? "1px solid #7c4dff" : "1px solid rgba(255,255,255,0.1)",
+                        background: durationMin === String(m) ? "rgba(124,77,255,0.15)" : "rgba(255,255,255,0.03)",
+                        color: durationMin === String(m) ? "#b388ff" : "var(--text-muted)",
+                      }}
+                    >{m} min</button>
+                  ))}
+                </div>
+                {parseInt(durationMin) > 0 && (
+                  <div style={{
+                    marginTop: 12, padding: "10px 14px", borderRadius: 10,
+                    background: "rgba(103,58,183,0.08)", border: "1px solid rgba(103,58,183,0.2)",
+                    fontSize: 13, color: "#b388ff",
+                  }}>
+                    ⏱️ Exam duration: <strong>{durationMin} minutes</strong> (dynamically applied)
+                  </div>
+                )}
+                <div className={adminStyles.modalActions} style={{ marginTop: 24 }}>
+                  <button className="btn btn-outline" onClick={() => setConfigModal(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={() => handleSetDuration(configModal.name)} disabled={!durationMin || parseInt(durationMin) < 1}>
+                    Save Duration
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
