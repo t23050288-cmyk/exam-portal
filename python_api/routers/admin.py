@@ -154,6 +154,40 @@ async def upload_question_image(
         print(f"CRITICAL upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ── Admin Sign Upload (browser-direct-to-CDN) ─────────────────
+
+@router.post("/sign-upload")
+async def admin_sign_upload(_: bool = Depends(verify_admin)):
+    """
+    Return Cloudinary signature for direct browser-to-CDN upload.
+    File never touches our server — bypasses Vercel 4.5MB limit.
+    """
+    import hashlib, time, os
+
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+    api_key = os.environ.get("CLOUDINARY_API_KEY", "")
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET", "")
+
+    if not cloud_name or not api_key or not api_secret:
+        raise HTTPException(status_code=500, detail="Cloudinary credentials not configured")
+
+    timestamp = int(time.time())
+    folder = "examguard"
+
+    # Cloudinary signature: SHA1 of sorted params + api_secret
+    params_to_sign = f"folder={folder}&timestamp={timestamp}"
+    signature = hashlib.sha1(f"{params_to_sign}{api_secret}".encode()).hexdigest()
+
+    return {
+        "cloud_name": cloud_name,
+        "api_key": api_key,
+        "timestamp": timestamp,
+        "signature": signature,
+        "folder": folder,
+        "upload_url": f"https://api.cloudinary.com/v1_1/{cloud_name}/auto/upload",
+    }
+
+
 # ── Students Management ───────────────────────────────────────
 
 @router.get("/students", response_model=list[StudentStatus])

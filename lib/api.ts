@@ -447,19 +447,63 @@ export async function editAdminFolderBranch(folderName: string, branches: string
 }
 
 export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id?: string; image_url?: string }> {
-  const fd = new FormData();
-  fd.append("file", file);
-  if (questionId) fd.append("question_id", questionId);
-  const res = await fetch(`${API_BASE}/admin/questions/upload`, {
+  // Step 1: Get signed upload params from our backend
+  const signRes = await fetch(`${API_BASE}/admin/sign-upload`, {
     method: "POST",
-    headers: { "X-Admin-Secret": ADMIN_SECRET },
-    body: fd,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Secret": ADMIN_SECRET,
+    },
+    body: JSON.stringify({}),
   });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "Upload failed");
-    throw new Error(errText);
+
+  if (!signRes.ok) {
+    // Fallback: try direct server upload (for small files < 4.5MB)
+    const fd = new FormData();
+    fd.append("file", file);
+    if (questionId) fd.append("question_id", questionId);
+    const res = await fetch(`${API_BASE}/admin/questions/upload`, {
+      method: "POST",
+      headers: { "X-Admin-Secret": ADMIN_SECRET },
+      body: fd,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "Upload failed");
+      throw new Error(errText);
+    }
+    return res.json();
   }
-  return res.json();
+
+  const signData = await signRes.json();
+
+  // Step 2: Upload directly from browser to Cloudinary (no body size limit)
+  const cloudForm = new FormData();
+  cloudForm.append("file", file);
+  cloudForm.append("api_key", signData.api_key);
+  cloudForm.append("timestamp", String(signData.timestamp));
+  cloudForm.append("signature", signData.signature);
+  cloudForm.append("folder", signData.folder);
+
+  const uploadRes = await fetch(signData.upload_url, {
+    method: "POST",
+    body: cloudForm,
+  });
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text().catch(() => "Cloudinary upload failed");
+    throw new Error(`Upload failed: ${errText}`);
+  }
+
+  const result = await uploadRes.json();
+  if (!result.secure_url) {
+    throw new Error(`Cloudinary error: ${result.error?.message || JSON.stringify(result)}`);
+  }
+
+  return {
+    url: result.secure_url,
+    image_url: result.secure_url,
+    public_id: result.public_id,
+  };
 }
 
 export async function fetchBranchExamSummary(): Promise<BranchExamSummary[]> {
