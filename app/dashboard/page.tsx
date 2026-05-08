@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { fetchPublicExamConfig } from "@/lib/api";
 import styles from "./dashboard.module.css";
+import dynamic from "next/dynamic";
+
+const WireframeMountain = dynamic(() => import("@/components/WireframeMountain"), { ssr: false });
 
 interface ExamNode {
   id: string; exam_name: string; branch: string; is_active: boolean;
@@ -339,7 +342,7 @@ export default function DashboardPage() {
                           <button className={styles.startBtn} onClick={() => handleLaunch(exam)}>
                             Start Exam
                           </button>
-                          {timeUntil && <span className={styles.countdown}>Starts in {timeUntil}</span>}
+                          {timeUntil && <span className={styles.countdownText}>Starts in {timeUntil}</span>}
                         </div>
                       </motion.div>
                     );
@@ -378,7 +381,7 @@ export default function DashboardPage() {
                       <div className={styles.mountainValue}>
                         {completedCount > 0 ? `${avgScore}th Percentile` : "0th Percentile"}
                       </div>
-                      <MountainGraph percentile={avgScore} />
+                      <WireframeMountain />
                     </div>
                   </div>
                 </div>
@@ -496,7 +499,7 @@ export default function DashboardPage() {
                   <div className={styles.mountainValue}>
                     {completedCount > 0 ? `${avgScore}th Percentile` : "0th Percentile"}
                   </div>
-                  <MountainGraph percentile={avgScore} />
+                  <WireframeMountain />
                 </div>
               </div>
               {completedCount === 0 && (
