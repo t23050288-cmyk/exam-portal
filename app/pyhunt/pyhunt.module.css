@@ -375,3 +375,81 @@
   .finishTitle { font-size: 28px; }
   .finishEmoji { font-size: 56px; }
 }
+
+/* ══════════════════════════════════════════
+   CLUE + UNLOCK SCREEN
+══════════════════════════════════════════ */
+.clueScreen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 55vh; padding: 24px;
+}
+.clueCard {
+  max-width: 580px; width: 100%;
+  background: rgba(8,14,35,0.92);
+  border: 1.5px solid rgba(255,140,0,0.25);
+  border-radius: 24px; padding: 40px 36px;
+  display: flex; flex-direction: column; gap: 20px;
+  box-shadow: 0 0 60px rgba(255,140,0,0.08), 0 20px 60px rgba(0,0,0,0.5);
+  backdrop-filter: blur(20px);
+}
+.clueTrophyRow {
+  display: flex; align-items: center; gap: 12px;
+}
+.clueTrophy { font-size: 40px; filter: drop-shadow(0 0 16px rgba(255,180,0,0.5)); }
+.clueRoundBadge {
+  font-size: 11px; font-weight: 800; letter-spacing: 2px;
+  color: #ff9a30; background: rgba(255,140,0,0.12);
+  border: 1px solid rgba(255,140,0,0.25); border-radius: 20px; padding: 5px 14px;
+}
+.clueEmoji { font-size: 52px; text-align: center; filter: drop-shadow(0 0 16px rgba(255,200,0,0.4)); }
+.clueText {
+  font-size: 15px; color: #d4b060; line-height: 1.7;
+  background: rgba(255,140,0,0.05); border: 1px solid rgba(255,140,0,0.12);
+  border-radius: 12px; padding: 16px 18px;
+}
+.clueCodeSection { display: flex; flex-direction: column; gap: 12px; }
+.clueCodeLabel {
+  font-size: 13px; font-weight: 600; color: #7090b0; line-height: 1.5;
+}
+.clueCodeInput {
+  width: 100%; padding: 14px 18px;
+  background: rgba(0,0,0,0.5);
+  border: 2px solid rgba(0,220,255,0.2);
+  border-radius: 12px; outline: none;
+  color: #d0f0ff; font-size: 18px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase; text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.clueCodeInput:focus {
+  border-color: rgba(0,220,255,0.5);
+  box-shadow: 0 0 0 3px rgba(0,220,255,0.08);
+}
+.clueInputError { border-color: rgba(239,68,68,0.5) !important; }
+.clueWrongMsg {
+  text-align: center; font-size: 13px; color: #f87171; font-weight: 600;
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 8px; padding: 8px 14px;
+}
+.clueUnlockedMsg {
+  text-align: center; font-size: 15px; color: #34d399; font-weight: 700;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 10px; padding: 14px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from {opacity:0;transform:scale(0.95)} to {opacity:1;transform:scale(1)} }
+.shake {
+  animation: shake 0.5s ease;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}
+  60%{transform:translateX(-6px)}
+  80%{transform:translateX(6px)}
+}
+@media (max-width: 480px) {
+  .clueCard { padding: 28px 20px; }
+  .clueCodeInput { font-size: 16px; letter-spacing: 2px; }
+}
