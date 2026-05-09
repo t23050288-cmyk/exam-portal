@@ -391,7 +391,7 @@ async def start_exam(
 
     # 2. If already active, just return the existing start time
     if data.get("status") == "active" and data.get("started_at"):
-        return StartExamResponse(started_at=data["started_at"], status="active")
+        return StartExamResponse(started_at=data["started_at"], status="active", started=True, exam_title=title)
 
     # 3. Otherwise, set the start time NOW
     started_at = datetime.now(timezone.utc).isoformat()
@@ -401,7 +401,7 @@ async def start_exam(
         "last_active": started_at
     }).eq("student_id", student_id).execute()
 
-    return StartExamResponse(started_at=started_at, status="active")
+    return StartExamResponse(started_at=started_at, status="active", started=True, exam_title=title)
 
 
 # ── NEW: Batch Save Answers ───────────────────────────────────
@@ -539,3 +539,4 @@ def submit_code(
         passed_count=request.passed_count,
         total_count=request.total_count,
     )
+
