@@ -742,13 +742,47 @@
   .layout {
     flex-direction: column;
     padding: 1rem;
-  }
-  .sidebar {
-    width: 100%;
     height: auto;
+    overflow-y: auto;
+  }
+  .page {
+    height: auto;
+    overflow-y: auto;
+  }
+  .main {
+    padding-right: 0;
   }
   .insightsGrid {
     flex-direction: column;
+  }
+  .homeGrid {
+    gap: 1rem;
+  }
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .profileBanner {
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+  .profileLeft {
+    flex-direction: column;
+    text-align: center;
+  }
+  .detailsGrid {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -73,22 +73,28 @@ export default function InstructionsPage() {
   const handleStartExam = async () => {
     if (starting) return;
     setStarting(true);
-    // Enter fullscreen immediately on button click (requires user gesture)
-    try { enterFullscreen(); } catch (_) {}
+    
+    // Force fullscreen immediately (direct DOM call for better reliability)
+    try {
+      const docElm = document.documentElement;
+      if (docElm.requestFullscreen) { await docElm.requestFullscreen(); }
+      else if ((docElm as any).mozRequestFullScreen) { await (docElm as any).mozRequestFullScreen(); }
+      else if ((docElm as any).webkitRequestFullScreen) { await (docElm as any).webkitRequestFullScreen(); }
+      else if ((docElm as any).msRequestFullscreen) { await (docElm as any).msRequestFullscreen(); }
+    } catch (err) {
+      console.warn("Fullscreen request failed", err);
+    }
+
     try {
       const res = await startExam(studentInfo?.examTitle || "Initial Assessment");
       
-      // If already submitted, redirect to a results view
       if (res.status === "submitted") {
         alert("You have already submitted this exam.");
         setStarting(false);
         return;
       }
 
-      // Store the specific title being used for the exam page
       sessionStorage.setItem("exam_selected_title", studentInfo?.examTitle || "Online Assessment");
-
-      // Update session storage with the real start time
       const studentData = sessionStorage.getItem("exam_student");
       if (studentData) {
         const parsed = JSON.parse(studentData);
@@ -99,11 +105,7 @@ export default function InstructionsPage() {
       router.push("/exam");
     } catch (err: any) {
       console.error("Failed to start exam", err);
-      if (err.message?.includes("already submitted")) {
-        alert("You have already submitted this exam. You cannot retake it.");
-      } else {
-        alert("Error starting exam. Please try again.");
-      }
+      alert(err.message || "Error starting exam. Please try again.");
       setStarting(false);
     }
   };

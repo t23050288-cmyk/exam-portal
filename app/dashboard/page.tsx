@@ -183,6 +183,7 @@ export default function DashboardPage() {
   const handleLogout = () => { 
     sessionStorage.removeItem("exam_token"); 
     sessionStorage.removeItem("exam_student"); 
+    localStorage.removeItem("nexus_exam_results"); // Clear local history cache
     router.replace("/login"); 
   };
 
@@ -432,21 +433,21 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.historyList}>
                     {(() => {
-                      const results = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
-                      if (results.length === 0) return <p className={styles.emptyMsg}>No assessment history found.</p>;
-                      return results.map((r: any, i: number) => (
+                      const completed = allExams.filter(e => e.submitted);
+                      if (completed.length === 0) return <p className={styles.emptyMsg}>No assessment history found.</p>;
+                      return completed.map((r: any, i: number) => (
                         <div key={i} className={styles.historyItem}>
                           <div className={styles.historyLeft}>
                             <span className={styles.historyIcon}>📋</span>
                             <div className={styles.historyInfo}>
-                              <div className={styles.historyName}>{r.examName || "Nexus Assessment"}</div>
-                              <div className={styles.historyDate}>{new Date(r.timestamp).toLocaleDateString()}</div>
+                              <div className={styles.historyName}>{r.exam_name || "Nexus Assessment"}</div>
+                              <div className={styles.historyDate}>{new Date().toLocaleDateString()}</div>
                             </div>
                           </div>
                           <div className={styles.historyRight}>
                             <div className={styles.historyScore}>
                               <span className={styles.scoreLabel}>Final Score</span>
-                              <div className={styles.scoreValue}>{r.score} / {r.totalMarks}</div>
+                              <div className={styles.scoreValue}>{r.score} / {r.total_marks}</div>
                             </div>
                             <div className={styles.historyStatus}>COMPLETED</div>
                           </div>

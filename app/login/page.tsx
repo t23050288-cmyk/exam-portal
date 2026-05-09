@@ -84,7 +84,8 @@ export default function LoginPage() {
         email: data.email,
         branch: data.branch
       }));
-      // Persist USN so it stays locked on future visits
+      // Clear any stale local data before persisting new session
+      localStorage.removeItem("nexus_exam_results");
       localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
       router.push("/dashboard");
     } catch (err: any) {
@@ -121,7 +122,8 @@ export default function LoginPage() {
         email: data.email,
         branch: data.branch
       }));
-      // USN lock removed
+      // Clear any stale local data before persisting new session
+      localStorage.removeItem("nexus_exam_results");
       localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
       router.push("/dashboard");
     } catch (err: any) {

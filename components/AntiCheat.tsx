@@ -31,9 +31,9 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
 
   const [ready, setReady] = useState(false);
 
-  // Grace period: don't fire violations for first 4 seconds
+  // Grace period: don't fire violations for first 10 seconds to allow setup/fullscreen
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 4000);
+    const t = setTimeout(() => setReady(true), 10000);
     return () => clearTimeout(t);
   }, []);
 
