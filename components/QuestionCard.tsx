@@ -110,9 +110,14 @@ export default function QuestionCard({
       <p className={styles.text}>{question.text}</p>
 
       {/* Media asset (optional) */}
-      {question.image_url && (
+      {question.image_url && question.image_url.startsWith("http") && (
         <div className={styles.imageContainer}>
-          <img src={question.image_url} alt="Question Diagram" className={styles.image} />
+          <img
+            src={question.image_url}
+            alt="Question Diagram"
+            className={styles.image}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
         </div>
       )}
       {question.audio_url && <LazyAudio src={question.audio_url} />}
@@ -182,3 +187,4 @@ export default function QuestionCard({
     </div>
   );
 }
+
