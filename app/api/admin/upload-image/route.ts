@@ -96,9 +96,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Increase body size limit for file uploads
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Note: bodyParser config handled by Next.js App Router automatically
+
