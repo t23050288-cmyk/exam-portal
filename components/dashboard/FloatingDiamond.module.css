@@ -4,26 +4,29 @@
   top: 50%;
   width: 150px;
   height: 150px;
-  perspective: 1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 5;
+  pointer-events: none;
 }
 
-.svg {
+.orbImage {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(var(--nexus-glow-cyan));
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(255, 154, 76, 0.4));
 }
 
 .glow {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-20%, -20%);
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle, var(--nexus-cyan-glow) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(255, 154, 76, 0.3) 0%, transparent 70%);
   border-radius: 50%;
-  pointer-events: none;
   filter: blur(20px);
 }
 

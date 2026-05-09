@@ -41,8 +41,8 @@ const NAV_ITEMS = [
   { id: "Programming", icon: "◇", label: "Programming" },
   { id: "Others", icon: "◉", label: "Other Quiz" },
   { id: "PyHunt", icon: "🐍", label: "PyHunt" },
-  { id: "Profile", icon: "♟", label: "Profile" },
-  { id: "Learning", icon: "◐", label: "Learning Path" },
+  { id: "Profile", icon: "👤", label: "Profile" },
+  { id: "History", icon: "⌛", label: "History" },
   { id: "Insights", icon: "⫏", label: "Skills Insights" },
 ];
 
@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
   const filteredExams = useMemo(() => allExams.filter(e => {
     if (activeNav === "Home") return true;
-    if (["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav)) return false;
+    if (["Profile", "History", "Insights", "PyHunt"].includes(activeNav)) return false;
     return e.category === activeNav;
   }), [allExams, activeNav]);
 
@@ -185,6 +185,7 @@ export default function DashboardPage() {
       case "Home": return { title: "Upcoming Exams", sub: "View your scheduled assessments" };
       case "Profile": return { title: "Profile", sub: "View your candidate information" };
       case "PyHunt": return { title: "PyHunt", sub: "System ready for authorization" };
+      case "History": return { title: "History", sub: "Review your previous assessments" };
       case "Insights": return { title: "Skills Insights", sub: "Track your performance" };
       default: return { title: activeNav, sub: "System ready for authorization" };
     }
@@ -253,8 +254,8 @@ export default function DashboardPage() {
                       </div>
                       <div className={styles.mountainCard}>
                         <div className={styles.mountainHeader}>
-                           <span className={styles.label}>Skill Score:</span>
-                           <span className={styles.value}>{completedCount > 0 ? `${avgScore}th Percentile` : "0th Percentile"}</span>
+                           <span className={styles.label}>Performance:</span>
+                           <span className={styles.value}>{completedCount > 0 ? `${avgScore}% Rank` : "—"}</span>
                         </div>
                         <div className={styles.mountainContainer}>
                            <Mountain />
@@ -271,9 +272,17 @@ export default function DashboardPage() {
 
             {activeNav !== "Home" && !["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav) && (
               <div className={styles.cardsGrid}>
-                 {filteredExams.map((exam) => (
-                    <ExamCard key={exam.id} exam={exam} onLaunch={() => handleLaunch(exam)} />
-                 ))}
+                 {filteredExams.length > 0 ? (
+                   filteredExams.map((exam: any) => (
+                      <ExamCard key={exam.id} exam={exam} onLaunch={() => handleLaunch(exam)} />
+                   ))
+                 ) : (
+                   <div className={styles.comingSoonCard}>
+                     <div className={styles.comingSoonIcon}>🚀</div>
+                     <h3>Coming Soon</h3>
+                     <p>Stay tuned! New challenges in {activeNav} are being prepared for your node.</p>
+                   </div>
+                 )}
               </div>
             )}
 
@@ -291,18 +300,58 @@ export default function DashboardPage() {
 
             {/* PROFILE */}
             {activeNav === "Profile" && (
-              <div className={styles.profileContainer}>
+              <div className={styles.profileStack}>
                 {!editingProfile ? (
-                  <div className={styles.profileCard}>
-                    <div className={styles.profileAvatar}>
-                      {profile.photo ? <img src={profile.photo} alt="" /> : "👤"}
+                  <>
+                    <div className={styles.profileBanner}>
+                      <div className={styles.profileLeft}>
+                        <div className={styles.profileAvatarLarge}>
+                          {profile.photo ? <img src={profile.photo} alt="" /> : (profile.name?.[0] || "S")}
+                        </div>
+                        <div className={styles.profileMeta}>
+                          <h2 className={styles.profileName}>{profile.name || "Student"}</h2>
+                          <p className={styles.profileEmail}>✉ {profile.email || "—"}</p>
+                        </div>
+                      </div>
+                      <button className={styles.editBtn} onClick={() => setEditingProfile(true)}>
+                        <span className={styles.editIcon}>✏️</span> Edit Profile
+                      </button>
                     </div>
-                    <div className={styles.profileInfo}>
-                      <div className={styles.profileName}>{profile.name || "Student"}</div>
-                      <div className={styles.profileEmail}>✉ {profile.email || "—"}</div>
-                      <button className={styles.editBtn} onClick={() => setEditingProfile(true)}>✏️ Edit Profile</button>
+
+                    <div className={styles.profileDetailsCard}>
+                      <h3 className={styles.detailsTitle}>Personal Information</h3>
+                      <div className={styles.detailsGrid}>
+                        <div className={styles.detailItem}>
+                          <span className={styles.detailIcon}>👤</span>
+                          <div className={styles.detailContent}>
+                            <label>Full Name</label>
+                            <p>{profile.name || "—"}</p>
+                          </div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <span className={styles.detailIcon}>✉</span>
+                          <div className={styles.detailContent}>
+                            <label>Email</label>
+                            <p>{profile.email || "—"}</p>
+                          </div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <span className={styles.detailIcon}>📂</span>
+                          <div className={styles.detailContent}>
+                            <label>Branch</label>
+                            <p>{student?.branch || "DS"}</p>
+                          </div>
+                        </div>
+                        <div className={styles.detailItem}>
+                          <span className={styles.detailIcon}>💳</span>
+                          <div className={styles.detailContent}>
+                            <label>USN</label>
+                            <p>{student?.id || "—"}</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 ) : (
                   <div className={styles.editForm}>
                     <div className={styles.field}>
@@ -313,12 +362,53 @@ export default function DashboardPage() {
                       <label>Email</label>
                       <input value={draft.email} onChange={(e: any) => setDraft((d: any) => ({ ...d, email: e.target.value }))} />
                     </div>
+                    <div className={styles.field}>
+                      <label>Profile Photo</label>
+                      <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                      <p style={{fontSize:'10px', opacity:0.5, marginTop: '4px'}}>Stored locally in your secure environment.</p>
+                    </div>
                     <div className={styles.actions}>
                       <button className={styles.saveBtn} onClick={handleSaveProfile}>Save Changes</button>
                       <button className={styles.cancelBtn} onClick={() => setEditingProfile(false)}>Cancel</button>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* HISTORY */}
+            {activeNav === "History" && (
+              <div className={styles.historyContainer}>
+                <div className={styles.historyCard}>
+                  <div className={styles.historyHeader}>
+                    <h3>Assessment History</h3>
+                    <p>Review your completed exams and scores</p>
+                  </div>
+                  <div className={styles.historyList}>
+                    {(() => {
+                      const results = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
+                      if (results.length === 0) return <p className={styles.emptyMsg}>No assessment history found.</p>;
+                      return results.map((r: any, i: number) => (
+                        <div key={i} className={styles.historyItem}>
+                          <div className={styles.historyLeft}>
+                            <span className={styles.historyIcon}>📋</span>
+                            <div className={styles.historyInfo}>
+                              <div className={styles.historyName}>{r.examName || "Nexus Assessment"}</div>
+                              <div className={styles.historyDate}>{new Date(r.timestamp).toLocaleDateString()}</div>
+                            </div>
+                          </div>
+                          <div className={styles.historyRight}>
+                            <div className={styles.historyScore}>
+                              <span className={styles.scoreLabel}>Final Score</span>
+                              <div className={styles.scoreValue}>{r.score} / {r.totalMarks}</div>
+                            </div>
+                            <div className={styles.historyStatus}>COMPLETED</div>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
               </div>
             )}
 

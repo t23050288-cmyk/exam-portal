@@ -16,11 +16,17 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: -100%;
+  width: 200%;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--nexus-cyan), transparent);
-  opacity: 0.5;
+  animation: shimmer 3s infinite linear;
+  opacity: 0.6;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(50%); }
 }
 
 .header {

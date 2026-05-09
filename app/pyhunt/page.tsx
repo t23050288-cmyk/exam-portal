@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
 import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/lib/supabase";
 
 /* ═══════════════════════════════════════════════
    TYPES
@@ -480,13 +481,13 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
             spellCheck={false}
           />
           <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running}>
-            {running ? "⟳ Running…" : "▶ Run & Test"}
+            {running ? "⟳ Processing..." : "EXECUTE LOGIC PROTOCOL"}
           </button>
           {output && (
             <div className={styles.outputBox}>
-              <div className={styles.outputLabel}>Output</div>
-              <pre style={{color: output.stderr ? "#f87171" : "#80c8a0"}}>
-                {output.stderr || output.stdout || "(no output)"}
+              <div className={styles.outputLabel}>{output.stderr || output.error ? "SYSTEM ERROR — LOG TRACE" : "TRANSMISSION OUTPUT"}</div>
+              <pre style={{color: output.stderr || output.error ? "#f87171" : "#80c8a0"}}>
+                {output.stderr || output.error || output.stdout || "(no output)"}
               </pre>
             </div>
           )}
@@ -742,18 +743,81 @@ export default function PyHuntPage() {
   const [showingClue, setShowingClue] = useState(false);
   const [finished, setFinished] = useState(false);
   const [studentName, setStudentName] = useState("Student");
-
+  
   // Stats tracking
   const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0 });
+  const [warningCount, setWarningCount] = useState(0);
+  const [showWarning, setShowWarning] = useState(false);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
   useEffect(() => {
     setCfg(loadPyHuntConfig());
-    try { const n = localStorage.getItem("nexus_student_name"); if (n) setStudentName(n); } catch {}
+    try { 
+      const n = localStorage.getItem("nexus_student_name"); 
+      if (n) setStudentName(n); 
+    } catch {}
   }, []);
+
+  // ── Track Progress to Supabase ──
+  useEffect(() => {
+    const updateProgress = async () => {
+      try {
+        const studentId = localStorage.getItem("nexus_student_id") || "anonymous";
+        const name = localStorage.getItem("nexus_student_name") || "Student";
+        const currentRound = finished ? "COMPLETED" : `Round ${round + 1}`;
+        
+        await supabase
+          .from('pyhunt_progress')
+          .upsert({ 
+            student_id: studentId,
+            student_name: name,
+            current_round: currentRound,
+            last_active: new Date().toISOString(),
+            status: finished ? 'finished' : 'active'
+          }, { onConflict: 'student_id' });
+      } catch (err) {
+        console.error("Failed to update progress:", err);
+      }
+    };
+    updateProgress();
+  }, [round, finished]);
+
+  // ── Proctoring Restrictions ──
+  useEffect(() => {
+    if (finished) return;
+
+    const handleViolation = () => {
+      setWarningCount(prev => {
+        const next = prev + 1;
+        if (next >= 3) {
+          // Auto-submit
+          const duration = Math.floor((Date.now() - startTime) / 60000);
+          setFinishStats({ minutes: duration, wrongs: totalWrongs + 3 });
+          setFinished(true);
+          return 3;
+        }
+        setShowWarning(true);
+        return next;
+      });
+    };
+
+    const onVisibilityChange = () => { if (document.visibilityState === "hidden") handleViolation(); };
+    const onBlur = () => handleViolation();
+    const onContextMenu = (e: MouseEvent) => e.preventDefault();
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("contextmenu", onContextMenu);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [finished, startTime, totalWrongs]);
 
   const handleRoundComplete = () => setShowingClue(true);
 
@@ -790,7 +854,32 @@ export default function PyHuntPage() {
             <div className={styles.logoSub}>Python Treasure Hunt</div>
           </div>
         </div>
-        <ProgressBar round={round} showingClue={showingClue} />
+      <ProgressBar round={round} showingClue={showingClue} />
+      
+      {/* Warning Overlay */}
+      <AnimatePresence>
+        {showWarning && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className={styles.warningOverlay}
+          >
+            <div className={styles.warningCard}>
+              <div className={styles.warningIcon}>⚠️</div>
+              <h2>Proctoring Violation</h2>
+              <p>Tab switching or window blurring detected. This event has been logged.</p>
+              <div className={styles.warningStats}>
+                Warning <strong>{warningCount}</strong> of 3
+              </div>
+              <p className={styles.warningNote}>After 3 warnings, your session will be automatically terminated.</p>
+              <button className={styles.primaryBtn} onClick={() => setShowWarning(false)}>
+                I Understand — Resume Challenge
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
         <div className={styles.headerRight}>
           <div className={styles.statsBadge}>
             <span className={styles.statLabel}>Tries:</span>

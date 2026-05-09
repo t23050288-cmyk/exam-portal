@@ -9,6 +9,7 @@
  *  - Finish message
  */
 import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 /* ─── Types ─────────────────────────────────── */
 interface MCQOption { label: string; text: string; }
@@ -78,13 +79,14 @@ const $ = {
   info: { fontSize:12, color:"#3a5578", lineHeight:1.5, marginBottom:12 },
 };
 
-type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4";
+type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "status";
 const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"clues",  label:"Clues & Codes", icon:"🗝️" },
   { id:"mcq",    label:"MCQ Questions", icon:"📝" },
   { id:"jumble", label:"Code Jumble",   icon:"🔀" },
   { id:"round3", label:"Round 3 Code",  icon:"🐍" },
   { id:"round4", label:"Round 4 Code",  icon:"🔢" },
+  { id:"status", label:"Live Status",   icon:"📡" },
 ];
 const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)", "Round 5 (Turtle)"];
 
@@ -311,6 +313,91 @@ export default function PyHuntAdminTab() {
           </div>
         );
       })()}
+
+      {/* ══ LIVE STATUS TAB ══ */}
+      {sub==="status" && (
+        <LiveStatusView />
+      )}
+    </div>
+  );
+}
+
+function LiveStatusView() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pyhunt_progress')
+        .select('*')
+        .order('last_active', { ascending: false });
+      
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={$.card}>
+      <div style={{...$.cardTitle, marginBottom:20}}>
+        <span>📡 Real-time Student Progress</span>
+        <button style={$.btnAdd} onClick={fetchStatus}>🔄 Refresh</button>
+      </div>
+
+      {loading && students.length === 0 ? (
+        <div style={$.info}>Connecting to transmission frequency...</div>
+      ) : students.length === 0 ? (
+        <div style={$.info}>No students have initiated the protocol yet.</div>
+      ) : (
+        <table style={{width:"100%", borderCollapse:"collapse", color:"#c8daf0", fontSize:13}}>
+          <thead>
+            <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT NAME</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>CURRENT ROUND</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((s, i) => (
+              <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
+                <td style={{padding:"12px 8px"}}>
+                   <span style={s.current_round === "COMPLETED" ? $.clueBadge : $.codeBadge}>
+                     {s.current_round}
+                   </span>
+                </td>
+                <td style={{padding:"12px 8px", opacity:0.6}}>
+                  {new Date(s.last_active).toLocaleTimeString()}
+                </td>
+                <td style={{padding:"12px 8px"}}>
+                  <span style={{
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    background: s.status === "finished" ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)",
+                    color: s.status === "finished" ? "#10b981" : "#00dcff",
+                    border: s.status === "finished" ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)"
+                  }}>
+                    {s.status?.toUpperCase()}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -21,8 +21,8 @@ export default function ProfileChip({ user, onProfileClick, onLogout }: ProfileC
         {user.photo ? <img src={user.photo} alt="" /> : <span>{user.name?.[0] || "S"}</span>}
       </div>
       <div className={styles.info}>
-        <div className={styles.name}>{user.id || "Student"}</div>
-        <div className={styles.role}>Candidate</div>
+        <div className={styles.name}>{user.name || "Student"}</div>
+        <div className={styles.role}>Candidate — {user.id ? `${user.id.slice(0, 8)}...` : "NEXUS"}</div>
       </div>
       <span className={styles.arrow}>{open ? "▴" : "▾"}</span>
 

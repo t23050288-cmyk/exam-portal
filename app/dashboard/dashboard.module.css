@@ -92,16 +92,16 @@
 }
 
 .value {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--nexus-cyan);
-  text-shadow: var(--nexus-glow-cyan);
+  text-shadow: 0 0 20px rgba(40, 215, 214, 0.4);
 }
 
 .mountainCard {
   flex: 2;
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 1.5rem;
@@ -109,6 +109,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 280px;
 }
 
 .mountainHeader {
@@ -119,10 +120,11 @@
 }
 
 .mountainContainer {
-  height: 150px;
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: flex-end;
+  margin-top: 1rem;
 }
 
 .pedestal {
@@ -337,29 +339,315 @@
   opacity: 0.6;
 }
 
+/* Profile Redesign */
+.profileStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.profileBanner {
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--nexus-glass-border);
+  border-radius: var(--nexus-radius-lg);
+  padding: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.profileLeft {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.profileAvatarLarge {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #28D7D6, #00A3A2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fff;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(40, 215, 214, 0.3);
+}
+
+.profileAvatarLarge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profileMeta h2 {
+  font-size: 2rem;
+  margin: 0;
+  color: #fff;
+}
+
+.profileEmail {
+  opacity: 0.6;
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+}
+
+.editBtn {
+  background: var(--accent-warm-gradient);
+  border: none;
+  color: #000;
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 154, 76, 0.3);
+}
+
+.editBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 154, 76, 0.4);
+}
+
+.profileDetailsCard {
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--nexus-glass-border);
+  border-radius: var(--nexus-radius-lg);
+  padding: 2.5rem;
+}
+
+.detailsTitle {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+  letter-spacing: 1px;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+}
+
+.detailItem {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.detailIcon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--nexus-cyan);
+}
+
+.detailContent label {
+  font-size: 0.8rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.detailContent p {
+  margin: 0.2rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Edit Form */
 .editForm {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px);
   border: 1px solid var(--nexus-glass-border);
-  padding: 2rem;
+  padding: 3rem;
   border-radius: var(--nexus-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* History Section */
+.historyContainer {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.historyCard {
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--nexus-glass-border);
+  border-radius: var(--nexus-radius-lg);
+  padding: 2.5rem;
+}
+
+.historyHeader {
+  margin-bottom: 2rem;
+}
+
+.historyHeader h3 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.historyHeader p {
+  opacity: 0.6;
+  margin: 0.5rem 0 0;
+}
+
+.historyList {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.field {
+.historyItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.historyItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(5px);
+}
+
+.historyLeft {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.historyIcon {
+  width: 50px;
+  height: 50px;
+  background: rgba(40, 215, 214, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.historyName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.historyDate {
+  font-size: 0.9rem;
+  opacity: 0.5;
+  margin-top: 0.2rem;
+}
+
+.historyRight {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+}
+
+.historyScore {
+  text-align: right;
+}
+
+.scoreLabel {
+  font-size: 0.75rem;
+  opacity: 0.4;
+  text-transform: uppercase;
+  display: block;
+}
+
+.scoreValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--nexus-cyan);
+}
+
+.historyStatus {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.emptyMsg {
+  text-align: center;
+  padding: 3rem;
+  opacity: 0.4;
+  font-style: italic;
+}
+
+/* Coming Soon Card */.field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
+.field label {
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
 .field input {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--nexus-glass-border);
-  padding: 0.75rem;
-  border-radius: var(--nexus-radius-md);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
   color: #fff;
+  font-family: inherit;
+}
+.comingSoonCard {
+  grid-column: 1 / -1;
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px dashed var(--nexus-glass-border);
+  padding: 4rem 2rem;
+  border-radius: var(--nexus-radius-lg);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.comingSoonIcon {
+  font-size: 4rem;
+  filter: drop-shadow(0 0 15px rgba(0, 220, 255, 0.4));
+  animation: floatBob 3s ease-in-out infinite;
+}
+
+@keyframes floatBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 @media (max-width: 1024px) {

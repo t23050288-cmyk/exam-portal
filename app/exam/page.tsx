@@ -222,6 +222,18 @@ export default function ExamPage() {
       try {
         await flush(); // Save any dirty answers first
         const res = await submitExam(answers, examTitle);
+        
+        // Save to History (local storage for student)
+        const history = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
+        history.push({
+          examName: examTitle,
+          score: res.score,
+          totalMarks: res.total_marks,
+          timestamp: new Date().toISOString(),
+          id: res.id || Math.random().toString(36).substr(2, 9)
+        });
+        localStorage.setItem("nexus_exam_results", JSON.stringify(history));
+
         clearExamStorage();
         sessionStorage.removeItem("exam_token");
         sessionStorage.removeItem("exam_student");
