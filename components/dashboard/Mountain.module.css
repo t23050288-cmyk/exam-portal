@@ -1,0 +1,35 @@
+.wrapper {
+  position: relative;
+  width: 400px;
+  height: 150px;
+  margin-top: -20px;
+}
+
+.canvasContainer {
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: linear-gradient(0deg, var(--nexus-bg) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.fallback {
+  width: 400px;
+  height: 150px;
+  background: rgba(0, 220, 255, 0.05);
+  border-radius: var(--nexus-radius-lg);
+}
+
+@media (max-width: 768px) {
+  .wrapper {
+    width: 100%;
+    transform: scale(0.8);
+  }
+}

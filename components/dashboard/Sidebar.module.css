@@ -1,0 +1,152 @@
+.sidebar {
+  width: 260px;
+  height: 90vh;
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--nexus-glass-border);
+  border-bottom: none;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 85%, 50% 100%, 0% 85%);
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1rem;
+  position: relative;
+  box-shadow: var(--nexus-shadow-glass);
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid var(--nexus-glass-rim);
+  pointer-events: none;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 85%, 50% 100%, 0% 85%);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 3rem;
+  padding: 0 0.5rem;
+}
+
+.logoIcon {
+  font-size: 2rem;
+  color: var(--nexus-cyan);
+  text-shadow: var(--nexus-glow-cyan);
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+}
+
+.sub {
+  font-size: 0.7rem;
+  color: var(--nexus-cyan);
+  opacity: 0.8;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  opacity: 0.6;
+  cursor: pointer;
+  border-radius: var(--nexus-radius-md);
+  transition: all 0.3s ease;
+  position: relative;
+  text-align: left;
+}
+
+.navBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 1;
+}
+
+.navBtnActive {
+  background: linear-gradient(90deg, rgba(40, 215, 214, 0.1) 0%, transparent 100%);
+  color: var(--nexus-cyan);
+  opacity: 1;
+  border-left: 2px solid var(--nexus-cyan);
+}
+
+.navIcon {
+  font-size: 1.2rem;
+}
+
+.navLabel {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.navArrow {
+  margin-left: auto;
+  font-size: 1.2rem;
+  opacity: 0.5;
+}
+
+.footer {
+  margin-top: auto;
+  padding-bottom: 10%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.atomIcon {
+  font-size: 4rem;
+  opacity: 0.1;
+  color: var(--nexus-cyan);
+  transform: rotate(15deg);
+}
+
+.signOut {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.signOut:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #fff;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    clip-path: none;
+    border-bottom: 1px solid var(--nexus-glass-border);
+  }
+  .sidebar::before {
+    clip-path: none;
+  }
+}

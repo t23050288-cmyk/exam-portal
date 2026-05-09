@@ -1,0 +1,40 @@
+:root {
+  /* Handcrafted Palette (Tactile & Warm) */
+  --bg-deep: #081224;
+  --panel-glass: rgba(255, 255, 255, 0.04);
+  --rim-metal: rgba(230, 180, 130, 0.08);
+  --accent-warm: #FF9A4C;
+  --accent-warm-gradient: linear-gradient(90deg, #FF9A4C, #FFB77A);
+  --accent-cool: #28D7D6;
+  --text-primary: #D8EAF2;
+  --grain-opacity: 0.06;
+  
+  /* Mapped Variables (to keep component compatibility) */
+  --nexus-bg: var(--bg-deep);
+  --nexus-cyan: var(--accent-cool);
+  --nexus-cyan-glow: rgba(40, 215, 214, 0.06); /* Lowered glow opacity to 0.06 */
+  --nexus-orange: var(--accent-warm);
+  --nexus-orange-glow: rgba(255, 154, 76, 0.06); /* Lowered glow opacity to 0.06 */
+  --nexus-glass-bg: var(--panel-glass);
+  --nexus-glass-border: var(--rim-metal);
+  --nexus-glass-rim: var(--rim-metal);
+  
+  /* Radii & Shadows */
+  --nexus-radius-sm: 4px;
+  --nexus-radius-md: 8px;
+  --nexus-radius-lg: 12px;
+  --nexus-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
+  /* Typography */
+  --nexus-font-main: 'Inter', sans-serif;
+}
+
+[data-theme='classic'] {
+  --bg-deep: #f5f7fa;
+  --panel-glass: rgba(255, 255, 255, 0.9);
+  --rim-metal: rgba(0, 0, 0, 0.1);
+  --accent-warm: #f59e0b;
+  --accent-cool: #2563eb;
+  --text-primary: #1f2937;
+  --grain-opacity: 0;
+}
