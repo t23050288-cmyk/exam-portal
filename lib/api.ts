@@ -102,6 +102,7 @@ export interface BranchExamSummary {
 }
 
 export interface SubmitResponse {
+  id?: string;
   score: number;
   total_marks: number;
   correct_count: number;
@@ -546,4 +547,5 @@ export async function resolveSupportRequest(requestId: string): Promise<void> {
 export async function clearAllSupportRequests(): Promise<void> {
   await adminFetch("/support/clear-all", { method: "DELETE" });
 }
+
 
