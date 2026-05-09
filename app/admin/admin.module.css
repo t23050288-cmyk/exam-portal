@@ -64,7 +64,7 @@
 
 .subtitle {
   font-size: 13px;
-  color: rgba(216, 234, 242, 0.6);
+  color: rgba(216, 234, 242, 0.8);
   letter-spacing: 0.02em;
 }
 
@@ -76,9 +76,9 @@
 }
 
 .statCard {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(230, 180, 130, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 28px;
   display: flex;
@@ -103,7 +103,7 @@
 
 .statLabel {
   font-size: 11px;
-  color: rgba(216, 234, 242, 0.5);
+  color: rgba(216, 234, 242, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 700;
@@ -140,11 +140,11 @@
 }
 
 .table th {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
   padding: 20px 24px;
   font-size: 12px;
   font-weight: 800;
-  color: rgba(216, 234, 242, 0.5);
+  color: rgba(216, 234, 242, 0.8);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
