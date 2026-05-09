@@ -209,8 +209,10 @@ class SubmitExamResponse(BaseModel):
 # ── Start / Session ───────────────────────────────────────────
 
 class StartExamResponse(BaseModel):
-    started: bool
-    exam_title: str
+    started_at: Optional[str] = None
+    status: str = "active"
+    started: bool = True
+    exam_title: Optional[str] = None
 
 
 # ── Students ──────────────────────────────────────────────────
@@ -388,4 +390,5 @@ class SupportRequestOut(BaseModel):
     description: str
     status: str = "pending"
     created_at: str
+
 
