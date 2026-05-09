@@ -162,6 +162,10 @@ export default function DashboardPage() {
     }
   } catch { /* empty */ }
 
+  const [enteredPyHuntCode, setEnteredPyHuntCode] = useState("");
+  const [pyHuntError, setPyHuntError] = useState(false);
+  const VALID_PYHUNT_CODE = "NEXUS24"; // The code to enter
+
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
     setWarpActive(true);
@@ -264,7 +268,7 @@ export default function DashboardPage() {
                            <span className={styles.value}>{!performanceLocked ? `${avgScore}% Rank` : "—"}</span>
                         </div>
                         <div className={styles.mountainContainer}>
-                           <FloatingDiamond />
+                           {/* 3D Orb removed per user request as it was not rendering correctly in 3D */}
                         </div>
                         <div className={styles.pedestal}>
                            <div className={styles.pedestalTop} />
@@ -272,8 +276,8 @@ export default function DashboardPage() {
                         </div>
                         {performanceLocked && (
                           <div className={styles.lockOverlay}>
-                            <div className={styles.lockIcon}>🔒</div>
-                            <div className={styles.lockMsg}>Unlock after 3 Exams</div>
+                            <div className={styles.lockIcon}>📊</div>
+                            <div className={styles.lockMsg}>You get performance after 3 exams</div>
                           </div>
                         )}
                       </div>
@@ -305,7 +309,27 @@ export default function DashboardPage() {
                   <div className={styles.pyhuntEmoji}>🐍</div>
                   <h2 className={styles.pyhuntTitle}>PyHunt</h2>
                   <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 5 rounds of challenges to find hidden clues!</p>
-                  <button className={styles.startBtn} onClick={() => router.push("/pyhunt")}>🚀 Start PyHunt</button>
+                  
+                  <div className={styles.pyhuntAuth}>
+                    <input 
+                      type="text" 
+                      placeholder="Enter Access Code..." 
+                      className={`${styles.pyhuntInput} ${pyHuntError ? styles.pyhuntInputError : ""}`}
+                      value={enteredPyHuntCode}
+                      onChange={(e) => {
+                        setEnteredPyHuntCode(e.target.value.toUpperCase());
+                        setPyHuntError(false);
+                      }}
+                    />
+                    <button className={styles.startBtn} onClick={() => {
+                      if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
+                        router.push("/pyhunt");
+                      } else {
+                        setPyHuntError(true);
+                      }
+                    }}>🚀 Start PyHunt</button>
+                  </div>
+                  {pyHuntError && <p className={styles.authError}>Invalid access code. Contact facilitator.</p>}
                 </div>
               </div>
             )}
@@ -451,10 +475,8 @@ export default function DashboardPage() {
         {warpActive && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={styles.warpOverlay}>
             <div className={styles.warpContent}>
-              <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 1 }}>
-                <div className={styles.warpIcon}>🚀</div>
-                <div className={styles.warpText}>ENGAGING WARP DRIVE...</div>
-              </motion.div>
+              <div className={styles.warpIcon}>✨</div>
+              <div className={styles.warpText}>ENGAGING WARP DRIVE</div>
             </div>
           </motion.div>
         )}

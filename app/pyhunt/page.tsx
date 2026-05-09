@@ -750,6 +750,7 @@ export default function PyHuntPage() {
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0 });
   const [warningCount, setWarningCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -785,6 +786,19 @@ export default function PyHuntPage() {
     updateProgress();
   }, [round, finished]);
 
+  // ── Fullscreen Watcher ──
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const enterFullscreen = () => {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    setIsFullscreen(true);
+  };
+
   // ── Proctoring Restrictions ──
   useEffect(() => {
     if (finished) return;
@@ -792,12 +806,12 @@ export default function PyHuntPage() {
     const handleViolation = () => {
       setWarningCount(prev => {
         const next = prev + 1;
-        if (next >= 3) {
-          // Auto-submit
+        if (next > 3) {
+          // Auto-submit on 4th violation
           const duration = Math.floor((Date.now() - startTime) / 60000);
           setFinishStats({ minutes: duration, wrongs: totalWrongs + 3 });
           setFinished(true);
-          return 3;
+          return 4;
         }
         setShowWarning(true);
         return next;
@@ -831,6 +845,23 @@ export default function PyHuntPage() {
     setShowingClue(false);
     setRound(r => r + 1);
   };
+
+  if (!isFullscreen && !finished) return (
+    <div className={styles.page}>
+      <div className={styles.stars} />
+      <div className={styles.nebula1} /><div className={styles.nebula2} />
+      <div className={styles.fsOverlay}>
+        <div className={styles.fsCard}>
+          <div className={styles.fsIcon}>🛡️</div>
+          <h2>Secure Environment Required</h2>
+          <p>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
+          <button className={styles.primaryBtn} onClick={enterFullscreen}>
+            Enter Secure Mode
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (finished) return (
     <div className={styles.page}>

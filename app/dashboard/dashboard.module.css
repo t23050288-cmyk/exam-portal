@@ -114,14 +114,13 @@
 }
 
 .mountainCard.locked {
-  cursor: not-allowed;
+  cursor: default;
 }
 
 .mountainCard.locked .mountainContainer,
 .mountainCard.locked .pedestal,
 .mountainCard.locked .value {
-  filter: blur(15px) grayscale(1);
-  opacity: 0.3;
+  opacity: 0.15;
 }
 
 .lockOverlay {
@@ -224,32 +223,79 @@
 /* Warp Overlay */
 .warpOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: #000;
+  inset: 0;
+  background: radial-gradient(circle at center, #0a1930 0%, #000 100%);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+/* Star Streaks */
+.warpOverlay::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 50px 160px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 80px 120px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 110px 210px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 150px 180px, #fff, rgba(0,0,0,0));
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  animation: warpStars 0.8s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes warpStars {
+  from { transform: translateZ(0) scale(1); opacity: 0; }
+  to { transform: translateZ(0) scale(2); opacity: 0.8; }
 }
 
 .warpContent {
+  position: relative;
+  z-index: 10;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .warpIcon {
-  font-size: 5rem;
-  margin-bottom: 1rem;
+  font-size: 4rem;
+  margin-bottom: 2rem;
+  filter: drop-shadow(0 0 20px var(--accent-warm));
+  animation: warpPulse 1.5s ease-in-out infinite;
 }
 
 .warpText {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 4px;
-  color: var(--nexus-cyan);
-  text-shadow: var(--nexus-glow-cyan);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(0, 220, 255, 0.5);
+  position: relative;
+}
+
+.warpText::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 2px;
+  background: var(--accent-warm-grad);
+  box-shadow: 0 0 10px var(--accent-warm);
+}
+
+@keyframes warpPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.1); filter: brightness(1.5); }
 }
 
 /* Scrollbar */
@@ -704,4 +750,47 @@
   .insightsGrid {
     flex-direction: column;
   }
+}
+
+.pyhuntAuth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 20px;
+}
+
+.pyhuntInput {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--rim-metal);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.pyhuntInput:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-warm);
+  box-shadow: 0 0 15px rgba(255, 154, 76, 0.2);
+}
+
+.pyhuntInputError {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.authError {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 8px;
+  font-weight: 600;
 }
