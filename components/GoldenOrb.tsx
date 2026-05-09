@@ -15,16 +15,13 @@ function OrbMesh() {
   });
 
   return (
-    <Sphere ref={meshRef} args={[1, 64, 64]}>
-      <MeshDistortMaterial
-        color="#ffd700"
-        envMapIntensity={2}
-        clearcoat={1}
-        clearcoatRoughness={0}
-        metalness={0.9}
+    <Sphere ref={meshRef} args={[1, 100, 100]}>
+      <meshStandardMaterial
+        color="#FFD700"
+        metalness={1}
         roughness={0.1}
-        distort={0.3}
-        speed={2}
+        emissive="#B8860B"
+        emissiveIntensity={0.2}
       />
     </Sphere>
   );
@@ -32,12 +29,12 @@ function OrbMesh() {
 
 export default function GoldenOrb() {
   return (
-    <div style={{ width: "100%", height: "100%" }}>
-      <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
-        <ambientLight intensity={0.5} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} />
-        <pointLight position={[-10, -10, -10]} intensity={1} />
-        <Float speed={2} rotationIntensity={1} floatIntensity={1}>
+    <div style={{ width: "100%", height: "100%", cursor: "grab" }}>
+      <Canvas camera={{ position: [0, 0, 2.5], fov: 40 }} alpha>
+        <ambientLight intensity={0.7} />
+        <spotLight position={[5, 5, 5]} angle={0.3} penumbra={1} intensity={3} castShadow />
+        <pointLight position={[-5, -5, 2]} intensity={1.5} color="#FFD700" />
+        <Float speed={3} rotationIntensity={2} floatIntensity={1.5}>
           <OrbMesh />
         </Float>
       </Canvas>

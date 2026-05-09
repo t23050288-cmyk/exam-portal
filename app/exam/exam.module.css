@@ -289,17 +289,17 @@
 }
 
 .thankYouTitle {
-  font-family: 'Inter', sans-serif;
-  font-size: 80px;
-  font-weight: 800;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 96px;
+  font-weight: 900;
   margin: 0;
-  letter-spacing: 0.05em;
-  /* Metallic bronze/gold gradient */
-  background: linear-gradient(135deg, #a87f5d 0%, #7c5a40 100%);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%);
   -webkit-background-clip: text;
   -webkit-text-fillColor: transparent;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
-  line-height: 1;
+  filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.3));
+  line-height: 0.9;
+  text-shadow: 0 0 60px rgba(255, 215, 0, 0.1);
 }
 
 .resultMetaRow {

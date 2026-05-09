@@ -5,6 +5,8 @@ import React, { useState, useEffect } from "react";
 import { fetchSupportRequests, resolveSupportRequest, clearAllSupportRequests, SupportRequest } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./sos.module.css";
+import nextDynamic from "next/dynamic";
+const AdminBackground = nextDynamic(() => import("@/components/admin/AdminBackground"), { ssr: false });
 
 export default function SOSAdminPage() {
   const [requests, setRequests] = useState<SupportRequest[]>([]);
@@ -56,6 +58,7 @@ export default function SOSAdminPage() {
 
   return (
     <div className={styles.container}>
+      <AdminBackground />
       <header className={styles.header}>
         <div className={styles.titleWrap}>
           <h1 className={styles.title}>Incident Response Center</h1>

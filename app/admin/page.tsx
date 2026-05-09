@@ -43,6 +43,7 @@ const AdminDashboard    = nextDynamic(() => import("@/components/admin/AdminDash
 const GradingQueue      = nextDynamic(() => import("@/components/admin/grading/GradingQueuePanel"),    { ssr: false });
 const SOSAdminPage      = nextDynamic(() => import("@/app/admin/sos/page"),                         { ssr: false });
 const PyHuntAdminTab    = nextDynamic(() => import("@/components/admin/PyHuntAdminTab"),                { ssr: false });
+const AdminBackground   = nextDynamic(() => import("@/components/admin/AdminBackground"),                { ssr: false });
 
 
 // ── Types ─────────────────────────────────────────────────────
@@ -378,7 +379,8 @@ export default function AdminPage() {
 
   if (!authed) {
     return (
-      <div className="page-center" style={{ background: "linear-gradient(160deg, #0d0d1a 0%, #0f0f23 100%)", minHeight: "100vh" }}>
+      <div className="page-center" style={{ minHeight: "100vh", position: "relative" }}>
+        <AdminBackground />
         <div className={styles.loginCard} style={{
           background: "rgba(255,255,255,0.03)",
           border: "1px solid rgba(255,255,255,0.08)",
@@ -430,6 +432,7 @@ export default function AdminPage() {
 
   return (
     <div className={styles.page}>
+      <AdminBackground />
       {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>

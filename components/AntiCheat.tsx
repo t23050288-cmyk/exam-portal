@@ -41,35 +41,34 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
 
   const triggerViolation = useCallback(
     async (type: string, metadata?: Record<string, unknown>) => {
-      if (isSubmitted || !ready) return;
+      if (isSubmitted || !ready || showModal) return;
 
       // Queue telemetry event (batched, low-overhead)
       queueEvent(type, metadata);
 
       // Also report to violation counter (this drives warnings + auto-submit logic)
-      try {
-        const res = await reportViolation(type, metadata);
-        const count = res.warning_count;
-        setWarningCount(count);
-        setModalMessage(res.message);
+    try {
+      const res = await reportViolation(type, metadata);
+      const count = res.warning_count;
+      setWarningCount(count);
+      setModalMessage(res.message);
+      setShowModal(true);
+      if (res.auto_submitted) onAutoSubmit();
+    } catch {
+      setWarningCount((prev) => {
+        const next = prev + 1;
+        if (next >= 3) {
+          setModalMessage("⚠️ 3rd violation detected. Your exam has been auto-submitted.");
+          onAutoSubmit();
+        } else if (next === 2) {
+          setModalMessage("🚨 Final warning! One more violation and your exam will be auto-submitted.");
+        } else {
+          setModalMessage("⚠️ Warning 1: Please return to the exam and stay focused.");
+        }
         setShowModal(true);
-        if (res.auto_submitted) onAutoSubmit();
-      } catch {
-        // Network error — increment locally
-        setWarningCount((prev) => {
-          const next = prev + 1;
-          if (next >= 3) {
-            setModalMessage("⚠️ 3rd violation detected. Your exam has been auto-submitted.");
-            onAutoSubmit();
-          } else if (next === 2) {
-            setModalMessage("🚨 Final warning! One more violation and your exam will be auto-submitted.");
-          } else {
-            setModalMessage("⚠️ Warning 1: Please return to the exam and stay focused.");
-          }
-          setShowModal(true);
-          return next;
-        });
-      }
+        return next;
+      });
+    }
     },
     [isSubmitted, ready, onAutoSubmit, queueEvent]
   );

@@ -732,7 +732,7 @@ function ProgressBar({ round, showingClue }: { round: number; showingClue: boole
         return (
           <div key={i} title={label} className={`${styles.progressDot} ${isDone ? styles.progressDone : ""} ${isActive ? styles.progressActive : ""}`}>
             {isActive ? (
-              <div style={{ width: "140%", height: "140%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: "100%", height: "100%", transform: "scale(1.2)" }}>
                 <GoldenOrb />
               </div>
             ) : (
@@ -816,6 +816,7 @@ export default function PyHuntPage() {
     if (finished) return;
 
     const handleViolation = () => {
+      if (showWarning) return; // Don't count multiple times if already showing
       setWarningCount(prev => {
         const next = prev + 1;
         if (next > 3) {

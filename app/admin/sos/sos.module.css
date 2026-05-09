@@ -1,6 +1,6 @@
 .container {
   min-height: 100vh;
-  background: #0f172a;
+  background: transparent;
   color: #e2e8f0;
   padding: 40px;
   font-family: var(--font-inter, sans-serif);

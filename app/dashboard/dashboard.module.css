@@ -907,8 +907,7 @@
 .lockOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(4, 8, 15, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(4, 8, 15, 0.4);
   display: flex;
   flex-direction: column;
   align-items: center;

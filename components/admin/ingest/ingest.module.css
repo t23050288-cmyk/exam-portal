@@ -2,8 +2,9 @@
 
 .page {
   padding: 32px;
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
+  background: transparent;
 }
 
 /* ── Drop Zone ───────────────────────────────────────────────── */
@@ -16,12 +17,7 @@
   min-height: 280px;
   border-radius: 24px;
   border: 2px dashed rgba(139, 92, 246, 0.4);
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.06) 0%,
-    rgba(59, 130, 246, 0.06) 50%,
-    rgba(16, 185, 129, 0.04) 100%
-  );
+  background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   cursor: pointer;
