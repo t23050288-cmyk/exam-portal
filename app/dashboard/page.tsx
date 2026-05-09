@@ -149,11 +149,17 @@ export default function DashboardPage() {
   const activeExams = useMemo(() => filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now()), [filteredExams]);
   const upcomingExams = useMemo(() => filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now()), [filteredExams]);
 
-  let completedCount = 0, avgScore = 0;
+  let completedCount = 0, avgScore = 0, performanceLocked = true;
   try {
     const results = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
     completedCount = results.length;
-    avgScore = completedCount > 0 ? Math.round(results.reduce((a: number, r: any) => a + (r.score || 0), 0) / completedCount) : 0;
+    performanceLocked = completedCount < 3;
+    
+    if (completedCount > 0) {
+      const totalScore = results.reduce((a: number, r: any) => a + (r.score || 0), 0);
+      const totalPossible = results.reduce((a: number, r: any) => a + (r.totalMarks || 1), 0);
+      avgScore = Math.round((totalScore / totalPossible) * 100);
+    }
   } catch { /* empty */ }
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
@@ -252,18 +258,24 @@ export default function DashboardPage() {
                           <span className={styles.value}>{completedCount}</span>
                         </div>
                       </div>
-                      <div className={styles.mountainCard}>
+                      <div className={`${styles.mountainCard} ${performanceLocked ? styles.locked : ""}`}>
                         <div className={styles.mountainHeader}>
                            <span className={styles.label}>Performance:</span>
-                           <span className={styles.value}>{completedCount > 0 ? `${avgScore}% Rank` : "—"}</span>
+                           <span className={styles.value}>{!performanceLocked ? `${avgScore}% Rank` : "—"}</span>
                         </div>
                         <div className={styles.mountainContainer}>
-                           <Mountain />
+                           <FloatingDiamond />
                         </div>
                         <div className={styles.pedestal}>
                            <div className={styles.pedestalTop} />
                            <div className={styles.pedestalBase} />
                         </div>
+                        {performanceLocked && (
+                          <div className={styles.lockOverlay}>
+                            <div className={styles.lockIcon}>🔒</div>
+                            <div className={styles.lockMsg}>Unlock after 3 Exams</div>
+                          </div>
+                        )}
                       </div>
                    </div>
                 </section>
@@ -429,8 +441,6 @@ export default function DashboardPage() {
             )}
           </div>
         </main>
-
-        <FloatingDiamond />
       </div>
 
       <button className={styles.themeToggle} onClick={() => setTheme(t => t === 'galaxy' ? 'classic' : 'galaxy')}>
