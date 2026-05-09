@@ -24,6 +24,7 @@ Response Style:
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.NVIDIA_API_KEY;
+    console.log("[ExamPortal AI] Request received. Key present:", !!apiKey);
 
     if (!apiKey) {
       console.error("[ExamPortal AI] NVIDIA_API_KEY is missing in environment.");

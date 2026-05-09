@@ -62,6 +62,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [warpActive, setWarpActive] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({ name: "", email: "", course: "", photo: null });
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [draft, setDraft] = useState<ProfileData>({ name: "", email: "", course: "", photo: null });
   const [theme, setTheme] = useState<'galaxy' | 'classic'>('galaxy');
 
   useEffect(() => {
@@ -72,10 +74,11 @@ export default function DashboardPage() {
     setStudent(s);
     const saved = localStorage.getItem("nexus_profile");
     const p = saved ? JSON.parse(saved) : {};
-    setProfile({
+    const prof: ProfileData = {
       name: p.name || s.name || "", email: p.email || s.email || "",
       course: p.course || "", photo: localStorage.getItem("nexus_profile_photo") || null,
-    });
+    };
+    setProfile(prof); setDraft(prof);
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -167,10 +170,22 @@ export default function DashboardPage() {
     router.replace("/login"); 
   };
 
+  const handleSaveProfile = () => {
+    localStorage.setItem("nexus_profile", JSON.stringify({ name: draft.name, email: draft.email, course: draft.course }));
+    if (draft.photo) localStorage.setItem("nexus_profile_photo", draft.photo); else localStorage.removeItem("nexus_profile_photo");
+    setProfile({ ...draft }); setEditingProfile(false);
+  };
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) { const r = new FileReader(); r.onloadend = () => setDraft(d => ({ ...d, photo: r.result as string })); r.readAsDataURL(f); }
+  };
+
   const headerText = () => {
     switch (activeNav) {
       case "Home": return { title: "Upcoming Exams", sub: "View your scheduled assessments" };
       case "Profile": return { title: "Profile", sub: "View your candidate information" };
+      case "PyHunt": return { title: "PyHunt", sub: "System ready for authorization" };
+      case "Insights": return { title: "Skills Insights", sub: "Track your performance" };
       default: return { title: activeNav, sub: "System ready for authorization" };
     }
   };
@@ -262,8 +277,65 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* PYHUNT */}
+            {activeNav === "PyHunt" && (
+              <div className={styles.pyhuntSection}>
+                <div className={styles.pyhuntCard}>
+                  <div className={styles.pyhuntEmoji}>🐍</div>
+                  <h2 className={styles.pyhuntTitle}>PyHunt</h2>
+                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 5 rounds of challenges to find hidden clues!</p>
+                  <button className={styles.startBtn} onClick={() => router.push("/pyhunt")}>🚀 Start PyHunt</button>
+                </div>
+              </div>
+            )}
+
+            {/* PROFILE */}
             {activeNav === "Profile" && (
-              <div className={styles.emptyState}>Profile editing coming soon to the new UI.</div>
+              <div className={styles.profileContainer}>
+                {!editingProfile ? (
+                  <div className={styles.profileCard}>
+                    <div className={styles.profileAvatar}>
+                      {profile.photo ? <img src={profile.photo} alt="" /> : "👤"}
+                    </div>
+                    <div className={styles.profileInfo}>
+                      <div className={styles.profileName}>{profile.name || "Student"}</div>
+                      <div className={styles.profileEmail}>✉ {profile.email || "—"}</div>
+                      <button className={styles.editBtn} onClick={() => setEditingProfile(true)}>✏️ Edit Profile</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.editForm}>
+                    <div className={styles.field}>
+                      <label>Name</label>
+                      <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Email</label>
+                      <input value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} />
+                    </div>
+                    <div className={styles.actions}>
+                      <button className={styles.saveBtn} onClick={handleSaveProfile}>Save Changes</button>
+                      <button className={styles.cancelBtn} onClick={() => setEditingProfile(false)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* INSIGHTS */}
+            {activeNav === "Insights" && (
+              <div className={styles.insightsGrid}>
+                <div className={styles.insightCard}>
+                  <h3>Full Performance</h3>
+                  <div className={styles.stat}>
+                    <span className={styles.label}>Average Score</span>
+                    <span className={styles.value}>{avgScore}%</span>
+                  </div>
+                </div>
+                <div className={styles.mountainCard}>
+                  <Mountain />
+                </div>
+              </div>
             )}
           </div>
         </main>
@@ -271,12 +343,10 @@ export default function DashboardPage() {
         <FloatingDiamond />
       </div>
 
-      {/* Theme Switcher (Admin-only toggle usually, but here for demo) */}
       <button className={styles.themeToggle} onClick={() => setTheme(t => t === 'galaxy' ? 'classic' : 'galaxy')}>
         {theme === 'galaxy' ? '✨' : '🏢'}
       </button>
 
-      {/* Warp Overlay */}
       <AnimatePresence>
         {warpActive && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={styles.warpOverlay}>

@@ -1,52 +1,53 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap");
 
-/* ── NEXUS Design Tokens ─────────────────────────────────── */
+/* ── NEXUS Design Tokens (Handcrafted Galaxy Palette) ──────────────── */
 :root {
-  /* Galaxy palette */
-  --deep-navy:        #04080f;
-  --nebula-purple:    #1f0b2f;
-  --accent-cyan:      #00dcff;
-  --accent-cyan-dim:  rgba(0,220,255,0.35);
-  --accent-orange:    #FF8C00;
-  --accent-orange-2:  #FFB060;
-  --glass-stroke:     rgba(0,220,255,0.12);
-  --glass-fill:       rgba(8,14,35,0.6);
+  /* Handcrafted Base */
+  --bg-deep:          #081224;
+  --panel-glass:       rgba(255, 255, 255, 0.04);
+  --rim-metal:         rgba(230, 180, 130, 0.08);
+  --accent-warm:       #FF9A4C;
+  --accent-warm-grad:  linear-gradient(90deg, #FF9A4C, #FFB77A);
+  --accent-cool:       #28D7D6;
+  --text-primary:      #D8EAF2;
+  --grain-opacity:     0.06;
 
-  /* Legacy compat */
-  --bg-primary:       var(--deep-navy);
+  /* Legacy Mapping (Next.js compatibility) */
+  --deep-navy:        var(--bg-deep);
+  --nebula-purple:    #1f0b2f;
+  --accent-cyan:      var(--accent-cool);
+  --accent-cyan-dim:  rgba(40, 215, 214, 0.35);
+  --accent-orange:    var(--accent-warm);
+  --accent-orange-2:  #FFB060;
+  --glass-stroke:     var(--rim-metal);
+  --glass-fill:       var(--panel-glass);
+
+  --bg-primary:       var(--bg-deep);
   --bg-secondary:     #0a0d1e;
-  --bg-card:          var(--glass-fill);
-  --bg-card-hover:    rgba(8,18,45,0.7);
-  --bg-input:         rgba(255,255,255,0.04);
-  --bg-hover:         rgba(0,220,255,0.06);
-  --border:           var(--glass-stroke);
-  --border-focus:     rgba(0,220,255,0.5);
-  --text-primary:     #e0f0ff;
+  --bg-card:          var(--panel-glass);
+  --bg-card-hover:    rgba(255, 255, 255, 0.06);
+  --bg-input:         rgba(255, 255, 255, 0.04);
+  --bg-hover:         rgba(40, 215, 214, 0.06);
+  --border:           var(--rim-metal);
+  --border-focus:     rgba(40, 215, 214, 0.5);
   --text-secondary:   #80a8c8;
   --text-muted:       #4a6080;
-  --accent:           var(--accent-cyan);
-  --accent-hover:     #00f0ff;
-  --accent-glow:      rgba(0,220,255,0.15);
+  --accent:           var(--accent-cool);
+  --accent-hover:     #35eaea;
+  --accent-glow:      rgba(40, 215, 214, 0.06);
   --success:          #10b981;
   --success-bg:       rgba(16,185,129,0.12);
-  --warning:          var(--accent-orange);
-  --warning-bg:       rgba(255,140,0,0.12);
+  --warning:          var(--accent-warm);
+  --warning-bg:       rgba(255, 154, 76, 0.12);
   --danger:           #ef4444;
-  --danger-bg:        rgba(239,68,68,0.12);
-  --danger-glow:      rgba(239,68,68,0.15);
-  --timer-safe:       var(--accent-cyan);
-  --timer-warning:    var(--accent-orange);
-  --timer-urgent:     #ef4444;
+  --danger-bg:        rgba(239, 68, 68, 0.12);
+  --danger-glow:      rgba(239, 68, 68, 0.15);
+  
   --radius-sm:        4px;
   --radius:           8px;
   --radius-lg:        12px;
   --radius-xl:        16px;
   --font-mono:        'JetBrains Mono', monospace;
-
-  /* Violet/indigo kept for exam page */
-  --violet: #8b5cf6;
-  --violet-glow: rgba(139,92,246,0.3);
-  --indigo: #6366f1;
 }
 
 /* ── Reset ───────────────────────────────────────────────── */
