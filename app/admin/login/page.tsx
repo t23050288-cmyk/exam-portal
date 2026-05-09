@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="admin@nexus.local"
               required
               style={{
@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
             <input
               type="password"
               value={pass}
-              onChange={(e) => setPass(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPass(e.target.value)}
               placeholder="••••••••••••"
               required
               style={{

@@ -94,9 +94,9 @@ export default function DashboardPage() {
         const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
         const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
         if (statusData) {
-          statusData.forEach(s => {
+          statusData.forEach((s: any) => {
             if (s.status === "submitted") {
-              const r = resultsData?.find(rd => rd.exam_title === s.exam_title) || {};
+              const r: any = resultsData?.find((rd: any) => rd.exam_title === s.exam_title) || {};
               submittedMap[s.exam_title || ""] = { score: r.score || 0, total_marks: r.total_marks || 0 };
             }
           });
@@ -160,7 +160,7 @@ export default function DashboardPage() {
     if (!exam.is_active) return;
     setWarpActive(true);
     sessionStorage.setItem("exam_selected_title", exam.exam_name);
-    await new Promise(r => setTimeout(r, 1200));
+    await new Promise((r: any) => setTimeout(r, 1200));
     router.push("/instructions");
   }, [router]);
 
@@ -307,11 +307,11 @@ export default function DashboardPage() {
                   <div className={styles.editForm}>
                     <div className={styles.field}>
                       <label>Name</label>
-                      <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+                      <input value={draft.name} onChange={(e: any) => setDraft((d: any) => ({ ...d, name: e.target.value }))} />
                     </div>
                     <div className={styles.field}>
                       <label>Email</label>
-                      <input value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} />
+                      <input value={draft.email} onChange={(e: any) => setDraft((d: any) => ({ ...d, email: e.target.value }))} />
                     </div>
                     <div className={styles.actions}>
                       <button className={styles.saveBtn} onClick={handleSaveProfile}>Save Changes</button>
