@@ -89,6 +89,7 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed.");
+    } finally {
       setLoading(false);
     }
   }
@@ -125,6 +126,7 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Registration failed.");
+    } finally {
       setLoading(false);
     }
   }

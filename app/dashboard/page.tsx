@@ -79,6 +79,7 @@ export default function DashboardPage() {
       course: p.course || "", photo: localStorage.getItem("nexus_profile_photo") || null,
     };
     setProfile(prof); setDraft(prof);
+    setWarpActive(false); 
   }, [router]);
 
   const loadExams = useCallback(async () => {
