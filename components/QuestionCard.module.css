@@ -1,16 +1,16 @@
 /* ══════════════════════════════════════════════════════════════
-   QuestionCard – Light Frosted Glass (matching mockup)
+   QuestionCard – High-contrast readable for dark starscape bg
    ══════════════════════════════════════════════════════════════ */
 
 .card {
-  background: var(--panel-glass);
+  background: rgba(10, 14, 35, 0.82);
   backdrop-filter: blur(40px) saturate(1.8);
   -webkit-backdrop-filter: blur(40px) saturate(1.8);
-  border: 1px solid var(--rim-metal);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 28px;
   padding: 40px;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
   animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
   overflow: hidden;
@@ -21,12 +21,12 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 4px;
-  background: var(--accent-warm-grad);
-  opacity: 0.8;
+  background: linear-gradient(90deg, #28d7d6, #a78bfa);
+  opacity: 0.9;
 }
 
 .card:hover {
-  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.7);
   transform: translateY(-2px);
 }
 
@@ -45,7 +45,7 @@
 .numberText {
   font-size: 14px;
   font-weight: 700;
-  color: var(--accent-cool);
+  color: #28d7d6;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -55,19 +55,21 @@
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
-  background: rgba(40, 215, 214, 0.1);
-  color: var(--accent-cool);
-  border: 1px solid rgba(40, 215, 214, 0.2);
+  background: rgba(40, 215, 214, 0.15);
+  color: #28d7d6;
+  border: 1px solid rgba(40, 215, 214, 0.3);
 }
 
+/* ── Question text — pure white, large, readable ── */
 .text {
   font-size: 20px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
   line-height: 1.6;
   margin-bottom: 24px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
 .options {
@@ -77,6 +79,7 @@
   margin-bottom: 32px;
 }
 
+/* ── Options — semi-dark bg with clear white text ── */
 .option {
   display: flex;
   align-items: center;
@@ -85,22 +88,22 @@
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   text-align: left;
   width: 100%;
 }
 
 .option:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateX(8px);
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(40, 215, 214, 0.5);
+  transform: translateX(6px);
 }
 
 .selected {
-  background: rgba(40, 215, 214, 0.1) !important;
-  border-color: var(--accent-cool) !important;
-  box-shadow: 0 0 20px rgba(40, 215, 214, 0.2);
+  background: rgba(40, 215, 214, 0.18) !important;
+  border-color: #28d7d6 !important;
+  box-shadow: 0 0 20px rgba(40, 215, 214, 0.25);
 }
 
 .radioWrapper {
@@ -110,23 +113,24 @@
 }
 
 .radioSelected {
-  color: var(--accent-cool);
+  color: #28d7d6;
 }
 
 .radioUnselected {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
 }
 
+/* ── Option text — always clearly white ── */
 .optionText {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #e2e8f0;
   line-height: 1.4;
   transition: color 0.3s ease;
 }
 
 .selected .optionText {
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 /* Buttons row */
@@ -145,13 +149,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(13, 148, 136, 0.08);
-  border: 1.5px solid rgba(13, 148, 136, 0.3);
-  color: #0d9488;
+  background: rgba(13, 148, 136, 0.12);
+  border: 1.5px solid rgba(13, 148, 136, 0.4);
+  color: #2dd4bf;
 }
 
 .btnPrevious:hover {
-  background: rgba(13, 148, 136, 0.15);
+  background: rgba(13, 148, 136, 0.22);
 }
 
 .btnReview {
@@ -162,19 +166,19 @@
   cursor: pointer;
   transition: all 0.3s ease;
   background: transparent;
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  color: #475569;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8;
 }
 
 .btnReview:hover {
   border-color: #eab308;
-  color: #ca8a04;
+  color: #fbbf24;
 }
 
 .btnReviewActive {
   border-color: #eab308 !important;
-  color: #ca8a04 !important;
-  background: rgba(234, 179, 8, 0.08) !important;
+  color: #fbbf24 !important;
+  background: rgba(234, 179, 8, 0.1) !important;
 }
 
 .btnNext {
@@ -187,13 +191,13 @@
   background: #0d9488;
   border: none;
   color: #fff;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
 }
 
 .btnNext:hover {
   background: #0f766e;
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.45);
 }
 
 .btnSubmit {
@@ -206,7 +210,7 @@
   background: #ef4444;
   border: none;
   color: #fff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
 }
 
 .btnSubmit:hover {
@@ -214,18 +218,19 @@
   transform: translateY(-1px);
 }
 
+/* ── Image container ── */
 .imageContainer {
   width: 100%;
   max-height: 400px;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   margin: 16px 0 24px 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .image {
@@ -235,10 +240,16 @@
   display: block;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MOBILE — QuestionCard responsive tweaks
-   ══════════════════════════════════════════════════════════════ */
+/* ── Actions container ── */
+.actionsContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+}
 
+/* ══ MOBILE ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
   .card {
     padding: 18px 16px;
@@ -261,7 +272,7 @@
     border-radius: 12px;
   }
 
-  .optionLabel {
+  .optionText {
     font-size: 14px;
   }
 
@@ -271,7 +282,7 @@
     margin-top: 16px;
   }
 
-  .btnPrev, .btnNext {
+  .btnPrevious, .btnNext {
     padding: 10px 18px;
     font-size: 13px;
     flex: 1;
