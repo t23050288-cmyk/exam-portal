@@ -30,7 +30,7 @@ function OrbMesh() {
 export default function GoldenOrb() {
   return (
     <div style={{ width: "100%", height: "100%", cursor: "grab" }}>
-      <Canvas camera={{ position: [0, 0, 2.5], fov: 40 }} alpha>
+      <Canvas camera={{ position: [0, 0, 2.5], fov: 40 }} gl={{ alpha: true }}>
         <ambientLight intensity={0.7} />
         <spotLight position={[5, 5, 5]} angle={0.3} penumbra={1} intensity={3} castShadow />
         <pointLight position={[-5, -5, 2]} intensity={1.5} color="#FFD700" />
