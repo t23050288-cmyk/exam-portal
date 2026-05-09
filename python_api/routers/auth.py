@@ -71,14 +71,8 @@ async def login(request: LoginRequest):
             detail="Invalid USN or password",
         )
 
-    # 3. Check for duplicate active session
-    is_active = student.get("is_active_session", False)
-    current_tok = student.get("current_token")
-    if is_active and current_tok:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="You are already logged in from another device. Please log out there first.",
-        )
+    # 3. Duplicate active session check removed to allow direct redirection to dashboard
+    # Enforcing single-session is now handled by overwriting the token in step 6.
 
     # 4. Check if exam already submitted
     try:
