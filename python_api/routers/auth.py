@@ -87,11 +87,7 @@ async def login(request: LoginRequest):
     except Exception as e:
         exam_status_data = None
 
-    if exam_status_data and exam_status_data.get("status") == "submitted":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You have already submitted this exam.",
-        )
+    # Note: submitted students are allowed to log in — they'll see their result
 
     # 5. Create JWT token
     student_id_val = student.get("usn", "")
@@ -198,3 +194,4 @@ async def logout(current: dict = Depends(get_current_student)) :
         {"is_active_session": False, "current_token": None}
     ).eq("id", current["student_id"]).execute()
     return {"logged_out": True}
+
