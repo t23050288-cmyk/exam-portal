@@ -230,7 +230,7 @@ export default function ExamPage() {
           score: res.score,
           totalMarks: res.total_marks,
           timestamp: new Date().toISOString(),
-          id: res.id || Math.random().toString(36).substr(2, 9)
+          id: Math.random().toString(36).substr(2, 9)
         });
         localStorage.setItem("nexus_exam_results", JSON.stringify(history));
 
@@ -747,4 +747,5 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
