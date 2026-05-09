@@ -268,7 +268,11 @@ export default function DashboardPage() {
                            <span className={styles.value}>{!performanceLocked ? `${avgScore}% Rank` : "—"}</span>
                         </div>
                         <div className={styles.mountainContainer}>
-                           {/* 3D Orb removed per user request as it was not rendering correctly in 3D */}
+                           <div className={styles.nebulaStar}>
+                             <div className={styles.starCore} />
+                             <div className={styles.starGlow} />
+                             <div className={styles.starRays} />
+                           </div>
                         </div>
                         <div className={styles.pedestal}>
                            <div className={styles.pedestalTop} />

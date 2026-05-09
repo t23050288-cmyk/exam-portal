@@ -5,6 +5,7 @@ import styles from "./pyhunt.module.css";
 import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import GoldenOrb from "@/components/GoldenOrb";
 
 /* ═══════════════════════════════════════════════
    TYPES
@@ -724,11 +725,22 @@ function ProgressBar({ round, showingClue }: { round: number; showingClue: boole
       <div className={styles.progressLine}>
         <div className={styles.progressLineFill} style={{width:`${(filled/5)*100}%`}} />
       </div>
-      {ROUNDS.map((label, i) => (
-        <div key={i} title={label} className={`${styles.progressDot} ${i<filled?styles.progressDone:""} ${i===round&&!showingClue?styles.progressActive:""}`}>
-          {i < filled ? "✓" : i+1}
-        </div>
-      ))}
+      {ROUNDS.map((label, i) => {
+        const isActive = i === round && !showingClue;
+        const isDone = i < filled;
+        
+        return (
+          <div key={i} title={label} className={`${styles.progressDot} ${isDone ? styles.progressDone : ""} ${isActive ? styles.progressActive : ""}`}>
+            {isActive ? (
+              <div style={{ width: "140%", height: "140%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <GoldenOrb />
+              </div>
+            ) : (
+              isDone ? "✓" : i + 1
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

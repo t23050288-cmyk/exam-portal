@@ -12,6 +12,7 @@ import QuestionCard from "@/components/QuestionCard";
 import nextDynamic from "next/dynamic";
 const AntiCheat = nextDynamic(() => import("@/components/AntiCheat"), { ssr: false });
 import Skeleton from "@/components/Skeleton";
+import Background from "@/components/dashboard/Background";
 import styles from "./exam.module.css";
 
 interface StudentInfo {
@@ -416,6 +417,7 @@ export default function ExamPage() {
 
   return (
     <div className={`${styles.wrapper} no-select`} data-theme={activeTheme}>
+      <Background />
       {/* ── Weightless Exam Overlay (inactive / scheduled) ── */}
       {(examInactive || examScheduled) && (
         <div style={{
@@ -469,33 +471,33 @@ export default function ExamPage() {
       {/* ── Welcome Banner (always visible, matching mockup) ── */}
       <div style={{ padding: "16px 28px 0", zIndex: 2, position: "relative" }}>
         <div style={{
-          background: "rgba(255, 255, 255, 0.65)",
+          background: "var(--panel-glass)",
           backdropFilter: "blur(40px)",
           WebkitBackdropFilter: "blur(40px)",
           padding: "16px 28px",
           borderRadius: "20px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          border: "1px solid rgba(255,255,255,0.7)",
+          border: "1px solid var(--rim-metal)",
         }}>
-          <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "#1e293b" }}>
+          <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "var(--text-primary)" }}>
             Welcome, {student?.name || "Student"}!{" "}
             {loadSource === "cache" && (
-              <span style={{ fontSize: 10, background: "rgba(13,148,136,0.15)", color: "#0d9488", borderRadius: 6, padding: "2px 7px", marginLeft: 6, fontWeight: 700, verticalAlign: "middle" }}>⚡ Cache</span>
+              <span style={{ fontSize: 10, background: "rgba(40, 215, 214, 0.15)", color: "var(--accent-cool)", borderRadius: 6, padding: "2px 7px", marginLeft: 6, fontWeight: 700, verticalAlign: "middle" }}>⚡ Cache</span>
             )}
-            <span style={{ fontWeight: 400, opacity: 0.7, color: "#475569" }}>
+            <span style={{ fontWeight: 400, opacity: 0.7, color: "var(--text-secondary)" }}>
               Deep breaths and stay focused. You&apos;ve got this.
             </span>
           </h2>
           {/* Avatar circle */}
           <div style={{
             width: 42, height: 42, borderRadius: "50%",
-            background: "linear-gradient(135deg, #0d9488, #5eead4)",
+            background: "var(--accent-cool-grad)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "#fff", fontWeight: 700, fontSize: "16px",
-            boxShadow: "0 4px 12px rgba(13,148,136,0.3)",
+            boxShadow: "0 4px 12px rgba(40, 215, 214, 0.3)",
             flexShrink: 0
           }}>
             {(student?.name || "S").charAt(0).toUpperCase()}
@@ -511,15 +513,15 @@ export default function ExamPage() {
              display: "flex",
              alignItems: "center",
              justifyContent: "space-between",
-             background: "rgba(255, 255, 255, 0.65)",
+             background: "var(--panel-glass)",
              backdropFilter: "blur(40px)",
              WebkitBackdropFilter: "blur(40px)",
              padding: "16px 28px",
              borderRadius: "20px",
-             boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
-             border: "1px solid rgba(255,255,255,0.7)",
+             boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+             border: "1px solid var(--rim-metal)",
           }}>
-             <h1 style={{ margin: 0, fontSize: "20px", color: "#1e293b", fontWeight: 700 }}>
+             <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>
                {examTitle || "Online Assessment"}
              </h1>
              {student && (
@@ -684,15 +686,15 @@ export default function ExamPage() {
 
           {/* Moon / Cloud Decorative Card (matching mockup) */}
           <div style={{
-            background: "rgba(255, 255, 255, 0.55)",
+            background: "var(--panel-glass)",
             backdropFilter: "blur(40px)",
             WebkitBackdropFilter: "blur(40px)",
             borderRadius: "20px",
-            border: "1px solid rgba(255,255,255,0.7)",
+            border: "1px solid var(--rim-metal)",
             padding: "24px",
             display: "grid",
             placeItems: "center",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
             position: "relative",
             overflow: "hidden",
             flexShrink: 0,

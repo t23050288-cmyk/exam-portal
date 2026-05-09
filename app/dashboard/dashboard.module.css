@@ -756,41 +756,193 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   width: 100%;
-  max-width: 300px;
-  margin-top: 20px;
+  max-width: 320px;
+  margin-top: 24px;
+  position: relative;
 }
 
 .pyhuntInput {
   width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--rim-metal);
-  border-radius: 12px;
-  padding: 12px 16px;
-  color: var(--text-primary);
-  font-size: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 16px;
+  color: #fff;
+  font-size: 16px;
   outline: none;
   text-align: center;
-  transition: all 0.3s ease;
-  letter-spacing: 2px;
-  font-weight: 700;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  letter-spacing: 4px;
+  font-weight: 800;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.pyhuntInput::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: normal;
+  font-weight: 400;
+  font-size: 14px;
 }
 
 .pyhuntInput:focus {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border-color: var(--accent-warm);
-  box-shadow: 0 0 15px rgba(255, 154, 76, 0.2);
+  box-shadow: 0 0 25px rgba(255, 154, 76, 0.15), inset 0 2px 10px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
 }
 
 .pyhuntInputError {
-  border-color: #ef4444 !important;
-  background: rgba(239, 68, 68, 0.05) !important;
+  border-color: #ff4b4b !important;
+  background: rgba(255, 75, 75, 0.05) !important;
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
 }
 
 .authError {
-  color: #ef4444;
+  color: #ff4b4b;
   font-size: 12px;
-  margin-top: 8px;
-  font-weight: 600;
+  margin-top: 4px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Performance Visualization */
+.mountainCard {
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--nexus-glass-border);
+  border-radius: var(--nexus-radius-lg);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mountainHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mountainContainer {
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.nebulaStar {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: starFloat 4s ease-in-out infinite;
+}
+
+.starCore {
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, #fff 0%, #ffd700 40%, #ff8c00 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 30px #ffd700, 0 0 60px #ff4b4b;
+  z-index: 2;
+}
+
+.starGlow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 75, 75, 0.2) 50%, transparent 80%);
+  border-radius: 50%;
+  animation: starGlow 2s ease-in-out infinite alternate;
+}
+
+.starRays {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  background: 
+    conic-gradient(from 0deg, transparent 0deg, rgba(255, 215, 0, 0.1) 45deg, transparent 90deg),
+    conic-gradient(from 180deg, transparent 0deg, rgba(255, 215, 0, 0.1) 45deg, transparent 90deg);
+  animation: starRotate 20s linear infinite;
+  opacity: 0.5;
+}
+
+.pedestal {
+  position: relative;
+  width: 120px;
+  height: 20px;
+  margin: 0 auto;
+}
+
+.pedestalTop {
+  width: 100%;
+  height: 4px;
+  background: var(--rim-metal);
+  border-radius: 2px;
+}
+
+.pedestalBase {
+  width: 80%;
+  height: 12px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05), transparent);
+  margin: 0 auto;
+  clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%);
+}
+
+.lockOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 15, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 10;
+  padding: 2rem;
+  text-align: center;
+}
+
+.lockIcon {
+  font-size: 2rem;
+  filter: grayscale(1) opacity(0.5);
+}
+
+.lockMsg {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@keyframes starFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes starGlow {
+  from { transform: scale(0.9); opacity: 0.6; }
+  to { transform: scale(1.1); opacity: 0.9; }
+}
+
+@keyframes starRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

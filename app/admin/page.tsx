@@ -1616,6 +1616,8 @@ function StudentsTab() {
   const [formData, setFormData] = useState({ usn: "", name: "", email: "", branch: "CS", password: "" });
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvResult, setCsvResult] = useState<{created:number;skipped:number;errors:any[]}|null>(null);
+  const [infoStudent, setInfoStudent] = useState<any>(null);
+  const [pyHuntProgress, setPyHuntProgress] = useState<any>(null);
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -1672,6 +1674,21 @@ function StudentsTab() {
     if (!confirm("Allow this student to retake the exam? This will clear all their previous answers and warnings.")) return;
     try { await resetAdminStudent(id); load(); alert("Exam state reset successfully."); }
     catch { alert("Failed to reset exam state"); }
+  };
+
+  const handleShowInfo = async (student: AdminStudent) => {
+    setInfoStudent(student);
+    setPyHuntProgress(null);
+    try {
+      const { data, error } = await supabase
+        .from("pyhunt_progress")
+        .select("*")
+        .eq("student_id", student.usn) // Assuming USN is used as student_id in progress
+        .single();
+      if (data) setPyHuntProgress(data);
+    } catch (err) {
+      console.error("Failed to fetch PyHunt progress:", err);
+    }
   };
 
   const [deleteAllCount, setDeleteAllCount] = React.useState(0);
@@ -1751,6 +1768,7 @@ function StudentsTab() {
                   <td><WarningBadge count={s.warnings} /></td>
                   <td>
                     <div className={adminStyles.actionButtons}>
+                      <button className="btn btn-outline" style={{ color: "#34d399", borderColor: "#34d399" }} onClick={() => handleShowInfo(s)}>Info</button>
                       <button className="btn btn-outline" onClick={() => { 
                         let bID = s.branch || "CS";
                         // Normalize legacy full names to IDs if necessary
@@ -1770,6 +1788,69 @@ function StudentsTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {infoStudent && (
+        <div className={adminStyles.modalOverlay} onClick={() => setInfoStudent(null)}>
+          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(0, 220, 255, 0.2)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 24 }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, color: "#fff", boxShadow: "0 0 20px rgba(124, 77, 255, 0.3)" }}>
+                {infoStudent.name[0]}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 20, color: "#fff" }}>{infoStudent.name}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>{infoStudent.usn}</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+              <div style={{ background: "rgba(255,255,255,0.03)", padding: 16, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                <label style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Branch</label>
+                <div style={{ fontWeight: 600, color: "#fff" }}>{infoStudent.branch || "CS"}</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.03)", padding: 16, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                <label style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Email</label>
+                <div style={{ fontWeight: 600, color: "#fff", fontSize: 12 }}>{infoStudent.email || "—"}</div>
+              </div>
+            </div>
+
+            <div style={{ background: "rgba(0, 220, 255, 0.05)", border: "1px solid rgba(0, 220, 255, 0.1)", borderRadius: 16, padding: 20 }}>
+              <h4 style={{ margin: "0 0 16px 0", fontSize: 14, color: "#00dcff", display: "flex", alignItems: "center", gap: 8 }}>
+                <span>🐍</span> PyHunt Progress (Real-time)
+              </h4>
+              {pyHuntProgress ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Current Round:</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", background: "rgba(0, 220, 255, 0.2)", padding: "4px 12px", borderRadius: 20 }}>
+                      {pyHuntProgress.current_round}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Status:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: pyHuntProgress.status === "finished" ? "#10b981" : "#f59e0b" }}>
+                      {pyHuntProgress.status === "finished" ? "COMPLETED" : "IN PROGRESS"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Last Active:</span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {new Date(pyHuntProgress.last_active).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
+                  No PyHunt activity recorded for this candidate yet.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+              <button className="btn btn-primary" onClick={() => setInfoStudent(null)}>Close</button>
+            </div>
+          </div>
         </div>
       )}
 
