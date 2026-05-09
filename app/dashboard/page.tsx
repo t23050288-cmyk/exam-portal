@@ -149,18 +149,23 @@ export default function DashboardPage() {
   const activeExams = useMemo(() => filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now()), [filteredExams]);
   const upcomingExams = useMemo(() => filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now()), [filteredExams]);
 
-  let completedCount = 0, avgScore = 0, performanceLocked = true;
-  try {
-    const results = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
-    completedCount = results.length;
-    performanceLocked = completedCount < 3;
+  const { completedCount, avgScore, performanceLocked } = useMemo(() => {
+    const completedFromDB = allExams.filter(e => e.submitted);
+    const count = completedFromDB.length;
     
-    if (completedCount > 0) {
-      const totalScore = results.reduce((a: number, r: any) => a + (r.score || 0), 0);
-      const totalPossible = results.reduce((a: number, r: any) => a + (r.totalMarks || 1), 0);
-      avgScore = Math.round((totalScore / totalPossible) * 100);
+    let avg = 0;
+    if (count > 0) {
+      const totalScore = completedFromDB.reduce((a, r) => a + (r.score || 0), 0);
+      const totalPossible = completedFromDB.reduce((a, r) => a + (r.total_marks || 1), 0);
+      avg = Math.round((totalScore / totalPossible) * 100);
     }
-  } catch { /* empty */ }
+
+    return {
+      completedCount: count,
+      avgScore: avg,
+      performanceLocked: count < 3
+    };
+  }, [allExams]);
 
   const [enteredPyHuntCode, setEnteredPyHuntCode] = useState("");
   const [pyHuntError, setPyHuntError] = useState(false);

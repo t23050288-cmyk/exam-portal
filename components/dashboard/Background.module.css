@@ -22,6 +22,16 @@
   filter: blur(2px);
 }
 
+.forestBg {
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/admin/forest_background_refined.png');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.5;
+  filter: brightness(0.6) contrast(1.2) saturate(0.8);
+}
+
 .grain {
   position: absolute;
   top: 0;

@@ -163,7 +163,7 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
           onReenterFullscreen={enterFullscreen}
         />
       )}
-      {!isMobile && <FaceMonitor isSubmitted={isSubmitted} onViolation={triggerViolation} />}
+      {/* {!isMobile && <FaceMonitor isSubmitted={isSubmitted} onViolation={triggerViolation} />} */}
     </>
   );
 }
