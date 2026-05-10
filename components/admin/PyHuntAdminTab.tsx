@@ -461,10 +461,10 @@ function LiveStatusView() {
                   borderBottom:"1px solid rgba(255,255,255,0.03)",
                   background: s.warnings >= 2 ? "rgba(239, 68, 68, 0.05)" : "transparent"
                 }}>
-                   <td style={{padding:"12px 8px"}}>
-                     <div style={{fontWeight:700}}>{s.student_name}</div>
-                     <div style={{fontSize:10, opacity:0.5}}>{s.student_id}</div>
-                   </td>
+                    <td style={{padding:"12px 8px"}}>
+                      <div style={{fontWeight:700}}>{s.student_name || "Unknown Name"}</div>
+                      <div style={{fontSize:10, opacity:0.5}}>{s.student_id || "Anonymous"}</div>
+                    </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",

@@ -197,11 +197,12 @@ export default function FaceMonitor({ onViolation, isSubmitted }: FaceMonitorPro
             position: "fixed",
             top: 8,
             right: 8,
-            width: 120,
-            height: 90,
+            width: 100,
+            height: 75,
             borderRadius: 8,
-            opacity: 0.7,
+            opacity: 0.6,
             zIndex: 9999,
+            pointerEvents: "none",
           }}
         />
       )}
@@ -210,16 +211,17 @@ export default function FaceMonitor({ onViolation, isSubmitted }: FaceMonitorPro
           position: "fixed",
           top: 8,
           right: 8,
-          width: 120,
-          height: 90,
+          width: 100,
+          height: 75,
           background: "#222",
           borderRadius: 8,
           display: hasCamera ? "none" : "flex",
           alignItems: "center",
           justifyContent: "center",
           color: "#888",
-          fontSize: 10,
+          fontSize: 8,
           zIndex: 9999,
+          pointerEvents: "none",
         }}
       >
         {!hasCamera ? "Camera off" : "Loading..."}

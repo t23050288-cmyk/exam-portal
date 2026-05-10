@@ -1110,6 +1110,7 @@ export default function PyHuntPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
+  const [studentId, setStudentId] = useState("");
   const lastWarningTimeRef = useRef(0);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
@@ -1135,15 +1136,30 @@ export default function PyHuntPage() {
     try { 
       const n = localStorage.getItem("nexus_student_name"); 
       const sid = localStorage.getItem("nexus_student_id");
+      const sessionStudent = JSON.parse(sessionStorage.getItem("exam_student") || "{}");
+
       if (n) setStudentName(n); 
+      else if (sessionStudent.name) setStudentName(sessionStudent.name);
+
+      if (sid) setStudentId(sid);
+      else if (sessionStudent.id) setStudentId(sessionStudent.id);
       
-      if (sid) {
+      const effectiveId = sid || sessionStudent.id;
+      if (effectiveId) {
         supabase.from("pyhunt_progress")
-          .select("warnings")
-          .eq("student_id", sid)
+          .select("warnings, turtle_image, current_round")
+          .eq("student_id", effectiveId)
           .single()
-          .then(({ data }: { data: any }) => {
-            if (data) setWarningCount(data.warnings || 0);
+          .then(({ data }) => {
+            if (data) {
+              setWarningCount(data.warnings || 0);
+              if (data.turtle_image) setTurtleImage(data.turtle_image);
+              // Optionally restore round if they refreshed
+              if (data.current_round && data.current_round.startsWith("Round")) {
+                 const r = parseInt(data.current_round.replace("Round ", ""));
+                 if (!isNaN(r)) setRound(r - 1);
+              }
+            }
           });
       }
     } catch {}
@@ -1187,31 +1203,39 @@ export default function PyHuntPage() {
     const updateProgress = async () => {
       try {
         const studentId = localStorage.getItem("nexus_student_id") || "anonymous";
-        const name = localStorage.getItem("nexus_student_name") || "Student";
+        const name = studentName || "Student";
         const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
         
+        // Important: Fetch the latest image from state
+        // If it's empty, try to get it from local storage as a last resort
+        const imgToSend = turtleImage || localStorage.getItem("nexus_turtle_temp");
+
         await supabase
           .from('pyhunt_progress')
           .upsert({ 
-            student_id: studentId,
+            student_id: studentId || effectiveId,
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
-            status: finished ? (terminated ? 'TERMINATED' : 'finished') : 'active',
-            warnings: warningCount,
+            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 3 ? 'auto_submitted' : 'finished')) : 'active',
+            warnings: Math.min(warningCount, 3),
             last_violation: lastViolation,
-            turtle_image: turtleImage
+            turtle_image: imgToSend
           }, { onConflict: 'student_id' });
       } catch (err) {
         console.error("Failed to update progress:", err);
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation, turtleImage]);
+  }, [round, finished, terminated, warningCount, lastViolation, turtleImage, studentName]);
 
-  // ── Fullscreen Watcher ──
+  // ── Violation Handling ──
+  // Fullscreen Watcher
   useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFsChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+    };
     document.addEventListener("fullscreenchange", handleFsChange);
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
@@ -1368,7 +1392,10 @@ export default function PyHuntPage() {
   }, [finished, startTime, totalWrongs, showWarning]);
 
   const handleRoundComplete = (dataUrl?: string) => {
-    if (dataUrl) setTurtleImage(dataUrl);
+    if (dataUrl) {
+      setTurtleImage(dataUrl);
+      localStorage.setItem("nexus_turtle_temp", dataUrl);
+    }
     setShowingClue(true);
   };
 

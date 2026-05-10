@@ -26,7 +26,7 @@ const FINAL_THEMES = ["glass-aura", "glass-galaxy", "glass-ocean"];
 
 export default function ExamPage() {
   const router = useRouter();
-  const { enter: enterFullscreen } = useFullscreen();
+  const { enter: enterFullscreen, active: isFullscreen } = useFullscreen();
 
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -42,6 +42,7 @@ export default function ExamPage() {
   const [examTitle, setExamTitle] = useState("");
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "saved">("idle");
   const [loadSource, setLoadSource] = useState<"network" | "cache" | null>(null);
+  const [warningCount, setWarningCount] = useState(0);
 
   // Pagination state
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -135,6 +136,23 @@ export default function ExamPage() {
     info.examDurationMinutes = 20;
     
     setStudent(info);
+
+    // Fetch initial warning count from Supabase
+    const sessId = sessionStorage.getItem("exam_session_id");
+    if (sessId && sessId !== "PREVIEW") {
+      import("@/lib/supabase").then(({ supabase }) => {
+        supabase.from("student_telemetry")
+          .select("warning_count")
+          .eq("session_id", sessId)
+          .order("ts", { ascending: false })
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              setWarningCount(data[0].warning_count || 0);
+            }
+          });
+      });
+    }
 
     const quizTitle = sessionStorage.getItem("exam_selected_title") || info.examTitle || "Online Assessment";
     setExamTitle(quizTitle);
@@ -457,6 +475,30 @@ export default function ExamPage() {
     );
   }
 
+  // ── Secure Mode Gate ──────────────────────────────
+  if (!isFullscreen && !isSubmitted && !loading && !error) {
+    return (
+      <div className={styles.secureGate}>
+        <div className={styles.gateCard}>
+          <div className={styles.gateIcon}>🔒</div>
+          <h2 className={styles.gateTitle}>SECURE MODE REQUIRED</h2>
+          <p className={styles.gateText}>
+            To protect assessment integrity, this exam must be taken in <b>Fullscreen Mode</b>. 
+            Exiting fullscreen or switching tabs will be recorded as a violation.
+          </p>
+          <div className={styles.gateRules}>
+            <div className={styles.rule}>• 3 Warnings = Auto-Submission</div>
+            <div className={styles.rule}>• Tab Switching Prohibited</div>
+            <div className={styles.rule}>• Keyboard Shortcuts Blocked</div>
+          </div>
+          <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
+            ENTER SECURE MODE
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${styles.wrapper} no-select`} data-theme={activeTheme}>
       <Background />
@@ -501,9 +543,18 @@ export default function ExamPage() {
         </div>
       )}
 
-      {/* Anti-cheat: all proctoring attached here */}
-
-        <AntiCheat isSubmitted={isSubmitted} onAutoSubmit={handleAutoSubmit} />
+      <AntiCheat 
+        isSubmitted={isSubmitted} 
+        onAutoSubmit={() => handleSubmit(true)}
+        onViolation={(type, meta) => {
+          recordEvent(type as any);
+          if (meta && typeof meta.warning_count === 'number') {
+            setWarningCount(meta.warning_count);
+          }
+        }}
+        initialWarningCount={warningCount}
+        forceReenterFullscreen={enterFullscreen}
+      />
 
       {/* ── Welcome Banner (always visible, matching mockup) ── */}
       <div style={{ padding: "16px 28px 0", zIndex: 2, position: "relative" }}>
