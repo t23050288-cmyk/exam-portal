@@ -582,7 +582,7 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
 /* ═══════════════════════════════════════════════
    ROUND 5 — TURTLE
 ═══════════════════════════════════════════════ */
-function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong: () => void }) {
+function RoundTurtle({ onComplete, onWrong }: { onComplete: (dataUrl?: string) => void; onWrong: () => void }) {
   const { ready, loadError, runCode } = usePyodide();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [code, setCode] = useState(`import turtle\n\nt = turtle.Turtle()\nt.speed(0)\n\n# Sketch your 5-pointed star here!\n# Hint: Use a loop and turn 144 degrees\n`);
@@ -892,6 +892,14 @@ _sys.modules["turtle"] = _t_mod
     }
   };
 
+  const handleFinish = () => {
+    if (canvasRef.current) {
+      onComplete(canvasRef.current.toDataURL("image/png"));
+    } else {
+      onComplete();
+    }
+  };
+
   return (
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
@@ -951,7 +959,7 @@ _sys.modules["turtle"] = _t_mod
               <div className={styles.doneIcon}>🌟</div>
               <h3>Star Captured!</h3>
               <p>Your cosmic sketch is complete. The treasure hunt is over!</p>
-              <button className={styles.primaryBtn} onClick={onComplete}>Finish PyHunt & View Results →</button>
+              <button className={styles.primaryBtn} onClick={handleFinish}>Finish PyHunt & View Results →</button>
             </div>
           )}
         </div>
@@ -1084,6 +1092,7 @@ export default function PyHuntPage() {
   const [finished, setFinished] = useState(false);
   const [terminated, setTerminated] = useState(false);
   const [studentName, setStudentName] = useState("Student");
+  const [turtleImage, setTurtleImage] = useState("");
   
   // Stats tracking
   const [startTime] = useState(Date.now());
@@ -1109,7 +1118,18 @@ export default function PyHuntPage() {
     
     try { 
       const n = localStorage.getItem("nexus_student_name"); 
+      const sid = localStorage.getItem("nexus_student_id");
       if (n) setStudentName(n); 
+      
+      if (sid) {
+        supabase.from("pyhunt_progress")
+          .select("warnings")
+          .eq("student_id", sid)
+          .single()
+          .then(({ data }) => {
+            if (data) setWarningCount(data.warnings || 0);
+          });
+      }
     } catch {}
 
     // 2. Subscribe to Supabase Realtime for zero-workload instant updates
@@ -1165,14 +1185,15 @@ export default function PyHuntPage() {
             last_active: new Date().toISOString(),
             status: finished ? (terminated ? 'TERMINATED' : 'finished') : 'active',
             warnings: warningCount,
-            last_violation: lastViolation
+            last_violation: lastViolation,
+            turtle_image: turtleImage
           }, { onConflict: 'student_id' });
       } catch (err) {
         console.error("Failed to update progress:", err);
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation]);
+  }, [round, finished, terminated, warningCount, lastViolation, turtleImage]);
 
   // ── Fullscreen Watcher ──
   useEffect(() => {
@@ -1316,7 +1337,10 @@ export default function PyHuntPage() {
     };
   }, [finished, startTime, totalWrongs, showWarning]);
 
-  const handleRoundComplete = () => setShowingClue(true);
+  const handleRoundComplete = (dataUrl?: string) => {
+    if (dataUrl) setTurtleImage(dataUrl);
+    setShowingClue(true);
+  };
 
   const handleUnlock = () => {
     if (round >= 4) { 

@@ -353,6 +353,7 @@ export default function PyHuntAdminTab() {
 function LiveStatusView() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedArt, setSelectedArt] = useState<{name: string, img: string} | null>(null);
 
   const fetchStatus = async () => {
     try {
@@ -406,6 +407,7 @@ function LiveStatusView() {
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>TURTLE ART</th>
             </tr>
           </thead>
           <tbody>
@@ -415,7 +417,10 @@ function LiveStatusView() {
               const isTerminated = s.status === "TERMINATED";
               
               return (
-                <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                <tr key={i} style={{
+                  borderBottom:"1px solid rgba(255,255,255,0.03)",
+                  background: s.warnings >= 3 ? "rgba(239, 68, 68, 0.05)" : "transparent"
+                }}>
                   <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{
@@ -440,7 +445,7 @@ function LiveStatusView() {
                   </td>
                   <td style={{padding:"12px 8px"}}>
                      <span style={s.warnings >= 3 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
-                       {s.warnings || 0} / 3
+                       {s.warnings || 0} / 4
                      </span>
                   </td>
                   <td style={{padding:"12px 8px", fontSize: 11, color: "#f87171", fontWeight: 700}}>
@@ -461,11 +466,60 @@ function LiveStatusView() {
                       {isTerminated ? "TERMINATED" : (isFinished ? "FINISHED" : "ACTIVE")}
                     </span>
                   </td>
+                  <td style={{padding:"12px 8px"}}>
+                    {s.turtle_image ? (
+                      <div 
+                        onClick={() => setSelectedArt({ name: s.student_name, img: s.turtle_image })}
+                        style={{
+                          width: 40, height: 30, background: "#000", borderRadius: 4, 
+                          border: "1px solid rgba(0,220,255,0.3)", cursor: "pointer",
+                          overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center"
+                        }}
+                      >
+                        <img src={s.turtle_image} style={{ width: "100%", height: "100%", objectFit: "contain" }} alt="Art" />
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 10, opacity: 0.3 }}>-</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+
+      {selectedArt && (
+        <div 
+          onClick={() => setSelectedArt(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 10000,
+            background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+          }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#0c1117", border: "1px solid rgba(0,220,255,0.3)", 
+              borderRadius: 20, padding: 32, maxWidth: 600, width: "100%", textAlign: "center"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>🎨 {selectedArt.name}'s Masterpiece</div>
+              <button 
+                onClick={() => setSelectedArt(null)}
+                style={{ background: "none", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" }}
+              >✕</button>
+            </div>
+            <div style={{ background: "#000", borderRadius: 12, padding: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
+              <img src={selectedArt.img} style={{ width: "100%", borderRadius: 8 }} alt="Turtle Art" />
+            </div>
+            <div style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+              Round 5 · Student Generated Canvas Turtle Art
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
