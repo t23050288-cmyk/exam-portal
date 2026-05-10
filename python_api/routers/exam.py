@@ -264,20 +264,18 @@ def submit_exam(
     db = get_supabase()
     student_id = current["student_id"]
 
-    # 1. Guard: already submitted? Check by student + exam_title
+    # 1. Guard: already submitted? Check by student_id only (exam_title not a column in exam_status)
     exam_title_for_check = (request.answers or {}).get("__exam_title", "")
     status_rows = (
         db.table("exam_status")
-        .select("status, exam_title")
+        .select("status")
         .eq("student_id", student_id)
+        .limit(1)
         .execute()
     )
     all_rows = status_rows.data or []
-    # Find row for this specific exam
-    status_row_data = next((r for r in all_rows if r.get("exam_title") == exam_title_for_check), None)
-    if status_row_data is None and len(all_rows) == 1:
-        status_row_data = all_rows[0]  # fallback for old single-row schema
-    if status_row_data and status_row_data.get("status") == "submitted" and status_row_data.get("exam_title") == exam_title_for_check:
+    status_row_data = all_rows[0] if all_rows else None
+    if status_row_data and status_row_data.get("status") == "submitted":
         # Return existing result
         result_row = (
             db.table("exam_results")
@@ -555,4 +553,5 @@ def submit_code(
         passed_count=request.passed_count,
         total_count=request.total_count,
     )
+
 
