@@ -100,6 +100,25 @@ export default function ExamPage() {
       return;
     }
 
+    // Block re-entry: if exam was already submitted, redirect to dashboard
+    if (!isPreview) {
+      const studentInfo = raw ? JSON.parse(raw) : null;
+      const studentId = studentInfo?.id;
+      if (studentId) {
+        import("@/lib/supabase").then(({ supabase }) => {
+          supabase.from("exam_status")
+            .select("status")
+            .eq("student_id", studentId)
+            .single()
+            .then(({ data }: { data: any }) => {
+              if (data?.status === "submitted") {
+                router.replace("/dashboard");
+              }
+            });
+        });
+      }
+    }
+
     // Wire token into sync engine
     setExamToken(token || "");
     setExamSessionId(sessionStorage.getItem("exam_session_id") || "");
@@ -525,7 +544,7 @@ export default function ExamPage() {
 
       {/* ── Main layout ───────────────────────────────────── */}
       <main className={styles.main}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, overflow: "visible" }}>
           {/* Exam Title & Timer Row */}
           <div style={{
              display: "flex",
@@ -775,6 +794,7 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
 
 
