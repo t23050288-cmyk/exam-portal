@@ -808,7 +808,7 @@ export default function PyHuntPage() {
   // Stats tracking
   const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
-  const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0 });
+  const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0 });
   const [warningCount, setWarningCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
   const [lastViolation, setLastViolation] = useState("");
