@@ -3,31 +3,17 @@
 import styles from "./WarningModal.module.css";
 
 interface WarningModalProps {
-  warningCount: number;        // 1, 2, or 3
+  warningCount: number;
   message: string;
-  onDismiss?: () => void;      // null for level 3 (exam auto-submitted)
+  onDismiss?: () => void;
   onReenterFullscreen?: () => void;
 }
 
 const CONFIGS = {
-  1: {
-    icon: "⚠️",
-    title: "Warning 1 of 3",
-    color: "warning",
-    dismissLabel: "Re-enter Fullscreen & Return",
-  },
-  2: {
-    icon: "🚨",
-    title: "Final Warning — 2 of 3",
-    color: "danger",
-    dismissLabel: "I Understand — Re-enter Fullscreen",
-  },
-  3: {
-    icon: "🔴",
-    title: "Exam Auto-Submitted",
-    color: "critical",
-    dismissLabel: null,
-  },
+  1: { icon: "⚠️", title: "Warning 1 of 4", color: "warning", dismissLabel: "I Understand — Return to Exam" },
+  2: { icon: "🚨", title: "Warning 2 of 4", color: "danger",  dismissLabel: "I Understand — Return to Exam" },
+  3: { icon: "🔴", title: "Warning 3 of 4 — FINAL WARNING", color: "danger", dismissLabel: "I Understand — Return to Exam" },
+  4: { icon: "🔴", title: "Exam Auto-Submitted", color: "critical", dismissLabel: null },
 };
 
 export default function WarningModal({
@@ -36,7 +22,7 @@ export default function WarningModal({
   onDismiss,
   onReenterFullscreen,
 }: WarningModalProps) {
-  const level = Math.min(warningCount, 3) as 1 | 2 | 3;
+  const level = Math.min(warningCount, 4) as 1 | 2 | 3 | 4;
   const cfg = CONFIGS[level];
 
   return (
@@ -45,7 +31,7 @@ export default function WarningModal({
         <div className={styles.icon}>{cfg.icon}</div>
 
         <div className={styles.badge}>
-          {Array.from({ length: 3 }, (_, i) => (
+          {Array.from({ length: 4 }, (_, i) => (
             <span
               key={i}
               className={`${styles.dot} ${i < level ? styles.dotFilled : ""}`}
@@ -56,19 +42,18 @@ export default function WarningModal({
         <h2 className={styles.title}>{cfg.title}</h2>
         <p className={styles.message}>{message}</p>
 
-        {level < 3 && (
+        {level < 4 && (
           <p className={styles.rule}>
-            {level === 1
-              ? "Switching tabs, minimizing, or exiting fullscreen is not allowed."
-              : "Your exam will be auto-submitted on the next violation."}
+            {level >= 3
+              ? "🚨 One more violation and your exam will be auto-submitted!"
+              : "Switching tabs, minimizing, or exiting fullscreen is not allowed."}
           </p>
         )}
 
         <div className={styles.actions}>
           {cfg.dismissLabel && onDismiss && (
             <button
-              id={`warning-dismiss-${level}`}
-              className={`btn ${level === 1 ? "btn-primary" : "btn-danger"} btn-lg`}
+              className={level <= 2 ? styles.btnPrimary : styles.btnDanger}
               onClick={() => {
                 if (onReenterFullscreen) onReenterFullscreen();
                 onDismiss();
@@ -79,7 +64,7 @@ export default function WarningModal({
           )}
         </div>
 
-        {level === 3 && (
+        {level >= 4 && (
           <p className={styles.final}>
             Your answers have been saved and submitted. You may close this window.
           </p>
