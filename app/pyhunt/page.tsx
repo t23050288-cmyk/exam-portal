@@ -19,6 +19,7 @@ interface CodingProblem {
   title: string; description: string; starterCode: string;
   testCases: { input: string; expected: string; }[];
 }
+interface TurtleProblem { title: string; description: string; starterCode: string; }
 interface JumbleProblem { title: string; description: string; lines: string[]; }
 interface ClueConfig {
   clueText: string;     // Shown after round completes — physical location clue
@@ -29,6 +30,7 @@ interface PyHuntConfig {
   jumbleProblem: JumbleProblem;
   round3: CodingProblem;
   round4: CodingProblem;
+  turtleProblem: TurtleProblem;
   clues: ClueConfig[];   // 5 entries, one per round
   finishMessage: string;
 }
@@ -61,6 +63,11 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     starterCode:"def fizzbuzz(n: int) -> list:\n    # Your code here\n    pass\n\nresult = fizzbuzz(15)\nprint(result)\n",
     testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"},{input:"15",expected:"['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']"}],
   },
+  turtleProblem: {
+    title: "Final Challenge: Sketch the Star",
+    description: "Use the turtle module to recreate the star shown below. A 5-pointed star has an internal angle of 144 degrees.",
+    starterCode: "import turtle\nt = turtle.Turtle()\n",
+  },
   clues:[
     { clueText:"🗝️ Round 1 Complete! Go to the Library — find the book with a RED spine on the second shelf. A sticky note on page 42 has your unlock code.", unlockCode:"LIBRARY42" },
     { clueText:"🗝️ Round 2 Complete! Head to Lab-2 — look at the whiteboard at the back of the room. Your code is written there.", unlockCode:"LAB2CODE" },
@@ -82,6 +89,7 @@ function parseCfg(parsed: any): PyHuntConfig {
     jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
+    turtleProblem: parsed.turtleProblem || DEFAULT_CONFIG.turtleProblem,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
@@ -581,10 +589,10 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
 /* ═══════════════════════════════════════════════
    ROUND 5 — TURTLE
 ═══════════════════════════════════════════════ */
-function RoundTurtle({ onComplete, onWrong }: { onComplete: (dataUrl?: string) => void; onWrong: () => void }) {
+function RoundTurtle({ problem, onComplete, onWrong }: { problem: TurtleProblem; onComplete: (dataUrl?: string) => void; onWrong: () => void }) {
   const { ready, loadError, runCode } = usePyodide();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [code, setCode] = useState(`import turtle\n\nt = turtle.Turtle()\nt.speed(0)\n\n# Sketch your 5-pointed star here!\n# Hint: Use a loop and turn 144 degrees\n`);
+  const [code, setCode] = useState(problem.starterCode || `import turtle\nt = turtle.Turtle()\n`);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [turtleErr, setTurtleErr] = useState<string>("");
@@ -908,10 +916,9 @@ _sys.modules["turtle"] = _t_mod
       </div>
       <div className={styles.codingLayout}>
         <div className={styles.problemPane}>
-          <div className={styles.problemTitle}>Final Challenge: Sketch the Star</div>
+          <div className={styles.problemTitle}>{problem.title}</div>
           <div className={styles.problemDesc}>
-            Use the <code>turtle</code> module to recreate the star shown below. 
-            A 5-pointed star has an internal angle of 144 degrees.
+            {problem.description}
           </div>
           {/* Reference Image */}
           <div className={styles.referenceBox}>
@@ -1491,7 +1498,7 @@ export default function PyHuntPage() {
         {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
         {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
         {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 4 && <RoundTurtle onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
       </main>
     </div>
   );

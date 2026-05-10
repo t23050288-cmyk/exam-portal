@@ -17,11 +17,13 @@ interface MCQQuestion { id: string; question: string; options: MCQOption[]; corr
 interface JumbleProblem { title: string; description: string; lines: string[]; }
 interface CodingProblem { title: string; description: string; starterCode: string; testCases: {input:string;expected:string}[]; }
 interface ClueConfig { clueText: string; unlockCode: string; }
+interface TurtleProblem { title: string; description: string; starterCode: string; }
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
   round3: CodingProblem;
   round4: CodingProblem;
+  turtleProblem: TurtleProblem;
   clues: ClueConfig[];
   finishMessage: string;
 }
@@ -35,6 +37,7 @@ const DEFAULT: PyHuntConfig = {
   jumbleProblem: { title:"Fix the Fibonacci!", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
   round3: { title:"Palindrome Checker", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
   round4: { title:"FizzBuzz Remix", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
+  turtleProblem: { title: "Final Challenge: Sketch the Star", description: "Use the turtle module to recreate the star shown below. A 5-pointed star has an internal angle of 144 degrees.", starterCode: "import turtle\nt = turtle.Turtle()\n" },
   clues: [
     { clueText:"🗝️ Round 1 Complete! Head to the Library — find the book with a red spine on shelf 2. Page 42 has a sticky note with your code.", unlockCode:"LIBRARY42" },
     { clueText:"🗝️ Round 2 Complete! Go to Lab-2 — check the whiteboard at the back of the room.", unlockCode:"LAB2CODE" },
@@ -120,13 +123,14 @@ const $ = {
   info: { fontSize:13, color:"rgba(216, 234, 242, 0.5)", lineHeight:1.6, marginBottom:16 },
 };
 
-type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "status";
+type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "turtle" | "status";
 const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"clues",  label:"Clues & Codes", icon:"🗝️" },
   { id:"mcq",    label:"MCQ Questions", icon:"📝" },
   { id:"jumble", label:"Code Jumble",   icon:"🔀" },
   { id:"round3", label:"Round 3 Code",  icon:"🐍" },
   { id:"round4", label:"Round 4 Code",  icon:"🔢" },
+  { id:"turtle", label:"Round 5 Turtle",icon:"🐢" },
   { id:"status", label:"Live Status",   icon:"📡" },
 ];
 const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)", "Round 5 (Turtle)"];
@@ -357,6 +361,23 @@ export default function PyHuntAdminTab() {
         );
       })()}
 
+      {sub==="turtle" && (
+        <div>
+          <div style={$.card}>
+            <div style={$.cardTitle}>Round 5 — Problem Statement</div>
+            <label style={$.lbl}>Title</label>
+            <input style={$.inp} value={cfg.turtleProblem.title} onChange={e=>setCfg(c=>({...c,turtleProblem:{...c.turtleProblem,title:e.target.value}}))} />
+            <label style={$.lbl}>Description</label>
+            <textarea style={{...$.ta,minHeight:80}} value={cfg.turtleProblem.description} onChange={e=>setCfg(c=>({...c,turtleProblem:{...c.turtleProblem,description:e.target.value}}))} />
+            <label style={$.lbl}>Starter Code</label>
+            <textarea style={{...$.ta,minHeight:200}} value={cfg.turtleProblem.starterCode} onChange={e=>setCfg(c=>({...c,turtleProblem:{...c.turtleProblem,starterCode:e.target.value}}))} />
+          </div>
+          <div style={$.info}>
+            💡 <strong>Round 5 Info:</strong> This round uses a Python Turtle interpreter (Pyodide). There are no automatic test cases because it is a creative round. Students are encouraged to draw the target but the system mainly checks if any drawing commands were executed.
+          </div>
+        </div>
+      )}
+
       {/* ══ LIVE STATUS TAB ══ */}
       {sub==="status" && (
         <LiveStatusView />
@@ -436,7 +457,10 @@ function LiveStatusView() {
                   borderBottom:"1px solid rgba(255,255,255,0.03)",
                   background: s.warnings >= 3 ? "rgba(239, 68, 68, 0.05)" : "transparent"
                 }}>
-                  <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
+                   <td style={{padding:"12px 8px"}}>
+                     <div style={{fontWeight:700}}>{s.student_name}</div>
+                     <div style={{fontSize:10, opacity:0.5}}>{s.student_id}</div>
+                   </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
