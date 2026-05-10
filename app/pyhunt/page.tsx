@@ -76,9 +76,20 @@ const DEFAULT_CONFIG: PyHuntConfig = {
 ═══════════════════════════════════════════════ */
 async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
   try {
+    // Try to load from cache first for zero-latency start (will be overwritten if network fetch succeeds)
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("nexus_pyhunt_config_v2");
+      if (cached) {
+        // We don't return immediately, we just use it as a fallback if network fails
+      }
+    }
+    
     const { data } = await supabase.from("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").single();
     if (data && data.category) {
       const parsed = JSON.parse(data.category);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("nexus_pyhunt_config_v2", data.category);
+      }
       return {
         mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
         jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
@@ -89,7 +100,7 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
       };
     }
   } catch (e) {
-    console.warn("Failed to load global PyHunt config, falling back to local storage:", e);
+    console.warn("Failed to load global PyHunt config from network, falling back to local storage:", e);
   }
 
   if (typeof window === "undefined") return DEFAULT_CONFIG;
@@ -875,12 +886,49 @@ export default function PyHuntPage() {
     // Show loading orb for 2s on mount
     setPyhuntLoading(true);
     const t = setTimeout(() => setPyhuntLoading(false), 2000);
+    
+    // 1. Fetch initial config (it will also cache it via our updated loader)
     loadPyHuntConfigAsync().then(c => setCfg(c));
+    
     try { 
       const n = localStorage.getItem("nexus_student_name"); 
       if (n) setStudentName(n); 
     } catch {}
-    return () => clearTimeout(t);
+
+    // 2. Subscribe to Supabase Realtime for zero-workload instant updates
+    const channel = supabase
+      .channel('pyhunt-realtime-config')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'exam_config', filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
+        (payload) => {
+          console.log("[PyHunt] Realtime config update received via WebSocket");
+          if (payload.new && (payload.new as any).category) {
+            const rawData = (payload.new as any).category;
+            // Instantly store in local cache to reduce future DB loads
+            localStorage.setItem("nexus_pyhunt_config_v2", rawData);
+            try {
+              const parsed = JSON.parse(rawData);
+              setCfg({
+                mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
+                jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
+                round3: parsed.round3 || DEFAULT_CONFIG.round3,
+                round4: parsed.round4 || DEFAULT_CONFIG.round4,
+                clues: parsed.clues || DEFAULT_CONFIG.clues,
+                finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
+              });
+            } catch (err) {
+              console.error("[PyHunt] Failed to parse realtime config payload", err);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(t);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // ── Track Progress to Supabase ──
