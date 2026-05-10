@@ -101,7 +101,7 @@ export default function InstructionsPage() {
     if (starting) return;
     setStarting(true);
 
-    startExam(studentInfo?.examTitle || "Initial Assessment").then((res) => {
+    startExam(studentInfo?.examTitle || "Initial Assessment").then((res: any) => {
       
       if (res.status === "submitted") {
         alert("You have already submitted this exam.");

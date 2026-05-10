@@ -1125,7 +1125,7 @@ export default function PyHuntPage() {
           .select("warnings")
           .eq("student_id", sid)
           .single()
-          .then(({ data }) => {
+          .then(({ data }: { data: any }) => {
             if (data) setWarningCount(data.warnings || 0);
           });
       }

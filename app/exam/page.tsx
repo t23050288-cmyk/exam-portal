@@ -139,7 +139,7 @@ export default function ExamPage() {
     const jitterMs = Math.floor(Math.random() * 2000);
     setTimeout(() => {
       fetchQuestions(quizTitle)
-        .then((qs) => {
+        .then((qs: any) => {
           setQuestions(qs);
           saveQuestionsToCache(quizTitle, qs); // save to browser for refresh resilience
           setLoadSource("network");

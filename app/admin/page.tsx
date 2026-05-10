@@ -322,7 +322,7 @@ export default function AdminPage() {
     setLoading(true);
     fetchStudents().finally(() => setLoading(false));
     fetchActiveExams();
-    fetchAdminQuestions().then(({ questions: qs }) => {
+    fetchAdminQuestions().then(({ questions: qs }: any) => {
       const list: BranchExamSummary[] = [];
       qs.forEach(q => {
         const br = q.branch || "CS";
