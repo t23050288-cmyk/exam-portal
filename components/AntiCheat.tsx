@@ -31,8 +31,12 @@ export default function AntiCheat({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setWarningCount(initialWarningCount);
-    warningRef.current = initialWarningCount;
+    // Only update if the incoming initial count is greater than our current local ref
+    // This prevents a delayed fetch from overwriting local violations happened in the same session
+    if (initialWarningCount > warningRef.current) {
+      setWarningCount(initialWarningCount);
+      warningRef.current = initialWarningCount;
+    }
   }, [initialWarningCount]);
 
   useEffect(() => {
@@ -53,12 +57,18 @@ export default function AntiCheat({
     }
   }, [forceReenterFullscreen, isSubmitted]);
 
+  const lastViolationRef = useRef<number>(0);
+  const processingViolationRef = useRef<boolean>(false);
+
   const triggerViolation = useCallback(
     async (type: string, metadata?: Record<string, unknown>) => {
-      if (isSubmitted || !ready) return;
+      if (isSubmitted || !ready || processingViolationRef.current) return;
 
       const now = Date.now();
-      if (now - lastViolationRef.current < 1500) return;
+      // Enforce 3-second mandatory cooling period between ANY violations to prevent accidental warning drain
+      if (now - lastViolationRef.current < 3000) return;
+      
+      processingViolationRef.current = true;
       lastViolationRef.current = now;
 
       const nextCount = warningRef.current + 1;
@@ -68,12 +78,15 @@ export default function AntiCheat({
       if (onViolation) onViolation(type, { ...metadata, warning_count: nextCount });
 
       let message: string;
-      if (nextCount >= 3) {
-        message = `🔴 3rd violation detected (${type.replace(/_/g, ' ')}). Your exam session has been terminated.`;
+      const isAutoSubmit = nextCount >= 3;
+      
+      const friendlyType = type.replace(/_/g, ' ');
+      if (isAutoSubmit) {
+        message = `🔴 CRITICAL: 3rd violation detected (${friendlyType}). YOUR EXAM IS BEING AUTOMATICALLY SUBMITTED FOR SECURITY REVIEW.`;
       } else if (nextCount === 2) {
-        message = `🚨 Warning 2 of 3: ${type.replace(/_/g, ' ')}. Final warning before session termination.`;
+        message = `🚨 Warning 2 of 3: ${friendlyType} detected. Final warning before session termination.`;
       } else {
-        message = `⚠️ Warning 1 of 3: ${type.replace(/_/g, ' ')} detected. Fullscreen mode is mandatory.`;
+        message = `⚠️ Warning 1 of 3: ${friendlyType} detected. Fullscreen mode and focus are mandatory.`;
       }
 
       setModalMessage(message);
@@ -81,16 +94,26 @@ export default function AntiCheat({
 
       // Report to backend immediately
       try {
-        await reportViolation(type, { ...metadata, warning_count: nextCount, status: nextCount >= 3 ? "auto_submitted" : "active" });
-      } catch {}
+        await reportViolation(type, { 
+          ...metadata, 
+          warning_count: nextCount, 
+          status: isAutoSubmit ? "auto_submitted" : "active",
+          is_auto_submit: isAutoSubmit
+        });
+      } catch (err) {
+        console.error("AntiCheat: Failed to report violation:", err);
+      } finally {
+        processingViolationRef.current = false;
+      }
 
-      if (nextCount >= 3) {
+      if (isAutoSubmit) {
+        // Wait 2.5s for the student to read the terminal message before auto-submitting
         setTimeout(() => {
           onAutoSubmit();
-        }, 2000);
+        }, 2500);
       } else {
         // Attempt immediate re-entry (may fail, which shows the gate in parent)
-        setTimeout(localReenter, 500);
+        setTimeout(localReenter, 800);
       }
     },
     [isSubmitted, ready, onAutoSubmit, onViolation, localReenter]
@@ -106,7 +129,7 @@ export default function AntiCheat({
         if (document.visibilityState === "visible") {
           triggerViolation("window_blur");
         }
-      }, 100);
+      }, 150);
     };
     document.addEventListener("visibilitychange", vh);
     window.addEventListener("blur", bh);

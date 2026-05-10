@@ -152,3 +152,14 @@ button { cursor: pointer; font-family: inherit; }
   background-clip: text;
 }
 .glow-violet { box-shadow: 0 0 20px var(--violet-glow); }
+
+/* ── Vercel Toolbar Suppression ── */
+.vercel-toolbar, 
+#vercel-live-feedback,
+[id^="vercel-toolbar-"],
+[class^="vercel-toolbar-"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}

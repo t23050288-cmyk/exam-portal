@@ -101,7 +101,7 @@ def get_questions(
                 if end_idx != -1:
                     q_exam = text[6:end_idx]
 
-            exam_match = (q_exam == title)
+            exam_match = (q_exam and q_exam.strip().lower() == title.strip().lower())
             if not exam_match:
                 continue  # skip questions from other exams entirely
 
@@ -131,8 +131,11 @@ def get_questions(
                     end_idx = text.find("⟧")
                     if end_idx != -1:
                         q_exam = text[6:end_idx]
-                if q_exam == title:
+                
+                if q_exam and q_exam.strip().lower() == title.strip().lower():
                     filtered_data.append(q)
+        
+        print(f"[EXAM] Final filtered count for '{title}' (branch: {branch}): {len(filtered_data)}")
                 
     except Exception as e:
         print(f"[EXAM] DB Error during question fetch: {e}")

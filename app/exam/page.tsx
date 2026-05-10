@@ -157,37 +157,53 @@ export default function ExamPage() {
     const quizTitle = sessionStorage.getItem("exam_selected_title") || info.examTitle || "Online Assessment";
     setExamTitle(quizTitle);
     
+    // ── Prevent Back Navigation ──
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+
     // Pick random final theme on mount
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
     // ── Cache-first question loading + staggered start ──────────
-    // 1. Check browser cache first (zero server hit on refresh)
     const cached = loadQuestionsFromCache(quizTitle);
     if (cached && cached.length > 0) {
+      console.log(`[EXAM] Loaded ${cached.length} questions from local cache.`);
       setQuestions(cached as Question[]);
       setLoadSource("cache");
       setLoading(false);
       enterFullscreen();
-      return; // skip network fetch entirely
+      return () => window.removeEventListener("popstate", handlePopState);
     }
 
-    // 2. Staggered start: random 0-2s delay to spread the thundering herd
-    //    100 students pressing start at the same time → requests spread over 2s
     const jitterMs = Math.floor(Math.random() * 2000);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
       fetchQuestions(quizTitle)
         .then((qs: any) => {
+          console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
+          if (qs.length === 0) {
+            console.warn(`[EXAM] WARNING: Zero questions returned for title "${quizTitle}". Branch or Title mismatch?`);
+          }
           setQuestions(qs);
-          saveQuestionsToCache(quizTitle, qs); // save to browser for refresh resilience
+          saveQuestionsToCache(quizTitle, qs);
           setLoadSource("network");
           setLoading(false);
           enterFullscreen();
         })
-        .catch(() => {
-          setError("Failed to load exam questions. Please refresh.");
+        .catch((err) => {
+          console.error("[EXAM] Question fetch failed:", err);
+          setError("Failed to load exam questions. Please check your connection.");
           setLoading(false);
         });
     }, jitterMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [router, enterFullscreen]);
 
   // ── Exam config polling (inactive guard) ──────────────────
@@ -705,16 +721,15 @@ export default function ExamPage() {
                       background: "linear-gradient(135deg, #ff4d4d, #cc0000)",
                       color: "#fff",
                       border: "none",
-                      padding: "20px 48px",
-                      borderRadius: "18px",
+                      padding: "16px 36px",
+                      borderRadius: "16px",
                       fontWeight: 900,
-                      fontSize: "16px",
+                      fontSize: "14px",
                       cursor: "pointer",
                       boxShadow: "0 10px 30px rgba(255, 77, 77, 0.4)",
                       transition: "all 0.3s ease",
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
-                      marginLeft: "auto"
                     }}
                     onClick={() => setConfirmSubmit(true)}
                     disabled={submitting}
@@ -853,16 +868,14 @@ export default function ExamPage() {
               </p>
             )}
             <p style={{color: "var(--text-secondary)"}}>This action cannot be undone.</p>
-            <div className={styles.confirmActions}>
-              <button className="btn" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)" }} onClick={() => setConfirmSubmit(false)}>
-                Cancel — Keep Exam
-              </button>
+            <div className={styles.confirmActions} style={{ justifyContent: "center" }}>
               <button
                 id="confirm-submit-btn"
                 className="btn btn-danger btn-lg"
+                style={{ width: "100%", padding: "16px", borderRadius: "12px", fontWeight: 800 }}
                 onClick={() => handleSubmit(false)}
               >
-                Yes, Submit Now
+                CONFIRM SUBMISSION
               </button>
             </div>
           </div>

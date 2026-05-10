@@ -28,6 +28,13 @@ export default function InstructionsPage() {
       router.replace("/login");
       return;
     }
+    
+    // ── Prevent Back Navigation ──
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
     // Token is long-lived (30 days) — no expiry check needed
 
     const studentData = sessionStorage.getItem("exam_student");
@@ -70,6 +77,9 @@ export default function InstructionsPage() {
         totalQuestions: 30 
       });
     }
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [router]);
 
   // Listen for fullscreen changes

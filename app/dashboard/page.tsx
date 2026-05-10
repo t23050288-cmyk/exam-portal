@@ -104,7 +104,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const raw = sessionStorage.getItem("exam_student");
     const token = sessionStorage.getItem("exam_token");
-    if (!raw || !token) { router.replace("/login"); return; }
+    console.log("[DASHBOARD] Session check:", { hasStudent: !!raw, hasToken: !!token });
+    
+    if (!raw || !token) { 
+      console.warn("[DASHBOARD] Auth missing, redirecting to login.");
+      router.replace("/login"); 
+      return; 
+    }
     const s: StudentInfo = JSON.parse(raw);
     setStudent(s);
     const saved = localStorage.getItem("nexus_profile");
@@ -235,6 +241,14 @@ export default function DashboardPage() {
   }, [loadExams]);
 
   const filteredExams = useMemo(() => allExams.filter(e => {
+    // ── Branch Filter ──
+    // Only show exams that match the student's branch (case-insensitive)
+    if (student) {
+      const sb = student.branch.trim().toUpperCase();
+      const eb = e.branch.trim().toUpperCase();
+      if (eb !== sb && eb !== "GLOBAL" && eb !== "" && eb !== "ALL") return false;
+    }
+
     // Exclude exams based on attempt limits
     const maxA = e.max_attempts || 1;
     const currentA = e.attempt_count || 0;
@@ -243,7 +257,7 @@ export default function DashboardPage() {
     if (e.submitted && maxA <= 1) return false;
 
     const isCompletedInHistory = localHistory.some(h => 
-      (h.examName || "").trim() === (e.exam_name || "").trim()
+      (h.examName || "").trim().toLowerCase() === (e.exam_name || "").trim().toLowerCase()
     );
     if (isCompletedInHistory) return false;
 
@@ -252,7 +266,7 @@ export default function DashboardPage() {
     // "Others" tab: show everything that isn't Aptitude or Programming
     if (activeNav === "Others") return e.category !== "Aptitude" && e.category !== "Programming";
     return e.category === activeNav;
-  }), [allExams, activeNav, localHistory]);
+  }), [allExams, activeNav, localHistory, student]);
 
   const activeExams = useMemo(() => filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now()), [filteredExams]);
   const upcomingExams = useMemo(() => filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now()), [filteredExams]);
