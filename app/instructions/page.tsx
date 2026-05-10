@@ -222,13 +222,20 @@ export default function InstructionsPage() {
             </li>
           </ul>
 
-          <div className={styles.actionArea}>
+          <div className={styles.actionArea} style={{ display: "flex", gap: 16 }}>
+            <button 
+              className={styles.backBtn}
+              onClick={() => router.replace("/dashboard")}
+              disabled={starting}
+            >
+               ← Back to Dashboard
+            </button>
             <button 
               onClick={handleStartExam} 
               className={styles.startBtn}
               disabled={starting}
             >
-              {starting ? (
+               {starting ? (
                 <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                    <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.2, borderRadius: "12px" }} />
                    <span>Initializing...</span>

@@ -98,6 +98,27 @@
   text-shadow: 0 0 20px rgba(40, 215, 214, 0.4);
 }
 
+.backBtnSmall {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.backBtnSmall:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(-2px);
+}
+
 .mountainCard {
   flex: 2;
   background: var(--nexus-glass-bg);

@@ -206,14 +206,15 @@ def save_answer(
     student_id = current["student_id"]
 
     # Guard: reject if already submitted
-    status_row = (
+    status_res = (
         db.table("exam_status")
         .select("status")
         .eq("student_id", student_id)
-        .single()
         .execute()
     )
-    if status_row.data and status_row.data["status"] == "submitted":
+    status_row = status_res.data[0] if status_res.data else None
+    
+    if status_row and status_row.get("status") == "submitted":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Exam already submitted. Cannot save answers.",
@@ -265,23 +266,23 @@ def submit_exam(
     student_id = current["student_id"]
 
     # 1. Guard: already submitted?
-    status_row = (
+    status_res = (
         db.table("exam_status")
         .select("status")
         .eq("student_id", student_id)
-        .single()
         .execute()
     )
-    if status_row.data and status_row.data["status"] == "submitted":
+    status_row = status_res.data[0] if status_res.data else None
+    
+    if status_row and status_row.get("status") == "submitted":
         # Return existing result
         result_row = (
             db.table("exam_results")
             .select("score, total_marks, submitted_at")
             .eq("student_id", student_id)
-            .single()
             .execute()
         )
-        r = result_row.data or {}
+        r = result_row.data[0] if result_row.data else {}
         total = r.get("total_marks", 0)
         score = r.get("score", 0)
         return SubmitExamResponse(
@@ -383,8 +384,8 @@ async def start_exam(
     student_id = current["student_id"]
 
     # 1. Check if already started or submitted
-    status_res = db.table("exam_status").select("status, started_at").eq("student_id", student_id).single().execute()
-    data = status_res.data or {}
+    status_res = db.table("exam_status").select("status, started_at").eq("student_id", student_id).execute()
+    data = status_res.data[0] if status_res.data else {}
     
     if data.get("status") == "submitted":
         raise HTTPException(status_code=403, detail="Exam already submitted.")
@@ -395,11 +396,21 @@ async def start_exam(
 
     # 3. Otherwise, set the start time NOW
     started_at = datetime.now(timezone.utc).isoformat()
-    db.table("exam_status").update({
-        "status": "active",
-        "started_at": started_at,
-        "last_active": started_at
-    }).eq("student_id", student_id).execute()
+    
+    # Use upsert-like behavior for status
+    if not data:
+        db.table("exam_status").insert({
+            "student_id": student_id,
+            "status": "active",
+            "started_at": started_at,
+            "last_active": started_at
+        }).execute()
+    else:
+        db.table("exam_status").update({
+            "status": "active",
+            "started_at": started_at,
+            "last_active": started_at
+        }).eq("student_id", student_id).execute()
 
     return StartExamResponse(started_at=started_at, status="active", started=True, exam_title=title)
 
@@ -424,8 +435,9 @@ def batch_save_answers(
         return BatchSaveResponse(saved=True, count=0)
 
     # Guard: reject if already submitted
-    status_row = db.table("exam_status").select("status").eq("student_id", student_id).single().execute()
-    if status_row.data and status_row.data["status"] == "submitted":
+    status_res = db.table("exam_status").select("status").eq("student_id", student_id).execute()
+    status_row = status_res.data[0] if status_res.data else None
+    if status_row and status_row.get("status") == "submitted":
         return BatchSaveResponse(saved=False, count=0)
 
     # Fetch existing answers and merge
@@ -491,8 +503,9 @@ def submit_code(
 
     # Guard: reject if already submitted AND is_final
     if request.is_final:
-        status_row = db.table("exam_status").select("status").eq("student_id", student_id).single().execute()
-        if status_row.data and status_row.data["status"] == "submitted":
+        status_res = db.table("exam_status").select("status").eq("student_id", student_id).execute()
+        status_row = status_res.data[0] if status_res.data else None
+        if status_row and status_row.get("status") == "submitted":
             return CodeSubmitResponse(
                 saved=False,
                 question_id=request.question_id,

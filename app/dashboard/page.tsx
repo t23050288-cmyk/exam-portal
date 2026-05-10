@@ -188,9 +188,10 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [loadExams]);
 
-  const filteredExams = useMemo(() => allExams.filter(e => {
     // Exclude exams already in local history from Home/Upcoming
-    const isCompletedLocally = localHistory.some(h => h.examName === e.exam_name);
+    const isCompletedLocally = localHistory.some(h => 
+      (h.examName || "").trim() === (e.exam_name || "").trim()
+    );
     if (isCompletedLocally) return false;
 
     if (activeNav === "Home") return true;
@@ -285,7 +286,14 @@ export default function DashboardPage() {
         <main className={styles.main}>
           <header className={styles.header}>
             <div className={styles.headerInfo}>
-              <h1 className={styles.pageTitle}>{hdr.title}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {activeNav !== "Home" && (
+                  <button className={styles.backBtnSmall} onClick={() => setActiveNav("Home")}>
+                    ←
+                  </button>
+                )}
+                <h1 className={styles.pageTitle}>{hdr.title}</h1>
+              </div>
               <p className={styles.pageSub}>{hdr.sub}</p>
             </div>
             <div className={styles.headerActions}>

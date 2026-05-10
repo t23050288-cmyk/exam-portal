@@ -47,8 +47,8 @@ export default function ExamPage() {
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
-  // Result Timer (3:00 minutes)
-  const [resultTimerSeconds, setResultTimerSeconds] = useState(180);
+  // Result Timer (10 seconds for auto-redirect)
+  const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
 
   // Randomized final theme for this student's session
   const [finalTheme, setFinalTheme] = useState("glass-aura");
@@ -253,7 +253,7 @@ export default function ExamPage() {
         setSubmitting(false);
       }
     },
-    [isSubmitted, submitting, flush, answers]
+    [isSubmitted, submitting, flush, answers, examTitle]
   );
 
   const handleAutoSubmit = useCallback(() => {
@@ -265,11 +265,18 @@ export default function ExamPage() {
     if (!isSubmitted) return;
     
     const interval = setInterval(() => {
-      setResultTimerSeconds(prev => (prev > 0 ? prev - 1 : 0));
+      setResultTimerSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.replace("/dashboard");
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [isSubmitted]);
+  }, [isSubmitted, router]);
 
   const formatResultTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -383,6 +390,9 @@ export default function ExamPage() {
 
 
             {/* Detailed Breakdown */}
+              </div>
+            )}
+
             {showResultDetails && submitResult && (
               <div className={styles.resultCard}>
                 <div className={styles.resultDetail}>
@@ -408,6 +418,18 @@ export default function ExamPage() {
                 </div>
               </div>
             )}
+
+            <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
+              <button 
+                className={styles.backToDashboardBtn}
+                onClick={() => router.replace("/dashboard")}
+              >
+                Back to Dashboard
+              </button>
+              <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>
+                Auto-redirecting in {resultTimerSeconds}s...
+              </div>
+            </div>
           </div>
         </div>
 
@@ -530,13 +552,21 @@ export default function ExamPage() {
              <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>
                {examTitle || "Online Assessment"}
              </h1>
-             {student && (
-               <ExamTimer
-                 startTime={student.examStartTime || new Date().toISOString()}
-                 durationMinutes={student.examDurationMinutes}
-                 onExpire={handleAutoSubmit}
-               />
-             )}
+             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+               <button 
+                 className={styles.navBackBtn}
+                 onClick={() => router.replace("/dashboard")}
+               >
+                 ← Back
+               </button>
+               {student && (
+                 <ExamTimer
+                   startTime={student.examStartTime || new Date().toISOString()}
+                   durationMinutes={student.examDurationMinutes}
+                   onExpire={handleAutoSubmit}
+                 />
+               )}
+             </div>
           </div>
 
           <div className={styles.questionList}>

@@ -688,7 +688,7 @@ sys.modules["turtle"] = t_mod
 /* ═══════════════════════════════════════════════
    FINISH SCREEN
 ═══════════════════════════════════════════════ */
-function FinishScreen({ message, stats }: { message: string; stats: { minutes: number; wrongs: number } }) {
+function FinishScreen({ message, stats, timerSeconds }: { message: string; stats: { minutes: number; wrongs: number; warnings: number }; timerSeconds: number }) {
   const router = useRouter();
   return (
     <div className={styles.finishScreen}>
@@ -704,12 +704,21 @@ function FinishScreen({ message, stats }: { message: string; stats: { minutes: n
           <div className={styles.statValue}>{stats.wrongs}</div>
           <div className={styles.statLabel}>Wrong Attempts</div>
         </div>
+        <div className={styles.statItem}>
+          <div className={styles.statValue}>{stats.warnings}/3</div>
+          <div className={styles.statLabel}>Warnings</div>
+        </div>
       </div>
 
       <div className={styles.finishSub}>{message}</div>
-      <button className={styles.primaryBtn} style={{marginTop:24}} onClick={() => router.push("/dashboard")}>
-        ← Back to Dashboard
-      </button>
+      <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard")}>
+          ← Back to Dashboard
+        </button>
+        <div style={{ fontSize: 12, opacity: 0.5 }}>
+          Auto-redirecting in {timerSeconds}s...
+        </div>
+      </div>
     </div>
   );
 }
@@ -805,6 +814,7 @@ export default function PyHuntPage() {
   const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
+  const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -871,6 +881,24 @@ export default function PyHuntPage() {
     }
   }, [isFullscreen, finished, enterFullscreen]);
 
+  // ── Auto-Redirect Timer ──
+  useEffect(() => {
+    if (!finished) return;
+    
+    const interval = setInterval(() => {
+      setResultTimerSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.replace("/dashboard");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [finished, router]);
+
   // ── Proctoring Restrictions ──
   useEffect(() => {
     if (finished) return;
@@ -882,7 +910,7 @@ export default function PyHuntPage() {
         setLastViolation(reason);
         if (next >= 4) {
           const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats({ minutes: duration, wrongs: totalWrongs + 3 });
+          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
           setFinished(true);
           return 4;
         }
@@ -939,7 +967,7 @@ export default function PyHuntPage() {
   const handleUnlock = () => {
     if (round >= 4) { 
       const duration = Math.floor((Date.now() - startTime) / 60000);
-      setFinishStats({ minutes: duration, wrongs: totalWrongs });
+      setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: warningCount });
       setFinished(true); 
       return; 
     }
@@ -967,9 +995,14 @@ export default function PyHuntPage() {
           <div className={styles.fsIcon}>🛡️</div>
           <h2>Secure Environment Required</h2>
           <p>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
-          <button className={styles.primaryBtn} onClick={enterFullscreen}>
-            Enter Secure Mode
-          </button>
+          <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 12 }}>
+            <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard")} style={{ flex: 1 }}>
+              Back to Dashboard
+            </button>
+            <button className={styles.primaryBtn} onClick={enterFullscreen} style={{ flex: 1 }}>
+              Enter Secure Mode
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -979,7 +1012,7 @@ export default function PyHuntPage() {
     <div className={styles.page}>
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
-      <FinishScreen message={cfg.finishMessage} stats={finishStats} />
+      <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} />
     </div>
   );
 
