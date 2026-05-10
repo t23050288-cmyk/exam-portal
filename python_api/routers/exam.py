@@ -352,19 +352,10 @@ def submit_exam(
             {"student_id": student_id, "exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
         ).execute()
 
-    # 5. Mark submitted — by student + exam_title for multi-exam support
-    update_q = db.table("exam_status").update(
+    # 5. Mark submitted (single-row schema — just filter by student_id)
+    db.table("exam_status").update(
         {"status": "submitted", "submitted_at": submitted_at}
-    ).eq("student_id", student_id)
-    if exam_title:
-        try:
-            update_q.eq("exam_title", exam_title).execute()
-        except Exception:
-            db.table("exam_status").update(
-                {"status": "submitted", "submitted_at": submitted_at}
-            ).eq("student_id", student_id).execute()
-    else:
-        update_q.execute()
+    ).eq("student_id", student_id).execute()
 
     # 6. Clear active session
     db.table("students").update(
@@ -396,31 +387,29 @@ async def start_exam(
     db = get_supabase()
     student_id = current["student_id"]
 
-    # 1. Check if already started or submitted FOR THIS SPECIFIC EXAM
-    status_res = db.table("exam_status").select("status, started_at, exam_title").eq("student_id", student_id).execute()
-    rows = status_res.data or []
-    exam_row = next((r for r in rows if r.get("exam_title") == title), None)
-    if exam_row is None and len(rows) == 1 and not rows[0].get("exam_title"):
-        exam_row = rows[0]  # fallback: old single-row schema
-    data = exam_row or {}
+    # 1. Check if already started or submitted (single-row schema — no exam_title column)
+    status_res = db.table("exam_status").select("status, started_at").eq("student_id", student_id).limit(1).execute()
+    data = status_res.data[0] if status_res.data else {}
 
     if data.get("status") == "submitted":
         raise HTTPException(status_code=403, detail="Exam already submitted.")
 
-    # 2. If already active for this exam, return existing start time
+    # 2. If already active, return existing start time
     if data.get("status") == "active" and data.get("started_at"):
         return StartExamResponse(started_at=data["started_at"], status="active", started=True, exam_title=title)
 
     # 3. Otherwise, set the start time NOW
     started_at = datetime.now(timezone.utc).isoformat()
-    if exam_row and data.get("exam_title") == title:
+    if data:
+        # Row exists — update it
         db.table("exam_status").update({
             "status": "active", "started_at": started_at, "last_active": started_at
-        }).eq("student_id", student_id).eq("exam_title", title).execute()
+        }).eq("student_id", student_id).execute()
     else:
+        # No row yet — insert one
         try:
             db.table("exam_status").insert({
-                "student_id": student_id, "exam_title": title,
+                "student_id": student_id,
                 "status": "active", "started_at": started_at, "last_active": started_at
             }).execute()
         except Exception:

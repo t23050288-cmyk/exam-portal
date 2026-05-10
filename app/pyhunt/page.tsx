@@ -74,48 +74,47 @@ const DEFAULT_CONFIG: PyHuntConfig = {
 /* ═══════════════════════════════════════════════
    CONFIG LOADER
 ═══════════════════════════════════════════════ */
+const PYHUNT_BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+function parseCfg(parsed: any): PyHuntConfig {
+  return {
+    mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
+    jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
+    round3: parsed.round3 || DEFAULT_CONFIG.round3,
+    round4: parsed.round4 || DEFAULT_CONFIG.round4,
+    clues: parsed.clues || DEFAULT_CONFIG.clues,
+    finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
+  };
+}
+
 async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
+  // ── Route through backend (bypasses Supabase RLS) ──
+  // Always fetch fresh from backend — never trust stale localStorage
   try {
-    // Try to load from cache first for zero-latency start (will be overwritten if network fetch succeeds)
-    if (typeof window !== "undefined") {
-      const cached = localStorage.getItem("nexus_pyhunt_config_v2");
-      if (cached) {
-        // We don't return immediately, we just use it as a fallback if network fails
+    const res = await fetch(`${PYHUNT_BACKEND_URL}/api/admin/pyhunt/config`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.ok && json.config) {
+        // Update cache with fresh server data
+        if (typeof window !== "undefined") {
+          localStorage.setItem("nexus_pyhunt_config_v2", JSON.stringify(json.config));
+        }
+        return parseCfg(json.config);
       }
-    }
-    
-    const { data } = await supabase.from("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").single();
-    if (data && data.category) {
-      const parsed = JSON.parse(data.category);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("nexus_pyhunt_config_v2", data.category);
-      }
-      return {
-        mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
-        jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
-        round3: parsed.round3 || DEFAULT_CONFIG.round3,
-        round4: parsed.round4 || DEFAULT_CONFIG.round4,
-        clues: parsed.clues || DEFAULT_CONFIG.clues,
-        finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
-      };
     }
   } catch (e) {
-    console.warn("Failed to load global PyHunt config from network, falling back to local storage:", e);
+    console.warn("[PyHunt] Backend config fetch failed, trying localStorage:", e);
   }
 
+  // Fallback to localStorage only if network completely unavailable
   if (typeof window === "undefined") return DEFAULT_CONFIG;
   try {
     const s = localStorage.getItem("nexus_pyhunt_config_v2");
     if (!s) return DEFAULT_CONFIG;
-    const parsed = JSON.parse(s);
-    return {
-      mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
-      jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
-      round3: parsed.round3 || DEFAULT_CONFIG.round3,
-      round4: parsed.round4 || DEFAULT_CONFIG.round4,
-      clues: parsed.clues || DEFAULT_CONFIG.clues,
-      finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
-    };
+    return parseCfg(JSON.parse(s));
   } catch { return DEFAULT_CONFIG; }
 }
 
@@ -1132,32 +1131,30 @@ export default function PyHuntPage() {
       }
     } catch {}
 
-    // 2. Subscribe to Supabase Realtime for zero-workload instant updates
+    // 2. Subscribe to Supabase Realtime for instant push updates when admin saves
     const channel = supabase
       .channel('pyhunt-realtime-config')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'exam_config', filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
         (payload: any) => {
-          console.log("[PyHunt] Realtime config update received via WebSocket");
-          if (payload.new && (payload.new as any).category) {
-            const rawData = (payload.new as any).category;
-            // Instantly store in local cache to reduce future DB loads
-            localStorage.setItem("nexus_pyhunt_config_v2", rawData);
-            try {
-              const parsed = JSON.parse(rawData);
-              setCfg({
-                mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
-                jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
-                round3: parsed.round3 || DEFAULT_CONFIG.round3,
-                round4: parsed.round4 || DEFAULT_CONFIG.round4,
-                clues: parsed.clues || DEFAULT_CONFIG.clues,
-                finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
-              });
-            } catch (err) {
-              console.error("[PyHunt] Failed to parse realtime config payload", err);
+          console.log("[PyHunt] Realtime config update received — re-fetching from backend");
+          // Re-fetch from backend (not from payload) to ensure RLS-safe, consistent data
+          loadPyHuntConfigAsync().then(fresh => {
+            setCfg(fresh);
+            console.log("[PyHunt] Config hot-reloaded from backend after realtime event");
+          }).catch(e => {
+            // Fallback: parse payload directly
+            if (payload.new && (payload.new as any).category) {
+              try {
+                const parsed = JSON.parse((payload.new as any).category);
+                localStorage.setItem("nexus_pyhunt_config_v2", JSON.stringify(parsed));
+                setCfg(parseCfg(parsed));
+              } catch (err) {
+                console.error("[PyHunt] Failed to parse realtime payload", err);
+              }
             }
-          }
+          });
         }
       )
       .subscribe();

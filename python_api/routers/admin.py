@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Header, Depends, File, UploadFile, Query
+from fastapi import APIRouter, HTTPException, status, Header, Depends, File, UploadFile, Query, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
 from core.config import get_settings
@@ -606,6 +606,46 @@ async def get_exam_config_public():
         return result.data or []
     except Exception:
         return []
+
+# ── PyHunt Config Endpoints ─────────────────────────────────────
+
+@router.get("/pyhunt/config")
+async def get_pyhunt_config_public():
+    """Student public endpoint — returns live PyHunt config via service role (bypasses RLS)."""
+    db = get_supabase()
+    try:
+        result = db.table("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        if result.data and result.data[0].get("category"):
+            import json as _json
+            return {"ok": True, "config": _json.loads(result.data[0]["category"])}
+        return {"ok": False, "config": None}
+    except Exception as e:
+        print(f"get_pyhunt_config error: {e}")
+        return {"ok": False, "config": None}
+
+
+@router.post("/pyhunt/config/save")
+async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
+    """Admin saves PyHunt config — uses service role key, bypasses RLS entirely."""
+    db = get_supabase()
+    try:
+        body = await request.json()
+        config_str = body.get("config")
+        if not config_str:
+            raise HTTPException(status_code=400, detail="Missing 'config' field")
+        import json as _json
+        _json.loads(config_str)  # Validate it parses cleanly
+        existing = db.table("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        if existing.data:
+            db.table("exam_config").update({"category": config_str, "is_active": True, "duration_minutes": 0}).eq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
+        else:
+            db.table("exam_config").insert({"exam_title": "PYHUNT_GLOBAL_CONFIG", "category": config_str, "is_active": True, "duration_minutes": 0}).execute()
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"save_pyhunt_config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Orbital Node Management (Folder CRUD) ─────────────────────

@@ -47,14 +47,24 @@ const DEFAULT: PyHuntConfig = {
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
 async function loadCfgAsync(): Promise<PyHuntConfig> {
+  // Route through backend — bypasses Supabase RLS
   try {
-    const { data } = await supabase.from("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").single();
-    if (data && data.category) {
-      return { ...DEFAULT, ...JSON.parse(data.category) };
+    const res = await fetch(`${BACKEND_URL}/api/admin/pyhunt/config`, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.ok && json.config) {
+        const c = json.config;
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+        }
+        return { ...DEFAULT, ...c };
+      }
     }
   } catch (e) {
-    console.warn("Failed to load from Supabase, falling back to local:", e);
+    console.warn("Backend load failed, falling back to localStorage:", e);
   }
   if (typeof window !== "undefined") {
     try { const s = localStorage.getItem(STORAGE_KEY); return s ? { ...DEFAULT, ...JSON.parse(s) } : DEFAULT; }
@@ -65,18 +75,23 @@ async function loadCfgAsync(): Promise<PyHuntConfig> {
 
 async function saveCfgAsync(c: PyHuntConfig) {
   const str = JSON.stringify(c);
+  // Always update localStorage so admin UI is snappy
   if (typeof window !== "undefined") {
     localStorage.setItem(STORAGE_KEY, str);
   }
-  try {
-    const { data } = await supabase.from("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG");
-    if (data && data.length > 0) {
-      await supabase.from("exam_config").update({ category: str, is_active: true, duration_minutes: 0 }).eq("id", data[0].id);
-    } else {
-      await supabase.from("exam_config").insert({ exam_title: "PYHUNT_GLOBAL_CONFIG", category: str, is_active: true, duration_minutes: 0 });
-    }
-  } catch (e) {
-    console.error("Failed to save to Supabase:", e);
+  // Route save through backend (service role — bypasses RLS)
+  const token = typeof window !== "undefined" ? sessionStorage.getItem("examguard_admin_jwt") : null;
+  const res = await fetch(`${BACKEND_URL}/api/admin/pyhunt/config/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ config: str }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Save failed (${res.status})`);
   }
 }
 
