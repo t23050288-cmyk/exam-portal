@@ -81,7 +81,7 @@ const DEFAULT_CONFIG: PyHuntConfig = {
 /* ═══════════════════════════════════════════════
    CONFIG LOADER
 ═══════════════════════════════════════════════ */
-const PYHUNT_BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Always use relative path to avoid CORS — Vercel routes /api/* to Python backend
 
 function parseCfg(parsed: any): PyHuntConfig {
   return {
@@ -99,7 +99,7 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
   // ── Route through backend (bypasses Supabase RLS) ──
   // Always fetch fresh from backend — never trust stale localStorage
   try {
-    const res = await fetch(`${PYHUNT_BACKEND_URL}/api/admin/pyhunt/config`, {
+    const res = await fetch(`/api/admin/pyhunt/config`, {
       cache: "no-store",
       headers: { "Cache-Control": "no-cache" },
     });
@@ -1272,12 +1272,22 @@ export default function PyHuntPage() {
   }, [finished, router]);
 
   // ── Proctoring Restrictions ──
+  // Grace period ref: violations ignored for 8 seconds after mount (fullscreen dialog causes blur)
+  const gracePeriodRef = useRef(true);
+  useEffect(() => {
+    // Give 8 seconds before proctoring starts — fullscreen dialog + page load causes false positives
+    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 8000);
+    return () => clearTimeout(graceTimer);
+  }, []);
+
   useEffect(() => {
     if (finished) return;
 
     const handleViolation = (reason: string) => {
+      // Skip during grace period (first 8s) — fullscreen dialog causes false blur/focus events
+      if (gracePeriodRef.current) return;
       const now = Date.now();
-      if (now - lastWarningTimeRef.current < 1500) return; // throttle 1.5s
+      if (now - lastWarningTimeRef.current < 2000) return; // throttle 2s (was 1.5s)
       lastWarningTimeRef.current = now;
 
       // Always record violation even if warning is visible
@@ -1305,9 +1315,15 @@ export default function PyHuntPage() {
     const onVisibilityChange = () => { 
       if (document.visibilityState === "hidden") handleViolation("tab_switch"); 
     };
-    const onBlur = () => handleViolation("window_blur");
+    // Skip blur violation if we're entering fullscreen (dialog causes blur)
+    const onBlur = () => {
+      if (!document.fullscreenElement && !gracePeriodRef.current) {
+        handleViolation("window_blur");
+      }
+    };
     const onFullscreenChange = () => {
-      if (!document.fullscreenElement && !finished) handleViolation("fullscreen_exit");
+      // Only count fullscreen exit violation AFTER grace period
+      if (!document.fullscreenElement && !finished && !gracePeriodRef.current) handleViolation("fullscreen_exit");
     };
 
     const onContextMenu = (e: MouseEvent) => {
@@ -1513,5 +1529,6 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
 
 
