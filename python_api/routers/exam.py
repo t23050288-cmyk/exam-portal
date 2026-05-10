@@ -334,17 +334,19 @@ def submit_exam(
 
     submitted_at = datetime.now(timezone.utc).isoformat()
 
-    # 4. Upsert exam_results
+    # 4. Upsert exam_results — use student_id + exam_title as composite key
+    # so multiple exams per student are stored as separate rows
     existing = (
         db.table("exam_results")
         .select("id")
         .eq("student_id", student_id)
+        .eq("exam_title", exam_title)
         .execute()
     )
     if existing.data:
         db.table("exam_results").update(
-            {"exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).eq("student_id", student_id).execute()
+            {"answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
+        ).eq("student_id", student_id).eq("exam_title", exam_title).execute()
     else:
         db.table("exam_results").insert(
             {"student_id": student_id, "exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
