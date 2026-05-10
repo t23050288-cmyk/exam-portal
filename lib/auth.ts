@@ -39,6 +39,7 @@ export function verifyToken(token: string): string | null {
 /**
  * Extract and verify student from Authorization header.
  * Returns { studentId, branch } or null.
+ * Tries multiple column lookups since the students table schema varies.
  */
 export async function getStudentFromRequest(
   authHeader: string | null
@@ -49,22 +50,40 @@ export async function getStudentFromRequest(
   const studentId = verifyToken(token);
   if (!studentId) return null;
 
-  // Fetch branch from students table
-  const { data } = await supabaseAdmin
+  // Try multiple column lookups since schema may use 'id', 'student_id', or 'usn'
+  // Try 1: by id (Supabase auto-generated UUID)
+  const { data: d1 } = await supabaseAdmin
     .from("students")
-    .select("branch")
+    .select("branch, usn")
+    .eq("id", studentId)
+    .maybeSingle();
+  if (d1) return { studentId, branch: d1.branch || "CS" };
+
+  // Try 2: by student_id (if column exists)
+  const { data: d2 } = await supabaseAdmin
+    .from("students")
+    .select("branch, usn")
     .eq("student_id", studentId)
     .maybeSingle();
+  if (d2) return { studentId, branch: d2.branch || "CS" };
 
-  // Also try by USN if student_id didn't match
-  if (!data) {
-    const { data: data2 } = await supabaseAdmin
-      .from("students")
-      .select("branch")
-      .eq("usn", studentId)
-      .maybeSingle();
-    return { studentId, branch: data2?.branch || "CS" };
-  }
+  // Try 3: by USN (the token sub might be the USN itself)
+  const { data: d3 } = await supabaseAdmin
+    .from("students")
+    .select("branch, usn")
+    .eq("usn", studentId)
+    .maybeSingle();
+  if (d3) return { studentId, branch: d3.branch || "CS" };
 
-  return { studentId, branch: data?.branch || "CS" };
+  // Try 4: by USN uppercase
+  const { data: d4 } = await supabaseAdmin
+    .from("students")
+    .select("branch, usn")
+    .eq("usn", studentId.toUpperCase())
+    .maybeSingle();
+  if (d4) return { studentId, branch: d4.branch || "CS" };
+
+  // If all lookups fail, still return with default branch so questions load
+  console.warn(`[AUTH] Could not find student '${studentId}' in DB, using default branch CS`);
+  return { studentId, branch: "CS" };
 }

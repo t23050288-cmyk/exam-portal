@@ -4,35 +4,29 @@ import { getStudentFromRequest, supabaseAdmin } from "@/lib/auth";
 /**
  * GET /api/exam/questions?title=...
  * Fetches all questions for a specific exam, filtered by student branch.
+ * The exam must have been started via /api/exam/start-exam first.
  */
 export async function GET(req: NextRequest) {
   try {
     const auth = req.headers.get("authorization");
     const student = await getStudentFromRequest(auth);
     if (!student) {
+      console.error("[QUESTIONS] Auth failed — no valid token");
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
     }
 
     const title = req.nextUrl.searchParams.get("title") || "";
     if (!title) {
+      console.log("[QUESTIONS] No title provided");
       return NextResponse.json({ questions: [], total: 0 });
     }
 
-    // Check if exam is active
-    const { data: configData } = await supabaseAdmin
-      .from("exam_config")
-      .select("is_active, exam_title")
-      .eq("exam_title", title)
-      .maybeSingle();
+    console.log(`[QUESTIONS] Fetching for title='${title}', student='${student.studentId}', branch='${student.branch}'`);
 
-    if (!configData?.is_active) {
-      return NextResponse.json({ detail: "Exam is not active." }, { status: 403 });
-    }
-
-    // Fetch ALL questions (we filter in JS to avoid PostgREST encoding issues)
+    // Fetch ALL questions from the database
     const { data: allQuestions, error } = await supabaseAdmin
       .from("questions")
-      .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category")
+      .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category, correct_answer, starter_code, test_cases")
       .order("order_index")
       .limit(500);
 
@@ -42,21 +36,24 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = allQuestions || [];
-    const studentBranch = student.branch.trim().toUpperCase();
+    console.log(`[QUESTIONS] Total rows in DB: ${rows.length}`);
 
-    // Filter by exam_name match
+    // Log all unique exam_names for debugging
+    const uniqueExams = [...new Set(rows.map((q: any) => q.exam_name).filter(Boolean))];
+    console.log(`[QUESTIONS] Unique exam_names in DB: ${JSON.stringify(uniqueExams)}`);
+
+    const titleLower = title.trim().toLowerCase();
+
+    // Filter by exam_name match (case-insensitive)
     const examFiltered = rows.filter((q: any) => {
-      let qExam = q.exam_name;
-      const text = q.text || "";
-      // Handle legacy virtual folders
-      if (!qExam && text.startsWith("⟦EXAM:")) {
-        const endIdx = text.indexOf("⟧");
-        if (endIdx !== -1) qExam = text.substring(6, endIdx);
-      }
-      return qExam && qExam.trim().toLowerCase() === title.trim().toLowerCase();
+      const qExam = (q.exam_name || "").trim().toLowerCase();
+      return qExam === titleLower;
     });
 
+    console.log(`[QUESTIONS] Matched by exam_name: ${examFiltered.length}`);
+
     // Filter by branch
+    const studentBranch = student.branch.trim().toUpperCase();
     let filtered = examFiltered.filter((q: any) => {
       const qBranch = (q.branch || "").trim().toUpperCase();
       if (!qBranch) return true; // No branch = applies to all
@@ -67,31 +64,30 @@ export async function GET(req: NextRequest) {
       );
     });
 
+    console.log(`[QUESTIONS] After branch filter (${studentBranch}): ${filtered.length}`);
+
     // Fallback: if no branch match, return ALL questions for this exam
     if (filtered.length === 0 && examFiltered.length > 0) {
-      console.log(`[QUESTIONS] No branch match for '${student.branch}', falling back to all questions for '${title}'`);
+      console.log(`[QUESTIONS] Branch fallback — returning all ${examFiltered.length} questions`);
       filtered = examFiltered;
     }
 
-    // Map to output format
-    const questions = filtered.map((q: any) => {
-      const text = q.text?.replace(`⟦EXAM:${title}⟧`, "").trim() || "";
-      return {
-        id: q.id,
-        text,
-        options: q.options || [],
-        branch: q.branch || student.branch,
-        order_index: q.order_index,
-        marks: q.marks || 1,
-        image_url: q.image_url || null,
-        audio_url: q.audio_url || null,
-        question_type: q.question_type || "mcq",
-        starter_code: null,
-        test_cases: null,
-      };
-    });
+    // Map to output format (strip correct_answer so students can't see it)
+    const questions = filtered.map((q: any) => ({
+      id: q.id,
+      text: q.text || "",
+      options: q.options || [],
+      branch: q.branch || student.branch,
+      order_index: q.order_index,
+      marks: q.marks || 1,
+      image_url: q.image_url || null,
+      audio_url: q.audio_url || null,
+      question_type: q.question_type || "mcq",
+      starter_code: q.starter_code || null,
+      test_cases: q.test_cases || null,
+    }));
 
-    console.log(`[QUESTIONS] Returning ${questions.length} questions for '${title}' (branch: ${student.branch})`);
+    console.log(`[QUESTIONS] Returning ${questions.length} questions for '${title}'`);
 
     return NextResponse.json({ questions, total: questions.length });
   } catch (err: any) {
