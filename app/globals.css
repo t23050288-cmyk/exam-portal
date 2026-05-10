@@ -154,12 +154,27 @@ button { cursor: pointer; font-family: inherit; }
 .glow-violet { box-shadow: 0 0 20px var(--violet-glow); }
 
 /* ── Vercel Toolbar Suppression ── */
-.vercel-toolbar, 
+.vercel-toolbar,
 #vercel-live-feedback,
 [id^="vercel-toolbar-"],
-[class^="vercel-toolbar-"] {
+[id^="vercel-feedback"],
+[class^="vercel-toolbar-"],
+[class*="vercel-live"],
+[data-vercel-toolbar],
+[data-testid*="vercel"],
+vercel-live-feedback,
+iframe[src*="vercel.live"],
+iframe[src*="vercel.com"],
+body > div[style*="z-index: 2147483647"],
+body > div[data-vercel-toolbar] {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
   opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  overflow: hidden !important;
 }

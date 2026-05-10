@@ -809,15 +809,19 @@
   .layout {
     flex-direction: column;
     padding: 1rem;
-    height: auto;
-    overflow-y: auto;
+    height: 100%;
+    overflow: hidden;
+    gap: 0;
   }
   .page {
-    height: auto;
-    overflow-y: auto;
+    height: 100vh;
+    overflow: hidden;
   }
   .main {
     padding-right: 0;
+    margin-top: 1.5rem; /* Space for hamburger */
+    height: 100%;
+    overflow-y: scroll;
   }
   .insightsGrid {
     flex-direction: column;

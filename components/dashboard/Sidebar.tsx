@@ -1,4 +1,4 @@
-"use client";
+import { useState } from "react";
 import styles from "./Sidebar.module.css";
 
 interface NavItem {
@@ -15,34 +15,53 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ items, activeItem, onItemClick, onLogout }: SidebarProps) {
-  return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logo}>
-        <div className={styles.logoIcon}>⚛</div>
-        <div className={styles.logoText}>
-          <span className={styles.brand}>NEXUS</span>
-          <span className={styles.sub}>Candidate Portal</span>
-        </div>
-      </div>
-      
-      <nav className={styles.nav}>
-        {items.map((item) => (
-          <button
-            key={item.id}
-            className={`${styles.navBtn} ${activeItem === item.id ? styles.navBtnActive : ""}`}
-            onClick={() => onItemClick(item.id)}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span className={styles.navLabel}>{item.label}</span>
-            {activeItem === item.id && <span className={styles.navArrow}>›</span>}
-          </button>
-        ))}
-      </nav>
+  const [isOpen, setIsOpen] = useState(false);
 
-      <div className={styles.footer}>
-        <div className={styles.atomIcon}>⚛</div>
-        <button className={styles.signOut} onClick={onLogout}>Sign Out</button>
-      </div>
-    </aside>
+  const handleItemClick = (id: string) => {
+    onItemClick(id);
+    setIsOpen(false);
+  };
+
+  return (
+    <>
+      <button 
+        className={styles.hamburger} 
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label="Toggle Menu"
+      >
+        {isOpen ? "✕" : "☰"}
+      </button>
+
+      <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ""}`}>
+        <div className={styles.logo}>
+          <div className={styles.logoIcon}>⚛</div>
+          <div className={styles.logoText}>
+            <span className={styles.brand}>NEXUS</span>
+            <span className={styles.sub}>Candidate Portal</span>
+          </div>
+        </div>
+        
+        <nav className={styles.nav}>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              className={`${styles.navBtn} ${activeItem === item.id ? styles.navBtnActive : ""}`}
+              onClick={() => handleItemClick(item.id)}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span className={styles.navLabel}>{item.label}</span>
+              {activeItem === item.id && <span className={styles.navArrow}>›</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.footer}>
+          <div className={styles.atomIcon}>⚛</div>
+          <button className={styles.signOut} onClick={onLogout}>Sign Out</button>
+        </div>
+      </aside>
+      
+      {isOpen && <div className={styles.overlay} onClick={() => setIsOpen(false)} />}
+    </>
   );
 }

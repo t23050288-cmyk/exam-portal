@@ -1250,6 +1250,25 @@ function QuestionsTab() {
     }
   };
 
+  // ── Attempts Modal State ──
+  const [attemptsModal, setAttemptsModal] = useState<{ name: string } | null>(null);
+  const [attemptsValue, setAttemptsValue] = useState("1");
+
+  const handleSetAttempts = async (folderName: string) => {
+    const val = parseInt(attemptsValue, 10);
+    if (isNaN(val) || val < 1) { alert("Enter a valid number of attempts (1+)."); return; }
+    try {
+      setLoading(true);
+      await updateExamConfig({ exam_title: folderName, max_attempts: val });
+      setAttemptsModal(null);
+      alert(`Exam "${folderName}" max attempts set to ${val}.`);
+    } catch (error: any) {
+      alert(`Failed to set attempts: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredQuestions = questions.filter((q) => {
     const branchMatch = selectedBranch === "All" || q.branch === selectedBranch;
     const categoryMatch = selectedCategory === "All" || q.category === selectedCategory;
@@ -1381,6 +1400,11 @@ function QuestionsTab() {
                       </div>
                       {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                          {/* 0. ATTEMPTS */}
+                          <button
+                            style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(255,152,0,0.4)", background: "rgba(255,152,0,0.08)", color: "#ff9800", cursor: "pointer", fontWeight: 700 }}
+                            onClick={(e) => { e.stopPropagation(); setAttemptsModal({ name }); setAttemptsValue("1"); }}
+                          >🔄 Attempts</button>
                           {/* 1. ACTIVATE */}
                           {activeExamTitles.includes(name) ? (
                             <>
@@ -1858,6 +1882,41 @@ function QuestionsTab() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Attempts Modal ── */}
+      {attemptsModal && (
+        <div className={adminStyles.modalOverlay} onClick={() => setAttemptsModal(null)}>
+          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3 style={{ marginBottom: 8 }}>🔄 Set Max Attempts</h3>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+              Set how many times a student can attempt <strong>{attemptsModal.name}</strong>.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4, display: "block" }}>
+                  Maximum Attempts
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={attemptsValue}
+                  onChange={(e) => setAttemptsValue(e.target.value)}
+                  className={adminStyles.input}
+                  style={{ width: "100%", textAlign: "center", fontSize: 18, fontWeight: 800, padding: "12px" }}
+                  placeholder="1"
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => setAttemptsModal(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={() => handleSetAttempts(attemptsModal.name)} disabled={!attemptsValue || parseInt(attemptsValue) < 1}>
+                  Save Attempts
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

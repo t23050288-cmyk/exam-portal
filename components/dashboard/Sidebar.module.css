@@ -62,6 +62,20 @@
   flex-direction: column;
   gap: 0.5rem;
   flex: 1;
+  overflow-y: scroll;
+  padding-right: 0.5rem;
+}
+
+/* Custom Scrollbar for Nav */
+.nav::-webkit-scrollbar {
+  width: 4px;
+}
+.nav::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+.nav::-webkit-scrollbar-thumb {
+  background: var(--nexus-cyan);
+  border-radius: 10px;
 }
 
 .navBtn {
@@ -78,6 +92,7 @@
   transition: all 0.3s ease;
   position: relative;
   text-align: left;
+  flex-shrink: 0;
 }
 
 .navBtn:hover {
@@ -109,15 +124,16 @@
 
 .footer {
   margin-top: auto;
-  padding-bottom: 10%;
+  padding: 1rem 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .atomIcon {
-  font-size: 4rem;
+  font-size: 3rem;
   opacity: 0.1;
   color: var(--nexus-cyan);
   transform: rotate(15deg);
@@ -139,14 +155,70 @@
   border-color: #fff;
 }
 
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 1.25rem;
+  left: 1.25rem;
+  z-index: 1001;
+  background: var(--nexus-glass-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--nexus-glass-border);
+  color: var(--text-primary);
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
 @media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    height: auto;
-    clip-path: none;
-    border-bottom: 1px solid var(--nexus-glass-border);
+  .hamburger {
+    display: flex;
   }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    bottom: 0;
+    width: 260px;
+    height: 100vh;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    clip-path: none;
+    border-right: 1px solid var(--nexus-glass-border);
+  }
+
+  .sidebarOpen {
+    transform: translateX(280px);
+  }
+
   .sidebar::before {
     clip-path: none;
+  }
+
+  .overlay {
+    display: block;
+  }
+  
+  .logo {
+    margin-top: 3.5rem;
   }
 }

@@ -202,31 +202,43 @@ export default function DashboardPage() {
         }
       }
 
+      const studentBranch = studentRaw ? JSON.parse(studentRaw).branch?.trim().toUpperCase() : "";
+
       const nodes: ExamNode[] = []; const seen = new Set<string>();
       if (qData && active.length > 0) {
         for (const cfg of active) {
           const qs = (qData || []).filter((q: any) => q.exam_name === cfg.exam_title);
-          const groups: Record<string, { count: number; category: string }> = {};
+          if (qs.length === 0) continue;
+
+          // ── Branch-aware counting ──
+          // Branches are stored as comma-separated, e.g. ",CS,AIML,ISE,"
+          // Count questions whose branch field contains the student's branch
+          let matchCount = 0;
+          let cat = "Others";
           qs.forEach((q: any) => {
-            const br = q.branch || "CS";
-            let cat = q.category || "";
-            if (cat !== "Aptitude" && cat !== "Programming") cat = "Others";
-            if (!groups[br]) groups[br] = { count: 0, category: cat };
-            groups[br].count++;
-          });
-          Object.entries(groups).forEach(([branch, data]) => {
-            const nid = `${cfg.exam_title}-${branch}`;
-            if (!seen.has(nid)) {
-              const sub = submittedMap[cfg.exam_title];
-              nodes.push({ id: nid, exam_name: cfg.exam_title, branch, is_active: cfg.is_active,
-                duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
-                question_count: data.count, category: data.category,
-                submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
-                max_attempts: cfg.max_attempts || 1, attempt_count: sub?.attempt_count || 0,
-              });
-              seen.add(nid);
+            const branchStr = (q.branch || "").toUpperCase();
+            const qCat = q.category || "";
+            if (qCat === "Aptitude" || qCat === "Programming") cat = qCat;
+            // Match if the branch string contains the student's branch
+            if (!studentBranch || branchStr.toUpperCase().includes(studentBranch) || branchStr === "" || branchStr === "GLOBAL" || branchStr === "ALL") {
+              matchCount++;
             }
           });
+
+          // Only show exam if there are questions for this student's branch
+          if (matchCount === 0 && studentBranch) continue;
+
+          const nid = cfg.exam_title;
+          if (!seen.has(nid)) {
+            const sub = submittedMap[cfg.exam_title];
+            nodes.push({ id: nid, exam_name: cfg.exam_title, branch: studentBranch || "ALL", is_active: cfg.is_active,
+              duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
+              question_count: matchCount || qs.length, category: cat,
+              submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
+              max_attempts: cfg.max_attempts || 1, attempt_count: sub?.attempt_count || 0,
+            });
+            seen.add(nid);
+          }
         }
       }
       setAllExams(nodes);
@@ -242,11 +254,14 @@ export default function DashboardPage() {
 
   const filteredExams = useMemo(() => allExams.filter(e => {
     // ── Branch Filter ──
-    // Only show exams that match the student's branch (case-insensitive)
+    // Branches may be comma-separated (e.g. ",CS,AIML,ISE,")
+    // Match if the student's branch appears anywhere in the branch string
     if (student) {
       const sb = student.branch.trim().toUpperCase();
       const eb = e.branch.trim().toUpperCase();
-      if (eb !== sb && eb !== "GLOBAL" && eb !== "" && eb !== "ALL") return false;
+      // Check if eb contains sb (handles ",CS,AIML," format)
+      const branchMatch = eb === sb || eb === "GLOBAL" || eb === "" || eb === "ALL" || eb.includes(sb);
+      if (!branchMatch) return false;
     }
 
     // Exclude exams based on attempt limits

@@ -522,13 +522,28 @@ select.input option {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(139, 92, 246, 0.25);
+  border-radius: 14px;
+  padding: 14px;
+  transition: all 0.3s ease;
+}
+
+.mediaBox:hover {
+  background: rgba(139, 92, 246, 0.05);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
 }
 
 .mediaLabel {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 800;
+  color: rgba(139, 92, 246, 0.7);
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  margin-bottom: 4px;
 }
 
 @media (max-width: 600px) {
@@ -536,3 +551,4 @@ select.input option {
     grid-template-columns: 1fr;
   }
 }
+
