@@ -45,9 +45,9 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
 
   const [ready, setReady] = useState(false);
 
-  // Grace period: reduced to 3 seconds (enough for page setup, not so long violations are missed)
+  // Grace period: reduced to 1 second for immediate enforcement
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 3000);
+    const t = setTimeout(() => setReady(true), 1000);
     return () => clearTimeout(t);
   }, []);
 

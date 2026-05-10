@@ -170,7 +170,7 @@ export default function AdminDashboard({ examId = "" }: Props) {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <h3 style={{ margin:0 }}>🔍 Session: {drill.slice(0,8)}…</h3>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => exportSession(drill)} style={{ background:"#0f172a", border:"1px solid #334155", color:"#94a3b8", padding:"4px 12px", borderRadius:6, cursor:"pointer", fontSize:12 }}>📥 Export JSON</button>
+              {/* Removed Export JSON as per user request */}
               <button onClick={() => { setDrill(null); setLog(null); }} style={{ background:"transparent", border:"1px solid #ef4444", color:"#f87171", padding:"4px 12px", borderRadius:6, cursor:"pointer", fontSize:12 }}>✕ Close</button>
             </div>
           </div>

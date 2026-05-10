@@ -228,6 +228,9 @@ export default function InstructionsPage() {
               onClick={() => router.replace("/dashboard")}
               disabled={starting}
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
               Back to Dashboard
             </button>
             <button 

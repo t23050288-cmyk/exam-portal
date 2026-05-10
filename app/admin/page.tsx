@@ -1839,7 +1839,25 @@ function StudentsTab() {
   const [examResults, setExamResults] = useState<any[]>([]);
   const [examConfigs, setExamConfigs] = useState<any[]>([]);
   const [branchFilter, setBranchFilter] = useState("all");
+  const [catFilter, setCatFilter] = useState("all");
   const [infoCatTab, setInfoCatTab] = useState("all");
+
+  const handleExportStudents = () => {
+    const headers = ["Name", "USN", "Email", "Branch", "Status", "Warnings", "Submitted At"];
+    const rows = students.map(s => [
+      s.name, s.usn, s.email || "", s.branch, s.status, s.warnings, s.submitted_at || ""
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `students_export_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -1857,15 +1875,19 @@ function StudentsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchAdminStudents();
-      setStudents(data);
-      // Fetch exam results and configs for completion tracking
-      const [resR, cfgR] = await Promise.all([
+      const stData = await fetchAdminStudents();
+      const [resR, cfgR, qR, phR] = await Promise.all([
         supabase.from("exam_results").select("student_id, exam_title, category, score, total_marks, submitted_at"),
         supabase.from("exam_config").select("exam_title, category, is_active"),
+        supabase.from("questions").select("exam_name, branch, category"),
+        supabase.from("pyhunt_progress").select("student_id, current_round, status")
       ]);
+
+      setStudents(stData || []);
       setExamResults(resR.data || []);
       setExamConfigs(cfgR.data || []);
+      (window as any).__examBranchMap = qR.data || [];
+      (window as any).__pyHuntSessions = phR.data || [];
     }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -1947,47 +1969,41 @@ function StudentsTab() {
     <div className={adminStyles.managementPage}>
       <div className={adminStyles.header}>
         <h2 className={adminStyles.headerTitle}>Students ({students.length})</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          {deleteAllCount > 0 && (
-            <span style={{ fontSize: 12, color: "#f87171", alignSelf: "center" }}>
-              Click {3 - deleteAllCount} more time{3 - deleteAllCount !== 1 ? "s" : ""} to confirm delete all
-            </span>
-          )}
+        <div style={{ display: "flex", gap: 12 }}>
+          {/* Branch & Category Selects */}
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            <select className={adminStyles.input} style={{ width: 140, height: 38, padding: "0 10px", fontSize: 13, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}
+              value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+              <option value="all">All Branches</option>
+              {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <select className={adminStyles.input} style={{ width: 140, height: 38, padding: "0 10px", fontSize: 13, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}
+              value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+              <option value="all">All Categories</option>
+              <option value="Aptitude">Aptitude</option>
+              <option value="Programming">Programming</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
+
           <button
             className="btn btn-outline"
             onClick={handleDeleteAll}
-            style={{ color: deleteAllCount > 0 ? "#f87171" : undefined, borderColor: deleteAllCount > 0 ? "#f87171" : undefined, fontSize: 13 }}
+            style={{ color: deleteAllCount > 0 ? "#f87171" : undefined, borderColor: deleteAllCount > 0 ? "#f87171" : undefined, fontSize: 13, height: 38 }}
           >
             🗑️ Delete All {deleteAllCount > 0 ? `(${deleteAllCount}/3)` : ""}
           </button>
-          <button className="btn btn-primary" onClick={() => { setEditing(null); setFormData({ usn: "", name: "", email: "", branch: "CS", password: "" }); setShowModal(true); }}>
+          
+          <button className="btn btn-primary" style={{ height: 38 }} onClick={() => { setEditing(null); setFormData({ usn: "", name: "", email: "", branch: "CS", password: "" }); setShowModal(true); }}>
             + Add Student
           </button>
-            {/* Bulk CSV upload */}
-            <label style={{ padding:"8px 16px", borderRadius:8, border:"1px solid #6366f1", background:"transparent", color:"#a5b4fc", fontSize:13, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:6 }}>
-              📤 {csvUploading ? "Uploading…" : "Bulk CSV"}
-              <input type="file" accept=".csv" onChange={handleCsvUpload} style={{ display:"none" }} disabled={csvUploading} />
-            </label>
-            {csvResult && (
-              <span style={{ fontSize:12, color:"#94a3b8" }}>
-                ✅ {csvResult.created} created · ⏭ {csvResult.skipped} skipped
-                {csvResult.errors.length>0 && <span style={{color:"#f87171"}}> · ⚠️ {csvResult.errors.length} err</span>}
-              </span>
-            )}
+
+          <button onClick={handleExportStudents} style={{ padding:"0 16px", height: 38, borderRadius:10, border:"1px solid #10b981", background:"transparent", color:"#34d399", fontSize:13, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:6 }}>
+            📥 Export CSV
+          </button>
         </div>
       </div>
 
-      {/* Branch filter */}
-      {!loading && students.length > 0 && (
-        <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
-          {["all", ...Array.from(new Set(students.map(s => s.branch || "CS")))].map(b => (
-            <button key={b} onClick={() => setBranchFilter(b)}
-              style={{ padding:"6px 14px", borderRadius:20, border: branchFilter===b ? "1px solid #8b5cf6" : "1px solid rgba(255,255,255,0.08)", background: branchFilter===b ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.03)", color: branchFilter===b ? "#a78bfa" : "var(--text-muted)", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              {b === "all" ? "All Branches" : b}
-            </button>
-          ))}
-        </div>
-      )}
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><div className="spinner" style={{ width: 32, height: 32 }} /></div>
@@ -1995,18 +2011,35 @@ function StudentsTab() {
         <div className={adminStyles.empty}>No students yet. Add one to get started.</div>
       ) : (() => {
         const filtered = branchFilter === "all" ? students : students.filter(s => (s.branch||"CS") === branchFilter);
-        // Helper: count completed exams for a student
-        const getCompletion = (sid: string, branch: string) => {
-          const branchExams = examConfigs.filter((c: any) => c.is_active || true); // all configs
-          const uniqueExams = new Set(branchExams.map((c: any) => c.exam_title));
+        // Helper: count completed exams for a student based on branch assignments
+        const getCompletion = (sid: string, studentBranch: string) => {
+          const qMap = (window as any).__examBranchMap || [];
+          
+          // Get unique exam names from active configs
+          const activeExamTitles = new Set(examConfigs.filter(c => c.is_active).map(c => c.exam_title));
+
+          // Find exams that have at least one question for this student's branch AND match category filter
+          const branchExams = new Set(qMap
+            .filter((q: any) => {
+              const bMatch = q.branch?.includes("," + studentBranch + ",") || q.branch === studentBranch;
+              const cMatch = catFilter === "all" || q.category === catFilter;
+              const isActive = activeExamTitles.has(q.exam_name);
+              return bMatch && cMatch && isActive;
+            })
+            .map((q: any) => q.exam_name)
+          );
+
           const completed = new Set(examResults.filter((r: any) => r.student_id === sid).map((r: any) => r.exam_title));
-          return { done: completed.size, total: uniqueExams.size };
+          
+          // Count done exams that are actually in the branchExams set
+          const done = Array.from(completed).filter(title => branchExams.has(title)).length;
+          return { done, total: branchExams.size };
         };
         return (
         <div className={adminStyles.tableWrapper}>
           <table className={adminStyles.table}>
             <thead>
-              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>Warnings</th><th>Actions</th></tr>
+              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>PyHunt</th><th>Warnings</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.map((s, i) => {
@@ -2023,14 +2056,26 @@ function StudentsTab() {
                       {comp.done}/{comp.total}
                     </span>
                   </td>
+                  <td>
+                    {(() => {
+                      const ph = (window as any).__pyHuntSessions?.find((p: any) => p.student_id === s.usn);
+                      if (!ph) return <span style={{ opacity: 0.2 }}>—</span>;
+                      const isDone = ph.status === "finished" || ph.current_round >= 5;
+                      return (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: isDone ? "#10b981" : "#00dcff" }}>
+                          {isDone ? "✓ Finished" : `Round ${ph.current_round}`}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td><WarningBadge count={s.warnings} /></td>
                   <td>
-                    <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.03)", borderRadius:10, padding:"3px 4px", border:"1px solid rgba(255,255,255,0.06)" }}>
-                      <button title="Info" onClick={() => handleShowInfo(s)} style={{ padding:"5px 8px", borderRadius:7, border:"none", background:"rgba(52,211,153,0.1)", color:"#34d399", fontSize:12, fontWeight:700, cursor:"pointer" }}>📋</button>
-                      <button title="Edit" onClick={() => { let bID = s.branch || "CS"; const match = ALL_BRANCH_DATA.find(b => b.name === bID || b.id === bID); if (match) bID = match.id; setEditing(s); setFormData({ usn: s.usn, name: s.name, email: s.email || "", branch: bID, password: "" }); setShowModal(true); }} style={{ padding:"5px 8px", borderRadius:7, border:"none", background:"rgba(99,102,241,0.1)", color:"#818cf8", fontSize:12, fontWeight:700, cursor:"pointer" }}>✏️</button>
-                      <button title="Reset Password" onClick={() => { const p = prompt("Enter new password:"); if (p) updateAdminStudent(s.student_id, { password: p }).then(() => alert("Password reset")); }} style={{ padding:"5px 8px", borderRadius:7, border:"none", background:"rgba(255,255,255,0.04)", color:"#94a3b8", fontSize:12, cursor:"pointer" }}>🔑</button>
-                      <button title="Re-Exam" onClick={() => handleResetExam(s.student_id)} style={{ padding:"5px 8px", borderRadius:7, border:"none", background:"rgba(245,158,11,0.1)", color:"#f59e0b", fontSize:12, cursor:"pointer" }}>🔄</button>
-                      <button title="Delete" onClick={() => handleDelete(s.student_id)} style={{ padding:"5px 8px", borderRadius:7, border:"none", background:"rgba(239,68,68,0.08)", color:"#f87171", fontSize:12, cursor:"pointer" }}>🗑️</button>
+                    <div style={{ display:"flex", gap:6, background:"rgba(255,255,255,0.02)", borderRadius:12, padding:6, border:"1px solid rgba(255,255,255,0.05)" }}>
+                      <button title="View Report" onClick={() => handleShowInfo(s)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(16,185,129,0.12)", color:"#10b981", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>📋</button>
+                      <button title="Edit Profile" onClick={() => { let bID = s.branch || "CS"; const match = ALL_BRANCH_DATA.find(b => b.name === bID || b.id === bID); if (match) bID = match.id; setEditing(s); setFormData({ usn: s.usn, name: s.name, email: s.email || "", branch: bID, password: "" }); setShowModal(true); }} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(99,102,241,0.12)", color:"#818cf8", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✏️</button>
+                      <button title="Reset Password" onClick={() => { const p = prompt("Enter new password:"); if (p) updateAdminStudent(s.student_id, { password: p }).then(() => alert("Password reset")); }} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(255,255,255,0.05)", color:"#94a3b8", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🔑</button>
+                      <button title="Allow Re-Exam" onClick={() => handleResetExam(s.student_id)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(245,158,11,0.12)", color:"#f59e0b", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🔄</button>
+                      <button title="Remove Student" onClick={() => handleDelete(s.student_id)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(239,68,68,0.12)", color:"#f87171", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -2043,88 +2088,144 @@ function StudentsTab() {
       })()}
 
       {infoStudent && (() => {
-        const sResults = examResults.filter((r: any) => r.student_id === infoStudent.student_id);
+        const sid = infoStudent.student_id;
+        const sBranch = infoStudent.branch || "CS";
+        const qMap = (window as any).__examBranchMap || [];
+        const sResults = examResults.filter((r: any) => r.student_id === sid);
+        
+        // Branch-aware totals per category (Only count ACTIVE exams)
+        const getCatStats = (cat: string) => {
+          const activeTitles = new Set(examConfigs.filter(c => c.is_active).map(c => c.exam_title));
+          const catExams = new Set(qMap.filter((q: any) => {
+            const bMatch = q.branch?.includes("," + sBranch + ",") || q.branch === sBranch;
+            const cMatch = (q.category||"Others").toLowerCase() === cat.toLowerCase();
+            const isActive = activeTitles.has(q.exam_name);
+            return bMatch && cMatch && isActive;
+          }).map((q: any) => q.exam_name));
+
+          const completed = new Set(sResults.filter((r: any) => (r.category||"Others").toLowerCase() === cat.toLowerCase()).map((r: any) => r.exam_title));
+          const done = Array.from(completed).filter(t => catExams.has(t)).length;
+          return { done, total: catExams.size };
+        };
+
         const catFilter = (cat: string) => cat === "all" ? sResults : sResults.filter((r: any) => (r.category || "Others").toLowerCase() === cat.toLowerCase());
-        const catConfigs = (cat: string) => cat === "all" ? examConfigs : examConfigs.filter((c: any) => (c.category || "Others").toLowerCase() === cat.toLowerCase());
         const filteredResults = catFilter(infoCatTab);
-        const filteredConfigs = catConfigs(infoCatTab);
-        const uniqueCompleted = new Set(filteredResults.map((r: any) => r.exam_title));
-        const uniqueTotal = new Set(filteredConfigs.map((c: any) => c.exam_title));
+        
+        const overall = {
+          done: new Set(qMap.filter((q: any) => (q.branch?.includes("," + sBranch + ",") || q.branch === sBranch) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name).filter((t: any) => sResults.some((r: any) => r.exam_title === t))).size,
+          total: new Set(qMap.filter((q: any) => (q.branch?.includes("," + sBranch + ",") || q.branch === sBranch) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name)).size
+        };
+
         return (
         <div className={adminStyles.modalOverlay} onClick={() => setInfoStudent(null)}>
-          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(0, 220, 255, 0.2)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 24 }}>
-              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, color: "#fff", boxShadow: "0 0 20px rgba(124, 77, 255, 0.3)" }}>
-                {infoStudent.name[0]}
+          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600, background: "rgba(10, 15, 30, 0.98)", border: "1px solid rgba(139, 92, 246, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg, #6366f1, #a855f7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 900, color: "#fff", boxShadow: "0 10px 20px rgba(99, 102, 241, 0.3)" }}>
+                {infoStudent.name ? infoStudent.name[0] : "?"}
               </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 20, color: "#fff" }}>{infoStudent.name}</h3>
-                <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>{infoStudent.usn} · {infoStudent.email || "No email"}</p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#a78bfa" }}>{infoStudent.branch || "CS"}</p>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: 24, color: "#fff", letterSpacing: "-0.02em" }}>{infoStudent.name || "Student"}</h3>
+                <p style={{ margin: "4px 0", fontSize: 14, color: "var(--text-secondary)" }}>{infoStudent.usn} • {infoStudent.email || "No email"}</p>
+                <div style={{ display: "inline-flex", padding: "4px 12px", background: "rgba(139, 92, 246, 0.15)", color: "#a78bfa", borderRadius: 20, fontSize: 12, fontWeight: 800, marginTop: 4 }}>
+                  {sBranch} Branch
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: "#fff" }}>{overall.done}<span style={{ color: "rgba(255,255,255,0.3)", fontSize: 18 }}>/{overall.total}</span></div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.1em" }}>TOTAL PROGRESS</div>
               </div>
             </div>
 
-            {/* Category tabs */}
-            <div style={{ display:"flex", gap:4, marginBottom:16, background:"rgba(255,255,255,0.03)", borderRadius:12, padding:4, border:"1px solid rgba(255,255,255,0.06)" }}>
+            {/* Category Stats Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+              {["Aptitude", "Programming", "Others"].map(cat => {
+                const stat = getCatStats(cat);
+                const pct = stat.total > 0 ? (stat.done / stat.total) * 100 : 0;
+                return (
+                  <div key={cat} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.06)", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, background: "#8b5cf6", width: `${pct}%`, transition: "width 1s ease" }} />
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)", marginBottom: 8 }}>{cat.toUpperCase()}</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>{stat.done}<span style={{ fontSize: 14, color: "rgba(255,255,255,0.2)" }}>/{stat.total}</span></div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Category tabs for history */}
+            <div style={{ display:"flex", gap:4, marginBottom:16, background:"rgba(0,0,0,0.2)", borderRadius:14, padding:4, border:"1px solid rgba(255,255,255,0.06)" }}>
               {["all","Aptitude","Programming","Others"].map(cat => (
                 <button key={cat} onClick={() => setInfoCatTab(cat.toLowerCase())}
-                  style={{ flex:1, padding:"8px 4px", borderRadius:8, border:"none", fontSize:11, fontWeight:800, cursor:"pointer",
-                    background: infoCatTab === cat.toLowerCase() ? "rgba(139,92,246,0.2)" : "transparent",
-                    color: infoCatTab === cat.toLowerCase() ? "#a78bfa" : "var(--text-muted)" }}>
-                  {cat === "all" ? "All" : cat}
+                  style={{ flex:1, padding:"10px 4px", borderRadius:10, border:"none", fontSize:11, fontWeight:800, cursor:"pointer",
+                    background: infoCatTab === cat.toLowerCase() ? "rgba(139,92,246,0.25)" : "transparent",
+                    color: infoCatTab === cat.toLowerCase() ? "#a78bfa" : "var(--text-muted)", transition: "all 0.2s" }}>
+                  {cat === "all" ? "Full History" : cat}
                 </button>
               ))}
             </div>
 
-            {/* Stats summary */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:20 }}>
-              <div style={{ background:"rgba(16,185,129,0.08)", padding:14, borderRadius:12, border:"1px solid rgba(16,185,129,0.15)", textAlign:"center" }}>
-                <div style={{ fontSize:22, fontWeight:900, color:"#10b981" }}>{uniqueCompleted.size}</div>
-                <div style={{ fontSize:10, color:"var(--text-muted)", fontWeight:700 }}>COMPLETED</div>
+            {/* Exam results list */}
+            <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.04)", overflow: "hidden", marginBottom: 20 }}>
+              <div style={{ padding: "12px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)" }}>EXAM PERFORMANCE</span>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{filteredResults.length} records</span>
               </div>
-              <div style={{ background:"rgba(245,158,11,0.08)", padding:14, borderRadius:12, border:"1px solid rgba(245,158,11,0.15)", textAlign:"center" }}>
-                <div style={{ fontSize:22, fontWeight:900, color:"#f59e0b" }}>{Math.max(0, uniqueTotal.size - uniqueCompleted.size)}</div>
-                <div style={{ fontSize:10, color:"var(--text-muted)", fontWeight:700 }}>REMAINING</div>
-              </div>
-              <div style={{ background:"rgba(99,102,241,0.08)", padding:14, borderRadius:12, border:"1px solid rgba(99,102,241,0.15)", textAlign:"center" }}>
-                <div style={{ fontSize:22, fontWeight:900, color:"#818cf8" }}>{uniqueTotal.size}</div>
-                <div style={{ fontSize:10, color:"var(--text-muted)", fontWeight:700 }}>TOTAL</div>
+              <div style={{ maxHeight:200, overflowY:"auto" }}>
+                {filteredResults.length > 0 ? (
+                  filteredResults.map((r: any, idx: number) => (
+                    <div key={idx} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+                      <div>
+                        <div style={{ fontSize:14, fontWeight:700, color:"#fff" }}>{r.exam_title}</div>
+                        <div style={{ fontSize:11, color:"var(--text-muted)", marginTop: 2 }}>{r.category || "Others"} • {new Date(r.submitted_at).toLocaleDateString()}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize:16, fontWeight:900, color: r.score >= r.total_marks * 0.5 ? "#10b981" : "#f87171" }}>{r.score}/{r.total_marks}</div>
+                        <div style={{ fontSize:10, fontWeight:700, color: "rgba(255,255,255,0.2)" }}>{Math.round((r.score/(r.total_marks||1))*100)}%</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign:"center", padding:32, color:"var(--text-muted)", fontSize:13 }}>No submissions found for this category.</div>
+                )}
               </div>
             </div>
 
-            {/* Exam results list */}
-            {filteredResults.length > 0 ? (
-              <div style={{ maxHeight:180, overflowY:"auto", marginBottom:16 }}>
-                {filteredResults.map((r: any, idx: number) => (
-                  <div key={idx} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:"#fff" }}>{r.exam_title}</div>
-                      <div style={{ fontSize:10, color:"var(--text-muted)" }}>{r.category || "Others"} · {new Date(r.submitted_at).toLocaleDateString()}</div>
-                    </div>
-                    <span style={{ fontSize:13, fontWeight:800, color: r.score >= r.total_marks * 0.5 ? "#10b981" : "#f87171" }}>{r.score}/{r.total_marks}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ textAlign:"center", padding:16, color:"var(--text-muted)", fontSize:12 }}>No exams completed in this category.</div>
-            )}
-
             {/* PyHunt Progress */}
-            <div style={{ background: "rgba(0, 220, 255, 0.05)", border: "1px solid rgba(0, 220, 255, 0.1)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-              <h4 style={{ margin: "0 0 10px 0", fontSize: 12, color: "#00dcff" }}>🐍 PyHunt</h4>
+            <div style={{ background: "linear-gradient(135deg, rgba(0, 220, 255, 0.08), rgba(0, 220, 255, 0.02))", border: "1px solid rgba(0, 220, 255, 0.2)", borderRadius: 16, padding: 18, marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h4 style={{ margin: 0, fontSize: 14, color: "#00dcff", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>🐍</span> PyHunt Quest
+                </h4>
+                {pyHuntProgress && (
+                  <span style={{ fontSize: 11, fontWeight: 900, padding: "4px 10px", borderRadius: 20, background: pyHuntProgress.status === "finished" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: pyHuntProgress.status === "finished" ? "#10b981" : "#f59e0b" }}>
+                    {pyHuntProgress.status === "finished" ? "COMPLETED" : "IN PROGRESS"}
+                  </span>
+                )}
+              </div>
               {pyHuntProgress ? (
-                <div style={{ display: "flex", gap:16 }}>
-                  <span style={{ fontSize:12, color:"var(--text-secondary)" }}>Round: <b style={{color:"#fff"}}>{pyHuntProgress.current_round}</b></span>
-                  <span style={{ fontSize:12, color: pyHuntProgress.status === "finished" ? "#10b981" : "#f59e0b", fontWeight:700 }}>{pyHuntProgress.status === "finished" ? "COMPLETED" : "IN PROGRESS"}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, marginBottom: 4 }}>CURRENT ROUND</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#fff" }}>{pyHuntProgress.status === "finished" ? "Round 5" : `Round ${pyHuntProgress.current_round}`}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, marginBottom: 4 }}>STATUS</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: pyHuntProgress.status === "finished" ? "#10b981" : "#00dcff" }}>
+                      {pyHuntProgress.status === "finished" ? "🏆 Completed" : `Searching Round ${pyHuntProgress.current_round}`}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>No PyHunt activity recorded.</div>
+                <div style={{ textAlign: "center", padding: 10, fontSize: 13, color: "rgba(0,220,255,0.4)", fontStyle: "italic" }}>No PyHunt journey recorded for this initiate.</div>
               )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button className="btn btn-primary" onClick={() => setInfoStudent(null)}>Close</button>
+              <button className="btn btn-primary" onClick={() => setInfoStudent(null)} style={{ padding: "12px 32px", borderRadius: 14, fontWeight: 800 }}>Done</button>
             </div>
+          </div>
+        </div>
+        );
+      })()}
           </div>
         </div>
         );

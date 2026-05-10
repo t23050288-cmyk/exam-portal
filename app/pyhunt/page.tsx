@@ -1022,17 +1022,20 @@ export default function PyHuntPage() {
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
       <div className={styles.fsOverlay}>
-        <div className={styles.fsCard}>
-          <div className={styles.fsIcon}>🛡️</div>
-          <h2>Secure Environment Required</h2>
-          <p>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
+        <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(40, 215, 214, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", padding: "40px", borderRadius: "24px" }}>
+          <div className={styles.fsIcon} style={{ fontSize: "48px", marginBottom: "20px" }}>🛡️</div>
+          <h2 style={{ fontSize: "24px", fontWeight: 900, color: "#fff", marginBottom: "12px" }}>Secure Environment Required</h2>
+          <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "32px", fontSize: "15px", lineHeight: "1.5" }}>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
           <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 12 }}>
-            <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard")} style={{ flex: 1 }}>
+            <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard")} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", fontWeight: 600, cursor: "pointer" }}>
               Back to Dashboard
             </button>
-            <button className={styles.primaryBtn} onClick={enterFullscreen} style={{ flex: 1 }}>
+            <button className={styles.primaryBtn} onClick={enterFullscreen} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", boxShadow: "0 8px 20px rgba(40, 215, 214, 0.2)" }}>
               Enter Secure Mode
             </button>
+          </div>
+          <div style={{ marginTop: "24px", fontSize: "11px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.05em", fontWeight: 700 }}>
+            VIOLATIONS ARE RECORDED IN REAL-TIME
           </div>
         </div>
       </div>
