@@ -222,13 +222,13 @@ export default function InstructionsPage() {
             </li>
           </ul>
 
-          <div className={styles.actionArea} style={{ display: "flex", gap: 16 }}>
+          <div className={styles.actionArea}>
             <button 
               className={styles.backBtn}
               onClick={() => router.replace("/dashboard")}
               disabled={starting}
             >
-               ← Back to Dashboard
+              Back to Dashboard
             </button>
             <button 
               onClick={handleStartExam} 

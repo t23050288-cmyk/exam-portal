@@ -100,14 +100,6 @@ export default function DashboardPage() {
   const [theme, setTheme] = useState<'galaxy' | 'classic'>('galaxy');
   const [localHistory, setLocalHistory] = useState<any[]>([]);
 
-  // Load History from Local Storage
-  useEffect(() => {
-    const saved = localStorage.getItem("nexus_exam_results");
-    if (saved) {
-      setLocalHistory(JSON.parse(saved));
-    }
-  }, []);
-
   useEffect(() => {
     const raw = sessionStorage.getItem("exam_student");
     const token = sessionStorage.getItem("exam_token");
@@ -122,11 +114,24 @@ export default function DashboardPage() {
     };
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
-    // Auto-redirect to History if student already completed an exam
-    const doneExams = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
-    if (doneExams.length > 0) {
-      setActiveNav("History");
-    }
+
+    // Load exam history from Supabase
+    supabase.from("exam_results")
+      .select("exam_title, score, total_marks, category, submitted_at")
+      .eq("student_id", s.id)
+      .order("submitted_at", { ascending: false })
+      .then(({ data }: any) => {
+        if (data && data.length > 0) {
+          const history = data.map((r: any) => ({
+            examName: r.exam_title,
+            score: r.score,
+            totalMarks: r.total_marks,
+            category: r.category || "Others",
+            timestamp: r.submitted_at,
+          }));
+          setLocalHistory(history);
+        }
+      });
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -189,11 +194,12 @@ export default function DashboardPage() {
   }, [loadExams]);
 
   const filteredExams = useMemo(() => allExams.filter(e => {
-    // Exclude exams already in local history from Home/Upcoming
-    const isCompletedLocally = localHistory.some(h => 
+    // Exclude exams the student has already submitted (from DB or local history)
+    if (e.submitted) return false;
+    const isCompletedInHistory = localHistory.some(h => 
       (h.examName || "").trim() === (e.exam_name || "").trim()
     );
-    if (isCompletedLocally) return false;
+    if (isCompletedInHistory) return false;
 
     if (activeNav === "Home") return true;
     if (["Profile", "History", "Insights", "PyHunt"].includes(activeNav)) return false;
@@ -231,9 +237,8 @@ export default function DashboardPage() {
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
-    // Block re-entry if already completed
-    const doneExams = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
-    if (doneExams.some((r: any) => r.examName === exam.exam_name)) {
+    // Block re-entry if already completed (check both DB flag and history)
+    if (exam.submitted || localHistory.some(h => h.examName === exam.exam_name)) {
       setActiveNav("History");
       return;
     }
@@ -257,7 +262,6 @@ export default function DashboardPage() {
   const handleLogout = () => { 
     sessionStorage.removeItem("exam_token"); 
     sessionStorage.removeItem("exam_student"); 
-    localStorage.removeItem("nexus_exam_results"); // Clear local history cache
     router.replace("/login"); 
   };
 
