@@ -332,21 +332,25 @@ def submit_exam(
 
     submitted_at = datetime.now(timezone.utc).isoformat()
 
-    # 4. Upsert exam_results
-    existing = (
-        db.table("exam_results")
-        .select("id")
-        .eq("student_id", student_id)
-        .execute()
-    )
-    if existing.data:
-        db.table("exam_results").update(
-            {"answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).eq("student_id", student_id).execute()
-    else:
-        db.table("exam_results").insert(
-            {"student_id": student_id, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).execute()
+    # 4. Save final results (Always insert for history)
+    category = "Others"
+    try:
+        cfg_res = db.table("exam_config").select("category").eq("exam_title", exam_title).execute()
+        if cfg_res.data:
+            category = cfg_res.data[0].get("category", "Others")
+    except:
+        pass
+
+    db.table("exam_results").insert({
+        "student_id": student_id,
+        "answers": answers,
+        "score": score,
+        "total_marks": total_marks,
+        "submitted_at": submitted_at,
+        "exam_title": exam_title,
+        "category": category
+    }).execute()
+
 
     # 5. Mark submitted
     db.table("exam_status").update(

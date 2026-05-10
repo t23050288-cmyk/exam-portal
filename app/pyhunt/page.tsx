@@ -904,7 +904,7 @@ export default function PyHuntPage() {
     if (finished) return;
 
     const handleViolation = (reason: string) => {
-      if (showWarning) return; 
+      // Always record violation even if warning is visible
       setWarningCount(prev => {
         const next = prev + 1;
         setLastViolation(reason);
@@ -923,6 +923,10 @@ export default function PyHuntPage() {
       if (document.visibilityState === "hidden") handleViolation("tab_switch"); 
     };
     const onBlur = () => handleViolation("window_blur");
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && !finished) handleViolation("fullscreen_exit");
+    };
+
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       handleViolation("right_click");
@@ -947,6 +951,7 @@ export default function PyHuntPage() {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
     window.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("copy", onCopy);
     window.addEventListener("paste", onPaste);
@@ -955,6 +960,7 @@ export default function PyHuntPage() {
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
       window.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("copy", onCopy);
       window.removeEventListener("paste", onPaste);
@@ -1041,12 +1047,14 @@ export default function PyHuntPage() {
             exit={{ opacity: 0 }} 
             className={styles.warningOverlay}
           >
-            <div className={styles.warningCard}>
-              <div className={styles.warningIcon}>⚠️</div>
-              <h2>Proctoring Violation</h2>
-              <p style={{ color: "#f87171", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                ERROR: {lastViolation.replace(/_/g, ' ')}
-              </p>
+            <div className={styles.warningCard} style={{ border: "2px solid #ef4444" }}>
+              <div className={styles.warningIcon} style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>⚠️</div>
+              <h2 style={{ color: "#fff", fontSize: 24, marginBottom: 8 }}>Security Alert</h2>
+              <div style={{ background: "rgba(239,68,68,0.05)", padding: "12px 16px", borderRadius: 12, marginBottom: 20, border: "1px solid rgba(239,68,68,0.1)" }}>
+                <p style={{ color: "#fca5a5", fontSize: 13, textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", margin: 0 }}>
+                  DETECTED: {lastViolation.replace(/_/g, ' ')}
+                </p>
+              </div>
               <div className={styles.warningStats}>
                 Warning <strong>{warningCount}</strong> of 3
               </div>

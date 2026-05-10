@@ -188,6 +188,7 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [loadExams]);
 
+  const filteredExams = useMemo(() => allExams.filter(e => {
     // Exclude exams already in local history from Home/Upcoming
     const isCompletedLocally = localHistory.some(h => 
       (h.examName || "").trim() === (e.exam_name || "").trim()
@@ -219,7 +220,7 @@ export default function DashboardPage() {
       performanceLocked: count < 3,
       lastFive: history.slice(-5).map(h => ({
         name: h.examName,
-        percentage: Math.round((h.score / h.totalMarks) * 100)
+        percentage: Math.round((h.score / (h.totalMarks || 1)) * 100)
       }))
     };
   }, [localHistory]);
@@ -559,12 +560,21 @@ export default function DashboardPage() {
                       <span className={styles.value}>{avgScore}%</span>
                     </div>
                   </div>
-                  <div className={styles.mountainCard}>
+                  <div className={`${styles.mountainCard} ${performanceLocked ? styles.locked : ""}`}>
+                     {performanceLocked && (
+                       <div className={styles.lockOverlay}>
+                         <div className={styles.lockIcon}>🔒</div>
+                         <div className={styles.lockMsg}>Data Unlocks after 3 Exams</div>
+                         <p style={{ fontSize: '11px', opacity: 0.6, marginTop: '8px', textAlign: 'center' }}>
+                           Complete {3 - completedCount} more assessment{3 - completedCount === 1 ? "" : "s"} to view insights
+                         </p>
+                       </div>
+                     )}
                      <div className={styles.mountainHeader}>
-                        <span className={styles.label}>Exam History (Last 5)</span>
+                        <span className={styles.label}>Performance Analytics (Last 5)</span>
                         <span className={styles.value}>{completedCount} Completed</span>
                      </div>
-                     <div className={styles.barGraphContainer} style={{ marginTop: '2rem', height: '200px' }}>
+                     <div className={styles.barGraphContainer} style={{ marginTop: '2.5rem', height: '180px' }}>
                         {lastFive.length > 0 ? lastFive.map((data, i) => (
                           <div key={i} className={styles.barWrapper}>
                             <div className={styles.barValue}>{data.percentage}%</div>
@@ -572,7 +582,10 @@ export default function DashboardPage() {
                               initial={{ height: 0 }}
                               animate={{ height: `${data.percentage}%` }}
                               className={styles.bar}
-                              style={{ background: i % 2 === 0 ? 'var(--nexus-cyan-grad)' : 'var(--accent-warm-grad)' }}
+                              style={{ 
+                                background: i % 2 === 0 ? 'var(--nexus-cyan-grad)' : 'var(--accent-warm-grad)',
+                                boxShadow: i % 2 === 0 ? '0 0 15px rgba(40, 215, 214, 0.3)' : '0 0 15px rgba(255, 154, 76, 0.3)'
+                              }}
                             />
                             <div className={styles.barLabel}>{data.name}</div>
                           </div>

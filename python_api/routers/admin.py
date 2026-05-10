@@ -9,8 +9,9 @@ from models.schemas import (
     QuestionCreate, QuestionUpdate,
     StudentStatus, StudentCreate, StudentUpdate,
     ExamConfig, ExamConfigUpdate, FolderRenameRequest,
-    FolderEditBranchRequest
+    FolderEditBranchRequest, StudentDetailedStats, StudentExamHistory
 )
+
 from datetime import datetime, timezone
 import io
 import xlsxwriter
@@ -296,9 +297,9 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
         "last_active": None
     }).eq("student_id", student_id).execute()
 
-    db.table("exam_results").delete().eq("student_id", student_id).execute()
-
+    # db.table("exam_results").delete().eq("student_id", student_id).execute() # REMOVED: Keep history
     return {"reset": True}
+
 
 @router.post("/students/cleanup-stale")
 async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
@@ -320,7 +321,7 @@ async def cleanup_stale_sessions(_: bool = Depends(verify_admin)):
         "submitted_at": None
     }).in_("student_id", stale_ids).execute()
 
-    db.table("exam_results").delete().in_("student_id", stale_ids).execute()
+    # db.table("exam_results").delete().in_("student_id", stale_ids).execute() # REMOVED: Keep history
 
     db.table("students").update({
         "is_active_session": False,
@@ -381,6 +382,100 @@ async def force_submit_student(student_id: str, _: bool = Depends(verify_admin))
     }).eq("id", student_id).execute()
 
     return {"status": "success", "score": score}
+
+
+# ── Student Detailed Stats (Analytics) ────────────────────────
+
+@router.get("/student-detailed-stats", response_model=list[StudentDetailedStats])
+async def get_student_detailed_stats(
+    branch: Optional[str] = Query("all"),
+    category: Optional[str] = Query("all"),
+    _: bool = Depends(verify_admin)
+):
+    """Aggregate detailed performance metrics for all students with history."""
+    db = get_supabase()
+    
+    # 1. Fetch students
+    query = db.table("students").select("id, usn, name, email, branch")
+    if branch and branch != "all":
+        query = query.eq("branch", branch)
+    
+    students_res = query.execute()
+    students_data = students_res.data or []
+    
+    if not students_data:
+        return []
+    
+    student_ids = [s["id"] for s in students_data]
+    
+    # 2. Fetch all results for these students
+    results_query = db.table("exam_results").select("*").in_("student_id", student_ids)
+    if category and category != "all":
+        results_query = results_query.eq("category", category)
+    
+    results_res = results_query.execute()
+    results_data = results_res.data or []
+    
+    # 3. Aggregate
+    stats_map = {}
+    for s in students_data:
+        stats_map[s["id"]] = {
+            "student_id": s["id"],
+            "usn": s["usn"],
+            "name": s["name"],
+            "email": s["email"],
+            "branch": s["branch"],
+            "exams_completed": 0,
+            "total_percentage": 0.0,
+            "last_exam_at": None,
+            "history": []
+        }
+    
+    for r in results_data:
+        sid = r["student_id"]
+        if sid not in stats_map:
+            continue
+            
+        score = r.get("score", 0)
+        total = r.get("total_marks", 0)
+        pct = (score / total * 100) if total > 0 else 0
+        
+        history_item = StudentExamHistory(
+            exam_title=r.get("exam_title", "Unknown Exam"),
+            score=score,
+            total_marks=total,
+            percentage=round(pct, 1),
+            submitted_at=r.get("submitted_at", ""),
+            category=r.get("category", "Others")
+        )
+        
+        stats_map[sid]["history"].append(history_item)
+        stats_map[sid]["exams_completed"] += 1
+        stats_map[sid]["total_percentage"] += pct
+        
+        submitted_at = r.get("submitted_at")
+        if submitted_at:
+            if not stats_map[sid]["last_exam_at"] or submitted_at > stats_map[sid]["last_exam_at"]:
+                stats_map[sid]["last_exam_at"] = submitted_at
+                
+    # 4. Finalize
+    final_stats = []
+    for sid, data in stats_map.items():
+        if data["exams_completed"] > 0:
+            data["average_percentage"] = round(data["total_percentage"] / data["exams_completed"], 1)
+        else:
+            data["average_percentage"] = 0.0
+            
+        # Sort history by date descending
+        data["history"].sort(key=lambda x: x.submitted_at, reverse=True)
+        
+        # Remove helper field
+        helper_pct = data.pop("total_percentage")
+        
+        final_stats.append(StudentDetailedStats(**data))
+        
+    return final_stats
+
 
 # ── Exam Config (Orbital Control) ─────────────────────────────
 

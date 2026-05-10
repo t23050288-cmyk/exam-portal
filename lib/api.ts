@@ -121,6 +121,29 @@ export interface LoginResponse {
   total_questions: number;
 }
 
+
+export interface StudentExamHistory {
+  exam_title: string;
+  score: number;
+  total_marks: number;
+  percentage: number;
+  submitted_at: string;
+  category: string;
+}
+
+export interface StudentDetailedStats {
+  student_id: string;
+  usn: string;
+  name: string;
+  email: string | null;
+  branch: string;
+  exams_completed: number;
+  average_percentage: number;
+  last_exam_at: string | null;
+  history: StudentExamHistory[];
+}
+
+
 export interface ViolationResponse {
   warning_count: number;
   auto_submitted: boolean;
@@ -424,6 +447,12 @@ export async function cleanupStaleSessions(): Promise<{ cleaned: number; count: 
   const n = res.cleaned ?? res.count ?? 0;
   return { cleaned: n, count: n };
 }
+
+
+export async function fetchStudentDetailedStats(branch = "all", category = "all"): Promise<StudentDetailedStats[]> {
+  return adminFetch<StudentDetailedStats[]>(`/admin/student-detailed-stats?branch=${encodeURIComponent(branch)}&category=${encodeURIComponent(category)}`);
+}
+
 
 export async function exportResults(branch?: string): Promise<Blob> {
   const url = branch ? `/admin/export?branch=${encodeURIComponent(branch)}` : "/admin/export";

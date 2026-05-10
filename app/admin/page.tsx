@@ -28,6 +28,9 @@ import {
   forceSubmitAdminStudent,
   cleanupStaleSessions,
   fetchExamConfig,
+  fetchStudentDetailedStats,
+  StudentDetailedStats,
+  StudentExamHistory,
 } from "@/lib/api";
 import { BRANCHES as BRANCH_LIST, BRANCH_IDS } from "@/lib/constants";
 import styles from "./admin.module.css";
@@ -86,7 +89,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos" | "pyhunt";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos" | "pyhunt" | "analytics";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -456,6 +459,7 @@ export default function AdminPage() {
     { id: "grading",     label: "Grading",     icon: "⚙️" },
     { id: "sos",         label: "SOS",         icon: "🆘" },
     { id: "pyhunt",      label: "PyHunt",      icon: "🐍" },
+    { id: "analytics",   label: "Analytics",   icon: "📊" },
   ];
 
   return (
@@ -696,6 +700,7 @@ export default function AdminPage() {
       {activeTab === "students"    && <StudentsTab />}
       {activeTab === "sos"         && <SOSAdminPage />}
       {activeTab === "pyhunt"      && <PyHuntAdminTab />}
+      {activeTab === "analytics"   && <AnalyticsTab />}
     </div>
   );
 }
@@ -828,6 +833,188 @@ function WarningBadge({ count }: { count: number }) {
   if (count === 1) return <span className="badge badge-warning">⚠ 1</span>;
   if (count === 2) return <span className="badge" style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}>⚠ 2</span>;
   return <span className="badge badge-danger">🔴 {count}</span>;
+}
+
+// ── Analytics Tab ─────────────────────────────────────────────
+function AnalyticsTab() {
+  const [stats, setStats] = useState<StudentDetailedStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentDetailedStats | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchStudentDetailedStats(branchFilter, categoryFilter);
+      setStats(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchFilter, categoryFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = stats.filter(s => 
+    (s.name || "").toLowerCase().includes(search.toLowerCase()) || 
+    (s.usn || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className={adminStyles.managementPage}>
+      <div className={adminStyles.header}>
+        <h2 className={adminStyles.headerTitle}>Academic Analytics</h2>
+        <div style={{ display: "flex", gap: 12 }}>
+          <select 
+            className={adminStyles.input} 
+            value={branchFilter} 
+            onChange={(e) => setBranchFilter(e.target.value)}
+            style={{ width: 140, height: 38, fontSize: 13 }}
+          >
+            <option value="all">All Branches</option>
+            {ALL_BRANCH_DATA.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select 
+            className={adminStyles.input} 
+            value={categoryFilter} 
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ width: 140, height: 38, fontSize: 13 }}
+          >
+            <option value="all">All Categories</option>
+            <option value="Aptitude">Aptitude</option>
+            <option value="Programming">Programming</option>
+            <option value="Others">Others</option>
+          </select>
+          <div style={{ position: "relative" }}>
+            <input 
+              className={adminStyles.input}
+              placeholder="Search USN or Name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: 34, width: 220, height: 38, fontSize: 13 }}
+            />
+            <span style={{ position: "absolute", left: 10, top: 9, opacity: 0.4 }}>🔍</span>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
+          <div className="spinner" style={{ width: 40, height: 40 }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className={adminStyles.empty}>No matching student records found.</div>
+      ) : (
+        <div className={adminStyles.tableWrapper}>
+          <table className={adminStyles.table}>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Branch</th>
+                <th>Exams Done</th>
+                <th>Avg. Score</th>
+                <th>Last Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => (
+                <tr key={s.student_id}>
+                  <td>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontWeight: 600 }}>{s.name}</span>
+                      <span className="mono text-muted" style={{ fontSize: 11 }}>{s.usn}</span>
+                    </div>
+                  </td>
+                  <td><span className="badge badge-neutral" style={{ fontSize: 11 }}>{s.branch}</span></td>
+                  <td className="mono" style={{ textAlign: "center", fontWeight: 700 }}>{s.exams_completed}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 60, height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${s.average_percentage}%`, height: "100%", background: s.average_percentage >= 70 ? "#10b981" : s.average_percentage >= 40 ? "#f59e0b" : "#ef4444", boxShadow: "0 0 8px currentColor" }} />
+                      </div>
+                      <span style={{ fontWeight: 800, fontSize: 13, minWidth: 35 }}>{s.average_percentage}%</span>
+                    </div>
+                  </td>
+                  <td style={{ fontSize: 12 }}>{s.last_exam_at ? new Date(s.last_exam_at).toLocaleDateString() : "—"}</td>
+                  <td>
+                    <button className="btn btn-primary" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 8 }} onClick={() => setSelectedStudent(s)}>
+                      History
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {selectedStudent && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={adminStyles.modalOverlay}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className={adminStyles.modal} 
+              style={{ maxWidth: 650, borderRadius: 20 }}
+            >
+              <div className={adminStyles.modalHeader} style={{ padding: "24px 28px" }}>
+                <div>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>{selectedStudent.name}</h3>
+                  <p style={{ fontSize: 13, opacity: 0.6, marginTop: 2 }}>{selectedStudent.usn} · {selectedStudent.branch} · {selectedStudent.email || "No Email"}</p>
+                </div>
+                <button className={adminStyles.closeBtn} onClick={() => setSelectedStudent(null)} style={{ fontSize: 24 }}>×</button>
+              </div>
+              
+              <div style={{ padding: "0 28px 28px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+                  <div style={{ background: "rgba(139, 92, 246, 0.05)", padding: 18, borderRadius: 16, border: "1px solid rgba(139, 92, 246, 0.15)" }}>
+                    <div style={{ fontSize: 11, color: "#a78bfa", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Assessments Completed</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, marginTop: 4 }}>{selectedStudent.exams_completed}</div>
+                  </div>
+                  <div style={{ background: "rgba(45, 212, 191, 0.05)", padding: 18, borderRadius: 16, border: "1px solid rgba(45, 212, 191, 0.15)" }}>
+                    <div style={{ fontSize: 11, color: "#2dd4bf", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>Academic Proficiency</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "#2dd4bf", marginTop: 4 }}>{selectedStudent.average_percentage}%</div>
+                  </div>
+                </div>
+
+                <h4 style={{ fontSize: 12, fontWeight: 800, marginBottom: 14, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Session History</h4>
+                <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 6 }}>
+                  {selectedStudent.history.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: "center", opacity: 0.4, border: "1px dashed var(--border)", borderRadius: 12 }}>No session records discovered.</div>
+                  ) : selectedStudent.history.map((h, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 14, transition: "transform 0.2s" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>{h.exam_title}</div>
+                        <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2 }}>
+                          {new Date(h.submitted_at).toLocaleDateString()} at {new Date(h.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · <span style={{ color: "var(--accent-light)", fontWeight: 600 }}>{h.category}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 900, fontSize: 18, color: "var(--text-primary)" }}>{h.score} <span style={{ fontSize: 13, opacity: 0.4, fontWeight: 500 }}>/ {h.total_marks}</span></div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: h.percentage >= 70 ? "#10b981" : h.percentage >= 40 ? "#f59e0b" : "#ef4444", marginTop: 2 }}>{h.percentage}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 // ── Questions Tab (unchanged logic, kept here) ────────────────

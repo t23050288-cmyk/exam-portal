@@ -392,3 +392,26 @@ class SupportRequestOut(BaseModel):
     created_at: str
 
 
+# ── Detailed Stats / Analytics ────────────────────────────────
+
+class StudentExamHistory(BaseModel):
+    exam_title: str
+    score: int
+    total_marks: int
+    percentage: float
+    submitted_at: str
+    category: str = "Others"
+
+class StudentDetailedStats(BaseModel):
+    student_id: str
+    usn: str
+    name: str
+    email: Optional[str] = None
+    branch: str
+    exams_completed: int
+    average_percentage: float
+    last_exam_at: Optional[str] = None
+    history: List[StudentExamHistory] = []
+
+
+
