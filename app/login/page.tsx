@@ -87,6 +87,8 @@ export default function LoginPage() {
       // Clear any stale local data before persisting new session
       localStorage.removeItem("nexus_exam_results");
       localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
+      localStorage.setItem("nexus_student_name", data.student_name || usn.trim());
+      localStorage.setItem("nexus_student_id", data.student_id || usn.trim());
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed.");
@@ -125,6 +127,8 @@ export default function LoginPage() {
       // Clear any stale local data before persisting new session
       localStorage.removeItem("nexus_exam_results");
       localStorage.setItem("nexus_usn", usn.trim().toUpperCase());
+      localStorage.setItem("nexus_student_name", data.student_name || name.trim());
+      localStorage.setItem("nexus_student_id", data.student_id || usn.trim());
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Registration failed.");

@@ -344,9 +344,17 @@ function LiveStatusView() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000); // Poll every 5s
+    const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Parse round number from current_round field (e.g. "Round 3" → 3, "COMPLETED" → 5)
+  const parseRound = (cr: string): number => {
+    if (!cr) return 0;
+    if (cr.toUpperCase() === "COMPLETED") return 5;
+    const m = cr.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
 
   return (
     <div style={$.card}>
@@ -364,7 +372,8 @@ function LiveStatusView() {
           <thead>
             <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT NAME</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>CURRENT ROUND</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND STATUS</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>WARNINGS</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
@@ -372,39 +381,59 @@ function LiveStatusView() {
             </tr>
           </thead>
           <tbody>
-            {students.map((s, i) => (
-              <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
-                <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
-                <td style={{padding:"12px 8px"}}>
-                   <span style={s.current_round === "COMPLETED" ? $.clueBadge : $.codeBadge}>
-                     {s.current_round}
-                   </span>
-                </td>
-                <td style={{padding:"12px 8px"}}>
-                   <span style={s.warnings >= 3 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
-                     {s.warnings || 0} / 3
-                   </span>
-                </td>
-                <td style={{padding:"12px 8px", fontSize: 11, color: "#f87171", fontWeight: 700}}>
-                  {s.last_violation?.toUpperCase().replace(/_/g, ' ') || "-"}
-                </td>
-                <td style={{padding:"12px 8px", opacity:0.6}}>
-                  {new Date(s.last_active).toLocaleTimeString()}
-                </td>
-                <td style={{padding:"12px 8px"}}>
-                  <span style={{
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    fontSize: 10,
-                    background: s.status === "finished" ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)",
-                    color: s.status === "finished" ? "#10b981" : "#00dcff",
-                    border: s.status === "finished" ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)"
-                  }}>
-                    {s.status?.toUpperCase()}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {students.map((s, i) => {
+              const roundNum = parseRound(s.current_round);
+              const isFinished = s.status === "finished" || s.current_round?.toUpperCase() === "COMPLETED";
+              return (
+                <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                  <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
+                  <td style={{padding:"12px 8px"}}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 32, height: 32, borderRadius: "50%", fontWeight: 800, fontSize: 14,
+                      background: isFinished ? "rgba(16,185,129,0.15)" : "rgba(0,220,255,0.12)",
+                      color: isFinished ? "#10b981" : "#00dcff",
+                      border: isFinished ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(0,220,255,0.25)",
+                    }}>
+                      {isFinished ? "✓" : roundNum}
+                    </span>
+                  </td>
+                  <td style={{padding:"12px 8px"}}>
+                    <span style={{
+                      padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800,
+                      background: isFinished ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                      color: isFinished ? "#10b981" : "#f59e0b",
+                      border: isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(245,158,11,0.2)",
+                    }}>
+                      {isFinished ? "COMPLETED" : "IN PROGRESS"}
+                    </span>
+                  </td>
+                  <td style={{padding:"12px 8px"}}>
+                     <span style={s.warnings >= 3 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
+                       {s.warnings || 0} / 3
+                     </span>
+                  </td>
+                  <td style={{padding:"12px 8px", fontSize: 11, color: "#f87171", fontWeight: 700}}>
+                    {s.last_violation?.toUpperCase().replace(/_/g, ' ') || "-"}
+                  </td>
+                  <td style={{padding:"12px 8px", opacity:0.6}}>
+                    {new Date(s.last_active).toLocaleTimeString()}
+                  </td>
+                  <td style={{padding:"12px 8px"}}>
+                    <span style={{
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                      fontSize: 10,
+                      background: isFinished ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)",
+                      color: isFinished ? "#10b981" : "#00dcff",
+                      border: isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)"
+                    }}>
+                      {isFinished ? "FINISHED" : "ACTIVE"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
