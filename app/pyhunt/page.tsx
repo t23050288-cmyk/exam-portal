@@ -69,11 +69,11 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     starterCode: "import turtle\nt = turtle.Turtle()\n",
   },
   clues:[
-    { clueText:"🗝️ Round 1 Complete! Go to the Library — find the book with a RED spine on the second shelf. A sticky note on page 42 has your unlock code.", unlockCode:"LIBRARY42" },
-    { clueText:"🗝️ Round 2 Complete! Head to Lab-2 — look at the whiteboard at the back of the room. Your code is written there.", unlockCode:"LAB2CODE" },
-    { clueText:"🗝️ Round 3 Complete! Walk to the corridor near Room 301. There's a locker with the number 42. The code is taped inside.", unlockCode:"LOCKER301" },
-    { clueText:"🗝️ Round 4 Complete! Return to the starting room. Check under the facilitator's desk — there's an envelope with your final code.", unlockCode:"FINALENV" },
-    { clueText:"🎉 You did it! All 5 rounds complete. Show this screen to the facilitator to claim your prize!", unlockCode:"" },
+    { clueText:"🗝️ Round 1 Complete! ROUND 1 COMPLETE", unlockCode:"LIBRARY" },
+    { clueText:"🗝️ Round 2 Complete! GOOD JUB NOW FOR 3", unlockCode:"LAB2CO" },
+    { clueText:"🗝️ Round 3 Complete! Proceed to Round 4.", unlockCode:"ROUND3CODE" },
+    { clueText:"🗝️ Round 4 Complete! Final round awaits.", unlockCode:"ROUND4CODE" },
+    { clueText:"🎉 You did it! All rounds complete. Show this screen to the facilitator!", unlockCode:"" },
   ],
   finishMessage:"🏆 Congratulations! You've conquered PyHunt! You are a true Python treasure hunter. Show this screen to your facilitator!",
 };
@@ -1115,12 +1115,22 @@ export default function PyHuntPage() {
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
   useEffect(() => {
-    // Show loading orb for 2s on mount
+    // Show loading orb — extend to 3s to ensure config loads before game starts
     setPyhuntLoading(true);
-    const t = setTimeout(() => setPyhuntLoading(false), 2000);
-    
-    // 1. Fetch initial config (it will also cache it via our updated loader)
-    loadPyHuntConfigAsync().then(c => setCfg(c));
+    const t = setTimeout(() => setPyhuntLoading(false), 3000);
+
+    // 1. Always clear stale config cache — students must get fresh config from backend
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("nexus_pyhunt_config_v2");
+    }
+
+    // 2. Fetch fresh config from backend FIRST, then release loading state
+    loadPyHuntConfigAsync().then(c => {
+      setCfg(c);
+      console.log("[PyHunt] Config loaded:", c.mcqQuestions?.length, "MCQ questions, clue[0]:", c.clues?.[0]?.unlockCode);
+    }).catch(e => {
+      console.error("[PyHunt] Config load failed, using DEFAULT (LIBRARY42 may be wrong!):", e);
+    });
     
     try { 
       const n = localStorage.getItem("nexus_student_name"); 

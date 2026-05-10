@@ -614,10 +614,11 @@ async def get_pyhunt_config_public():
     """Student public endpoint — returns live PyHunt config via service role (bypasses RLS)."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        result = db.table("exam_config").select("category, updated_at").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
         if result.data and result.data[0].get("category"):
             import json as _json
-            return {"ok": True, "config": _json.loads(result.data[0]["category"])}
+            cfg = _json.loads(result.data[0]["category"])
+            return {"ok": True, "config": cfg, "updated_at": result.data[0].get("updated_at")}
         return {"ok": False, "config": None}
     except Exception as e:
         print(f"get_pyhunt_config error: {e}")
