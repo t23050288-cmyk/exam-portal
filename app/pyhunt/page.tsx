@@ -1150,7 +1150,7 @@ export default function PyHuntPage() {
           .select("warnings, turtle_image, current_round")
           .eq("student_id", effectiveId)
           .single()
-          .then(({ data }) => {
+          .then(({ data }: { data: any }) => {
             if (data) {
               setWarningCount(data.warnings || 0);
               if (data.turtle_image) setTurtleImage(data.turtle_image);

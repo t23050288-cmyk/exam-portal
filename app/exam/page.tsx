@@ -146,7 +146,7 @@ export default function ExamPage() {
           .eq("session_id", sessId)
           .order("ts", { ascending: false })
           .limit(1)
-          .then(({ data }) => {
+          .then(({ data }: { data: any }) => {
             if (data && data.length > 0) {
               setWarningCount(data[0].warning_count || 0);
             }
