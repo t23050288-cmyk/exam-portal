@@ -365,6 +365,8 @@ function LiveStatusView() {
             <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT NAME</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>CURRENT ROUND</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>WARNINGS</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
             </tr>
@@ -377,6 +379,14 @@ function LiveStatusView() {
                    <span style={s.current_round === "COMPLETED" ? $.clueBadge : $.codeBadge}>
                      {s.current_round}
                    </span>
+                </td>
+                <td style={{padding:"12px 8px"}}>
+                   <span style={s.warnings >= 3 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
+                     {s.warnings || 0} / 3
+                   </span>
+                </td>
+                <td style={{padding:"12px 8px", fontSize: 11, color: "#f87171", fontWeight: 700}}>
+                  {s.last_violation?.toUpperCase().replace(/_/g, ' ') || "-"}
                 </td>
                 <td style={{padding:"12px 8px", opacity:0.6}}>
                   {new Date(s.last_active).toLocaleTimeString()}

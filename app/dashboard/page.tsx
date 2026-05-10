@@ -65,6 +65,15 @@ export default function DashboardPage() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [draft, setDraft] = useState<ProfileData>({ name: "", email: "", course: "", photo: null });
   const [theme, setTheme] = useState<'galaxy' | 'classic'>('galaxy');
+  const [localHistory, setLocalHistory] = useState<any[]>([]);
+
+  // Load History from Local Storage
+  useEffect(() => {
+    const saved = localStorage.getItem("nexus_exam_results");
+    if (saved) {
+      setLocalHistory(JSON.parse(saved));
+    }
+  }, []);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("exam_student");
@@ -142,31 +151,39 @@ export default function DashboardPage() {
   }, [loadExams]);
 
   const filteredExams = useMemo(() => allExams.filter(e => {
+    // Exclude exams already in local history from Home/Upcoming
+    const isCompletedLocally = localHistory.some(h => h.examName === e.exam_name);
+    if (isCompletedLocally) return false;
+
     if (activeNav === "Home") return true;
     if (["Profile", "History", "Insights", "PyHunt"].includes(activeNav)) return false;
     return e.category === activeNav;
-  }), [allExams, activeNav]);
+  }), [allExams, activeNav, localHistory]);
 
   const activeExams = useMemo(() => filteredExams.filter(e => !e.scheduled_start || new Date(e.scheduled_start).getTime() <= Date.now()), [filteredExams]);
   const upcomingExams = useMemo(() => filteredExams.filter(e => e.scheduled_start && new Date(e.scheduled_start).getTime() > Date.now()), [filteredExams]);
 
-  const { completedCount, avgScore, performanceLocked } = useMemo(() => {
-    const completedFromDB = allExams.filter(e => e.submitted);
-    const count = completedFromDB.length;
+  const { completedCount, avgScore, performanceLocked, lastFive } = useMemo(() => {
+    const history = localHistory;
+    const count = history.length;
     
     let avg = 0;
     if (count > 0) {
-      const totalScore = completedFromDB.reduce((a, r) => a + (r.score || 0), 0);
-      const totalPossible = completedFromDB.reduce((a, r) => a + (r.total_marks || 1), 0);
+      const totalScore = history.reduce((a, r) => a + (r.score || 0), 0);
+      const totalPossible = history.reduce((a, r) => a + (r.totalMarks || 1), 0);
       avg = Math.round((totalScore / totalPossible) * 100);
     }
 
     return {
       completedCount: count,
       avgScore: avg,
-      performanceLocked: count < 3
+      performanceLocked: count < 3,
+      lastFive: history.slice(-5).map(h => ({
+        name: h.examName,
+        percentage: Math.round((h.score / h.totalMarks) * 100)
+      }))
     };
-  }, [allExams]);
+  }, [localHistory]);
 
   const [enteredPyHuntCode, setEnteredPyHuntCode] = useState("");
   const [pyHuntError, setPyHuntError] = useState(false);
@@ -274,17 +291,35 @@ export default function DashboardPage() {
                            <span className={styles.label}>Performance:</span>
                            <span className={styles.value}>{!performanceLocked ? `${avgScore}% Rank` : "—"}</span>
                         </div>
-                        <div className={styles.mountainContainer}>
-                           <div className={styles.nebulaStar}>
-                             <div className={styles.starCore} />
-                             <div className={styles.starGlow} />
-                             <div className={styles.starRays} />
-                           </div>
-                        </div>
-                        <div className={styles.pedestal}>
-                           <div className={styles.pedestalTop} />
-                           <div className={styles.pedestalBase} />
-                        </div>
+                        {!performanceLocked ? (
+                          <div className={styles.barGraphContainer}>
+                            {lastFive.map((data, i) => (
+                              <div key={i} className={styles.barWrapper}>
+                                <div className={styles.barValue}>{data.percentage}%</div>
+                                <motion.div 
+                                  initial={{ height: 0 }}
+                                  animate={{ height: `${data.percentage}%` }}
+                                  className={styles.bar}
+                                />
+                                <div className={styles.barLabel}>{data.name.slice(0, 8)}..</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div className={styles.mountainContainer}>
+                              <div className={styles.nebulaStar}>
+                                <div className={styles.starCore} />
+                                <div className={styles.starGlow} />
+                                <div className={styles.starRays} />
+                              </div>
+                            </div>
+                            <div className={styles.pedestal}>
+                              <div className={styles.pedestalTop} />
+                              <div className={styles.pedestalBase} />
+                            </div>
+                          </>
+                        )}
                         {performanceLocked && (
                           <div className={styles.lockOverlay}>
                             <div className={styles.lockIcon}>📊</div>
@@ -432,28 +467,28 @@ export default function DashboardPage() {
                     <p>Review your completed exams and scores</p>
                   </div>
                   <div className={styles.historyList}>
-                    {(() => {
-                      const completed = allExams.filter(e => e.submitted);
-                      if (completed.length === 0) return <p className={styles.emptyMsg}>No assessment history found.</p>;
-                      return completed.map((r: any, i: number) => (
+                    {localHistory.length === 0 ? (
+                      <p className={styles.emptyMsg}>No assessment history found.</p>
+                    ) : (
+                      localHistory.map((r: any, i: number) => (
                         <div key={i} className={styles.historyItem}>
                           <div className={styles.historyLeft}>
                             <span className={styles.historyIcon}>📋</span>
                             <div className={styles.historyInfo}>
-                              <div className={styles.historyName}>{r.exam_name || "Nexus Assessment"}</div>
-                              <div className={styles.historyDate}>{new Date().toLocaleDateString()}</div>
+                              <div className={styles.historyName}>{r.examName || "Nexus Assessment"}</div>
+                              <div className={styles.historyDate}>{new Date(r.timestamp).toLocaleDateString()}</div>
                             </div>
                           </div>
                           <div className={styles.historyRight}>
                             <div className={styles.historyScore}>
                               <span className={styles.scoreLabel}>Final Score</span>
-                              <div className={styles.scoreValue}>{r.score} / {r.total_marks}</div>
+                              <div className={styles.scoreValue}>{r.score} / {r.totalMarks}</div>
                             </div>
                             <div className={styles.historyStatus}>COMPLETED</div>
                           </div>
                         </div>
-                      ));
-                    })()}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -461,16 +496,37 @@ export default function DashboardPage() {
 
             {/* INSIGHTS */}
             {activeNav === "Insights" && (
-              <div className={styles.insightsGrid}>
-                <div className={styles.insightCard}>
-                  <h3>Full Performance</h3>
-                  <div className={styles.stat}>
-                    <span className={styles.label}>Average Score</span>
-                    <span className={styles.value}>{avgScore}%</span>
+              <div className={styles.insightsSection}>
+                <div className={styles.insightsGrid}>
+                  <div className={styles.insightCard}>
+                    <h3>Full Performance</h3>
+                    <div className={styles.stat}>
+                      <span className={styles.label}>Average Score</span>
+                      <span className={styles.value}>{avgScore}%</span>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.mountainCard}>
-                  <Mountain />
+                  <div className={styles.mountainCard}>
+                     <div className={styles.mountainHeader}>
+                        <span className={styles.label}>Exam History (Last 5)</span>
+                        <span className={styles.value}>{completedCount} Completed</span>
+                     </div>
+                     <div className={styles.barGraphContainer} style={{ marginTop: '2rem', height: '200px' }}>
+                        {lastFive.length > 0 ? lastFive.map((data, i) => (
+                          <div key={i} className={styles.barWrapper}>
+                            <div className={styles.barValue}>{data.percentage}%</div>
+                            <motion.div 
+                              initial={{ height: 0 }}
+                              animate={{ height: `${data.percentage}%` }}
+                              className={styles.bar}
+                              style={{ background: i % 2 === 0 ? 'var(--nexus-cyan-grad)' : 'var(--accent-warm-grad)' }}
+                            />
+                            <div className={styles.barLabel}>{data.name}</div>
+                          </div>
+                        )) : (
+                          <div className={styles.emptyMsg}>Take your first exam to see insights!</div>
+                        )}
+                     </div>
+                  </div>
                 </div>
               </div>
             )}

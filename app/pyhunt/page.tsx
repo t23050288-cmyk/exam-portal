@@ -762,6 +762,7 @@ export default function PyHuntPage() {
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0 });
   const [warningCount, setWarningCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
+  const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
@@ -789,14 +790,16 @@ export default function PyHuntPage() {
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
-            status: finished ? 'finished' : 'active'
+            status: finished ? 'finished' : 'active',
+            warnings: warningCount,
+            last_violation: lastViolation
           }, { onConflict: 'student_id' });
       } catch (err) {
         console.error("Failed to update progress:", err);
       }
     };
     updateProgress();
-  }, [round, finished]);
+  }, [round, finished, warningCount, lastViolation]);
 
   // ── Fullscreen Watcher ──
   useEffect(() => {
@@ -805,22 +808,34 @@ export default function PyHuntPage() {
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
-  const enterFullscreen = () => {
+  const enterFullscreen = useCallback(() => {
     const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {
+        console.log("Auto-fullscreen blocked by browser policy");
+      });
+    }
     setIsFullscreen(true);
-  };
+  }, []);
+
+  // ── Auto-Fullscreen Enforcement ──
+  useEffect(() => {
+    if (finished) return;
+    if (!isFullscreen) {
+      enterFullscreen();
+    }
+  }, [isFullscreen, finished, enterFullscreen]);
 
   // ── Proctoring Restrictions ──
   useEffect(() => {
     if (finished) return;
 
-    const handleViolation = () => {
-      if (showWarning) return; // Don't count multiple times if already showing
+    const handleViolation = (reason: string) => {
+      if (showWarning) return; 
       setWarningCount(prev => {
         const next = prev + 1;
-        if (next > 3) {
-          // Auto-submit on 4th violation
+        setLastViolation(reason);
+        if (next >= 4) {
           const duration = Math.floor((Date.now() - startTime) / 60000);
           setFinishStats({ minutes: duration, wrongs: totalWrongs + 3 });
           setFinished(true);
@@ -831,20 +846,48 @@ export default function PyHuntPage() {
       });
     };
 
-    const onVisibilityChange = () => { if (document.visibilityState === "hidden") handleViolation(); };
-    const onBlur = () => handleViolation();
-    const onContextMenu = (e: MouseEvent) => e.preventDefault();
+    const onVisibilityChange = () => { 
+      if (document.visibilityState === "hidden") handleViolation("tab_switch"); 
+    };
+    const onBlur = () => handleViolation("window_blur");
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      handleViolation("right_click");
+    };
+    const onCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      handleViolation("copy_attempt");
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      handleViolation("paste_attempt");
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Check for common shortcuts like Ctrl+C, Ctrl+V, Alt+Tab, etc.
+      if (e.ctrlKey || e.altKey || e.metaKey || (e.key >= 'F1' && e.key <= 'F12')) {
+        if (["c", "v", "a", "x", "p", "s"].includes(e.key.toLowerCase())) {
+          e.preventDefault();
+          handleViolation("keyboard_shortcut");
+        }
+      }
+    };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("blur", onBlur);
     window.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("copy", onCopy);
+    window.addEventListener("paste", onPaste);
+    window.addEventListener("keydown", onKeyDown);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("copy", onCopy);
+      window.removeEventListener("paste", onPaste);
+      window.removeEventListener("keydown", onKeyDown);
     };
-  }, [finished, startTime, totalWrongs]);
+  }, [finished, startTime, totalWrongs, showWarning]);
 
   const handleRoundComplete = () => setShowingClue(true);
 
@@ -912,7 +955,9 @@ export default function PyHuntPage() {
             <div className={styles.warningCard}>
               <div className={styles.warningIcon}>⚠️</div>
               <h2>Proctoring Violation</h2>
-              <p>Tab switching or window blurring detected. This event has been logged.</p>
+              <p style={{ color: "#f87171", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                ERROR: {lastViolation.replace(/_/g, ' ')}
+              </p>
               <div className={styles.warningStats}>
                 Warning <strong>{warningCount}</strong> of 3
               </div>

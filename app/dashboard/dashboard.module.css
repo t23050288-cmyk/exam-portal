@@ -71,7 +71,7 @@
 .insightCard {
   flex: 1;
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 1.5rem;
@@ -101,7 +101,7 @@
 .mountainCard {
   flex: 2;
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 1.5rem;
@@ -188,11 +188,57 @@
 }
 
 .pedestalBase {
-  width: 120%;
-  height: 20px;
-  background: linear-gradient(90deg, #0a0a0a, #333, #0a0a0a);
-  border-radius: 0 0 100px 100px;
   margin-top: -5px;
+}
+
+/* Bar Graph */
+.barGraphContainer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  height: 140px;
+  width: 100%;
+  padding: 0 10px;
+  position: relative;
+  z-index: 5;
+}
+
+.barWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+
+.bar {
+  width: 100%;
+  max-width: 40px;
+  background: var(--nexus-cyan-gradient);
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 4px 15px rgba(40, 215, 214, 0.2);
+  min-height: 4px;
+}
+
+.barValue {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--nexus-cyan);
+  margin-bottom: 6px;
+}
+
+.barLabel {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  margin-top: 8px;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Theme Toggle */
@@ -320,7 +366,7 @@
 
 .pyhuntCard {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--nexus-glass-border);
   padding: 3rem;
   border-radius: var(--nexus-radius-lg);
@@ -371,7 +417,7 @@
 
 .profileCard {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--nexus-glass-border);
   padding: 2rem;
   border-radius: var(--nexus-radius-lg);
@@ -438,7 +484,7 @@
 
 .profileBanner {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 2.5rem;
@@ -510,7 +556,7 @@
 
 .profileDetailsCard {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 2.5rem;
@@ -565,7 +611,7 @@
 /* Edit Form */
 .editForm {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--nexus-glass-border);
   padding: 3rem;
   border-radius: var(--nexus-radius-lg);
@@ -582,7 +628,7 @@
 
 .historyCard {
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
   padding: 2.5rem;
@@ -716,7 +762,7 @@
 .comingSoonCard {
   grid-column: 1 / -1;
   background: var(--nexus-glass-bg);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
   border: 1px dashed var(--nexus-glass-border);
   padding: 4rem 2rem;
   border-radius: var(--nexus-radius-lg);

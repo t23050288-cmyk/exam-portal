@@ -17,8 +17,8 @@ export default function AdminBackground() {
         backgroundImage: 'url("/images/admin/forest_background_refined.png")',
         backgroundSize: "cover",
         backgroundPosition: "center",
-        opacity: 0.5,
-        filter: "brightness(0.6) contrast(1.2) saturate(0.8)",
+        opacity: 0.6,
+        filter: "brightness(0.7) contrast(1.1) saturate(0.9)",
       }} />
 
       {/* Decorative Overlays */}
@@ -44,6 +44,7 @@ export default function AdminBackground() {
         backgroundSize: "100% 4px, 3px 100%",
         pointerEvents: "none",
       }} />
+
     </div>
   );
 }

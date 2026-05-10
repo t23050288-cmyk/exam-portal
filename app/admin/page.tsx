@@ -379,43 +379,71 @@ export default function AdminPage() {
 
   if (!authed) {
     return (
-      <div className="page-center" style={{ minHeight: "100vh", position: "relative" }}>
+      <div className={styles.pageCenter}>
         <AdminBackground />
-        <div className={styles.loginCard} style={{
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(20px)",
-          borderRadius: 24,
-          padding: "48px 40px",
-          width: "100%",
-          maxWidth: 400,
-        }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚡</div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", color: "#e2e8f0", marginBottom: 8 }}>
-              EXAM Admin
-            </h1>
-            <p style={{ color: "rgba(148,163,184,0.7)", fontSize: 14 }}>ExamGuard Control Node — Staff Only</p>
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className={styles.loginCard}
+        >
+          <div className={styles.loginHeader}>
+            <div className={styles.loginIconWrap}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#28D7D6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M12 8v4" />
+                <path d="M12 16h.01" />
+              </svg>
+              <div className={styles.loginIconGlow} />
+            </div>
+            <h1 className={styles.loginTitle}>EXAM GUARD</h1>
+            <p className={styles.loginSubtitle}>SYSTEM ADMINISTRATION NODE</p>
           </div>
-          <form onSubmit={handleAuth} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <input
-              type="password"
-              className={adminStyles.input}
-              placeholder="Admin password"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
-              autoFocus
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }}
-            />
-            {passError && <p className="text-danger" style={{ fontSize: 13 }}>{passError}</p>}
-            <button type="submit" className="btn btn-primary btn-lg" style={{ background: "linear-gradient(135deg, #8b5cf6, #3b82f6)", border: "none", borderRadius: 12 }}>
-              Access Command Node
+
+          <form onSubmit={handleAuth} className={styles.loginForm}>
+            <div className={styles.loginInputWrap}>
+              <svg className={styles.loginInputIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input
+                type="password"
+                className={styles.loginInput}
+                placeholder="Access Key"
+                value={pass}
+                onChange={(e) => setPass(e.target.value)}
+                autoFocus
+              />
+            </div>
+            
+            <AnimatePresence>
+              {passError && (
+                <motion.p 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className={styles.loginError}
+                >
+                  {passError}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <button type="submit" className={styles.loginBtn}>
+              INITIALIZE COMMAND
             </button>
+            
+            <div className={styles.loginFooter}>
+              <span className={styles.footerDot} />
+              Secured Academic Intelligence Interface
+            </div>
           </form>
-        </div>
+        </motion.div>
       </div>
     );
   }
+
 
   const TAB_CONFIG: { id: Tab; label: string; icon: string }[] = [
     { id: "monitor",     label: "Monitor",     icon: "📡" },
