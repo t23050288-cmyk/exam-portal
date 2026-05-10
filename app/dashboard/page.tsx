@@ -54,6 +54,39 @@ function getTimeUntil(dateStr: string | null) {
   return `${d}D ${h}H`;
 }
 
+
+/* ══ Inline 3D Tree of Life Orb ══ */
+function TreeOfLifeOrb({ size = 120, label = "Loading…", sublabel = "" }: { size?: number; label?: string; sublabel?: string }) {
+  const s = size;
+  const ring1 = s * 1.22;
+  const ring2 = s * 1.48;
+  return (
+    <>
+      <style>{`
+        @keyframes tol-spin { from { transform: rotateY(0deg) rotateX(8deg); } to { transform: rotateY(360deg) rotateX(8deg); } }
+        @keyframes tol-ring1 { from { transform: rotateZ(0deg) rotateX(72deg); } to { transform: rotateZ(360deg) rotateX(72deg); } }
+        @keyframes tol-ring2 { from { transform: rotateZ(0deg) rotateX(55deg); } to { transform: rotateZ(-360deg) rotateX(55deg); } }
+        @keyframes tol-glow { 0%,100% { opacity:0.55; transform:scale(1); } 50% { opacity:0.85; transform:scale(1.12); } }
+        @keyframes tol-float { 0%,100% { transform:translateY(0px); } 50% { transform:translateY(-8px); } }
+      `}</style>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:20, userSelect:"none" }}>
+        <div style={{ animation:"tol-float 3.5s ease-in-out infinite", position:"relative", width:ring2, height:ring2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ position:"absolute", width:s*1.6, height:s*1.6, borderRadius:"50%", background:"radial-gradient(circle, rgba(30,220,160,0.18) 0%, rgba(60,120,255,0.08) 50%, transparent 75%)", animation:"tol-glow 2.8s ease-in-out infinite", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", width:ring2, height:ring2, borderRadius:"50%", border:"1.5px solid rgba(100,220,180,0.28)", animation:"tol-ring2 8s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position:"absolute", width:ring1, height:ring1, borderRadius:"50%", border:"1.5px solid rgba(180,140,80,0.4)", animation:"tol-ring1 5s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ width:s, height:s, borderRadius:"50%", perspective:s*3, perspectiveOrigin:"50% 50%", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }}>
+            <div style={{ width:"100%", height:"100%", borderRadius:"50%", backgroundImage:`url(https://media.base44.com/images/public/69fd11b7a90f528525fa294d/4c5cd2498_image.png)`, backgroundSize:"cover", backgroundPosition:"center", animation:`tol-spin 6s linear infinite`, willChange:"transform", boxShadow:`0 0 ${s*0.25}px rgba(30,220,160,0.35), 0 0 ${s*0.5}px rgba(30,220,160,0.12), inset 0 0 ${s*0.18}px rgba(255,200,80,0.25)` }} />
+          </div>
+        </div>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ color:"#c0e8d8", fontSize:15, fontWeight:700, letterSpacing:"0.08em", textShadow:"0 0 12px rgba(60,200,140,0.5)" }}>{label}</div>
+          {sublabel && <div style={{ color:"#4a8878", fontSize:12, marginTop:4 }}>{sublabel}</div>}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -88,7 +121,12 @@ export default function DashboardPage() {
       course: p.course || "", photo: localStorage.getItem("nexus_profile_photo") || null,
     };
     setProfile(prof); setDraft(prof);
-    setWarpActive(false); 
+    setWarpActive(false);
+    // Auto-redirect to History if student already completed an exam
+    const doneExams = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
+    if (doneExams.length > 0) {
+      setActiveNav("History");
+    }
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -191,6 +229,12 @@ export default function DashboardPage() {
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
+    // Block re-entry if already completed
+    const doneExams = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
+    if (doneExams.some((r: any) => r.examName === exam.exam_name)) {
+      setActiveNav("History");
+      return;
+    }
     setWarpActive(true);
     sessionStorage.setItem("exam_selected_title", exam.exam_name);
     await new Promise((r: any) => setTimeout(r, 1200));
@@ -468,7 +512,9 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.historyList}>
                     {localHistory.length === 0 ? (
-                      <p className={styles.emptyMsg}>No assessment history found.</p>
+                      <div style={{ display:"flex", justifyContent:"center", padding:"32px 0" }}>
+                        <TreeOfLifeOrb size={100} label="Coming Soon" sublabel="Complete an exam to see your history here" />
+                      </div>
                     ) : (
                       localHistory.map((r: any, i: number) => (
                         <div key={i} className={styles.historyItem}>
@@ -538,16 +584,17 @@ export default function DashboardPage() {
         {theme === 'galaxy' ? '✨' : '🏢'}
       </button>
 
-      <AnimatePresence>
-        {warpActive && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={styles.warpOverlay}>
-            <div className={styles.warpContent}>
-              <div className={styles.warpIcon}>✨</div>
-              <div className={styles.warpText}>ENGAGING WARP DRIVE</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {warpActive && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:9999,
+          background:"radial-gradient(ellipse at 50% 40%, #0d1530 0%, #060912 100%)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>
+          <div style={{ position:"absolute", inset:0, pointerEvents:"none", backgroundImage:["radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.45), transparent)","radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,0.3), transparent)","radial-gradient(1px 1px at 45% 25%, rgba(255,255,255,0.5), transparent)","radial-gradient(1px 1px at 65% 75%, rgba(255,255,255,0.35), transparent)","radial-gradient(1px 1px at 80% 40%, rgba(255,255,255,0.4), transparent)"].join(",") }} />
+          <TreeOfLifeOrb size={130} label="Entering Exam…" sublabel="Calibrating your node" />
+        </div>
+      )}
     </div>
   );
 }
+
