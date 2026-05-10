@@ -57,18 +57,18 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
       setWarningCount(nextCount);
 
       let message: string;
-      if (nextCount >= 3) {
-        message = `🔴 3rd violation detected (${type.replace(/_/g, ' ')}). Your exam has been auto-submitted.`;
+      if (nextCount >= 4) {
+        message = `🔴 4th violation detected (${type.replace(/_/g, ' ')}). Your exam has been auto-submitted.`;
       } else if (nextCount === 2) {
-        message = `🚨 Final Warning! Violation: ${type.replace(/_/g, ' ')}. One more violation and your exam will be auto-submitted.`;
+        message = `🚨 Warning ${nextCount} of 4: ${type.replace(/_/g, ' ')}. ${4 - nextCount} violation${4-nextCount===1?'':'s'} remaining before auto-submit.`;
       } else {
-        message = `⚠️ Warning ${nextCount}: ${type.replace(/_/g, ' ')} detected. Please stay on the exam page and remain in fullscreen.`;
+        message = `⚠️ Warning ${nextCount} of 4: ${type.replace(/_/g, ' ')} detected. Please return to fullscreen immediately.`;
       }
 
       setModalMessage(message);
       setShowModal(true);
 
-      if (nextCount >= 3) {
+      if (nextCount >= 4) {
         onAutoSubmit();
       }
 
@@ -182,3 +182,4 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     </>
   );
 }
+
