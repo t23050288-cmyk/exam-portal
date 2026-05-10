@@ -324,7 +324,7 @@ export default function AdminPage() {
     fetchActiveExams();
     fetchAdminQuestions().then(({ questions: qs }: any) => {
       const list: BranchExamSummary[] = [];
-      qs.forEach(q => {
+      qs.forEach((q: any) => {
         const br = q.branch || "CS";
         const ex = q.exam_name || "ExamGuard Assessment";
         if (!list.find(x => x.branch === br && x.exam_name === ex)) {
