@@ -563,9 +563,11 @@ function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong:
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     // ── Bridge Python Turtle to JS Canvas ──
-    // This script mocks a basic turtle module using the JS context
+    // Because Pyodide runs in a Web Worker, it has no DOM access.
+    // Instead, the Turtle class will print drawing commands as JSON to stdout.
+    // The main thread will parse the stdout and render it on the canvas.
     const bridgeScript = `
-import js
+import json
 from math import radians, cos, sin
 
 class Turtle:
@@ -574,20 +576,15 @@ class Turtle:
         self.y = ${canvas.height/2}
         self.angle = -90  # Start facing up
         self.is_down = True
-        self.ctx = js.document.getElementById("turtle-canvas").getContext("2d")
-        self.ctx.beginPath()
-        self.ctx.moveTo(self.x, self.y)
-        self.ctx.strokeStyle = "#00dcff"
-        self.ctx.lineWidth = 2
+        print(json.dumps({"type": "init", "x": self.x, "y": self.y}))
 
     def forward(self, dist):
         nx = self.x + dist * cos(radians(self.angle))
         ny = self.y + dist * sin(radians(self.angle))
         if self.is_down:
-            self.ctx.lineTo(nx, ny)
-            self.ctx.stroke()
+            print(json.dumps({"type": "line", "x": nx, "y": ny}))
         else:
-            self.ctx.moveTo(nx, ny)
+            print(json.dumps({"type": "move", "x": nx, "y": ny}))
         self.x, self.y = nx, ny
 
     def left(self, deg):  self.angle -= deg
@@ -605,7 +602,31 @@ sys.modules["turtle"] = t_mod
 `;
 
     try {
-      await runCode(bridgeScript + "\n" + code);
+      const res = await runCode(bridgeScript + "\n" + code);
+      
+      // Execute the parsed drawing commands
+      ctx.beginPath();
+      ctx.strokeStyle = "#00dcff";
+      ctx.lineWidth = 2;
+      
+      const lines = (res.stdout || "").split("\\n");
+      for (const line of lines) {
+          const tLine = line.trim();
+          if (tLine.startsWith("{")) {
+              try {
+                  const cmd = JSON.parse(tLine);
+                  if (cmd.type === "init" || cmd.type === "move") {
+                      ctx.moveTo(cmd.x, cmd.y);
+                  } else if (cmd.type === "line") {
+                      ctx.lineTo(cmd.x, cmd.y);
+                      ctx.stroke();
+                  }
+              } catch (e) {
+                  // Ignore parse errors (student might have printed their own dict)
+              }
+          }
+      }
+
       // Basic heuristic to check if they actually tried to draw a star
       const hasStarLogic = code.includes("144") && code.includes("forward");
       if (hasStarLogic) {
