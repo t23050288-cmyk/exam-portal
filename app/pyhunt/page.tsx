@@ -1213,7 +1213,7 @@ export default function PyHuntPage() {
         await supabase
           .from('pyhunt_progress')
           .upsert({ 
-            student_id: studentId || effectiveId,
+            student_id: studentId,
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
