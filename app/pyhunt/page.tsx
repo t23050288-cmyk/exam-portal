@@ -748,6 +748,46 @@ function ProgressBar({ round, showingClue }: { round: number; showingClue: boole
 /* ═══════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════ */
+
+/* ══ PyHunt 3D Loading Orb ══ */
+function PyHuntOrb({ size = 120, label = "Initialising PyHunt…", sublabel = "" }: { size?: number; label?: string; sublabel?: string }) {
+  const s = size;
+  return (
+    <>
+      <style>{`
+        @keyframes ph-spin { from { transform:rotateY(0deg) rotateZ(15deg); } to { transform:rotateY(360deg) rotateZ(15deg); } }
+        @keyframes ph-ring-a { 0% { transform:rotateX(80deg) rotateZ(0deg); } 100% { transform:rotateX(80deg) rotateZ(360deg); } }
+        @keyframes ph-ring-b { 0% { transform:rotateX(20deg) rotateZ(0deg); } 100% { transform:rotateX(20deg) rotateZ(-360deg); } }
+        @keyframes ph-ring-c { 0% { transform:rotateX(50deg) rotateZ(0deg); } 100% { transform:rotateX(50deg) rotateZ(360deg); } }
+        @keyframes ph-pulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.15); } }
+        @keyframes ph-float { 0%,100% { transform:translateY(0px); } 50% { transform:translateY(-9px); } }
+      `}</style>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, userSelect:"none" }}>
+        <div style={{ animation:"ph-float 3s ease-in-out infinite", position:"relative", width:s*1.8, height:s*1.8, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ position:"absolute", width:s*1.7, height:s*1.7, borderRadius:"50%", background:"radial-gradient(circle, rgba(100,60,255,0.22) 0%, rgba(60,0,160,0.1) 45%, transparent 70%)", animation:"ph-pulse 2.4s ease-in-out infinite", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", width:s*1.65, height:s*1.65, borderRadius:"50%", border:"1.5px solid rgba(140,80,255,0.35)", animation:"ph-ring-a 4s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position:"absolute", width:s*1.35, height:s*1.35, borderRadius:"50%", border:"1px solid rgba(80,160,255,0.3)", animation:"ph-ring-b 6s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position:"absolute", width:s*1.1, height:s*1.1, borderRadius:"50%", border:"1px dashed rgba(200,100,255,0.2)", animation:"ph-ring-c 9s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position:"relative", width:s, height:s, borderRadius:"50%", perspective:s*3, perspectiveOrigin:"50% 50%" }}>
+            <div style={{ width:"100%", height:"100%", borderRadius:"50%", background:"radial-gradient(circle at 35% 35%, rgba(180,100,255,0.9) 0%, rgba(80,40,200,0.85) 30%, rgba(20,10,80,0.95) 65%, rgba(40,20,120,1) 100%)", animation:"ph-spin 5s linear infinite", willChange:"transform", boxShadow:`0 0 ${s*0.3}px rgba(120,60,255,0.6), 0 0 ${s*0.6}px rgba(80,40,200,0.25), inset 0 0 ${s*0.2}px rgba(200,150,255,0.3)` }}>
+              <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:0.55, borderRadius:"50%" }}>
+                <path d="M30 70 Q20 50 35 35 Q50 20 65 35 Q80 50 65 65 Q50 80 35 65" fill="none" stroke="rgba(255,220,100,0.7)" strokeWidth="5" strokeLinecap="round"/>
+                <circle cx="30" cy="70" r="6" fill="rgba(255,220,80,0.8)" />
+                <circle cx="28" cy="68" r="1.5" fill="#1a0a30" />
+                <text x="18" y="28" fontSize="12" fill="rgba(180,220,255,0.6)" fontFamily="monospace" fontWeight="bold">&lt;/&gt;</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ color:"#c0a8ff", fontSize:15, fontWeight:700, letterSpacing:"0.06em", textShadow:"0 0 12px rgba(120,60,255,0.6)" }}>{label}</div>
+          {sublabel && <div style={{ color:"#6040a0", fontSize:12, marginTop:4 }}>{sublabel}</div>}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function PyHuntPage() {
   const router = useRouter();
   const [cfg, setCfg] = useState<PyHuntConfig>(DEFAULT_CONFIG);
@@ -764,15 +804,20 @@ export default function PyHuntPage() {
   const [showWarning, setShowWarning] = useState(false);
   const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pyhuntLoading, setPyhuntLoading] = useState(false);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
   useEffect(() => {
+    // Show loading orb for 2s on mount
+    setPyhuntLoading(true);
+    const t = setTimeout(() => setPyhuntLoading(false), 2000);
     setCfg(loadPyHuntConfig());
     try { 
       const n = localStorage.getItem("nexus_student_name"); 
       if (n) setStudentName(n); 
     } catch {}
+    return () => clearTimeout(t);
   }, []);
 
   // ── Track Progress to Supabase ──
@@ -902,6 +947,17 @@ export default function PyHuntPage() {
     setRound(r => r + 1);
   };
 
+  if (pyhuntLoading) return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:9999,
+      background:"radial-gradient(ellipse at 50% 40%, #0d0820 0%, #06040e 100%)",
+      display:"flex", alignItems:"center", justifyContent:"center",
+    }}>
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none", backgroundImage:["radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.4), transparent)","radial-gradient(1px 1px at 35% 65%, rgba(255,255,255,0.3), transparent)","radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,0.35), transparent)","radial-gradient(1px 1px at 88% 75%, rgba(255,255,255,0.25), transparent)"].join(",") }} />
+      <PyHuntOrb size={120} label="Initialising PyHunt…" sublabel="Decrypting round data" />
+    </div>
+  );
+
   if (!isFullscreen && !finished) return (
     <div className={styles.page}>
       <div className={styles.stars} />
@@ -995,4 +1051,5 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
 
