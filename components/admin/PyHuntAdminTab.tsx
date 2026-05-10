@@ -10,6 +10,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { adminFetch } from "@/lib/api";
 
 /* ─── Types ─────────────────────────────────── */
 interface MCQOption { label: string; text: string; }
@@ -50,21 +51,16 @@ const DEFAULT: PyHuntConfig = {
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
 
-const BACKEND_URL = ""; // Always use relative paths for Vercel deployment to avoid CORS issues
-
 async function loadCfgAsync(): Promise<PyHuntConfig> {
   // Route through backend — bypasses Supabase RLS
   try {
-    const res = await fetch(`${BACKEND_URL}/api/admin/pyhunt/config`, { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.ok && json.config) {
-        const c = json.config;
-        if (typeof window !== "undefined") {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
-        }
-        return { ...DEFAULT, ...c };
+    const json = await adminFetch<any>("/admin/pyhunt/config");
+    if (json.ok && json.config) {
+      const c = json.config;
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
       }
+      return { ...DEFAULT, ...c };
     }
   } catch (e) {
     console.warn("Backend load failed, falling back to localStorage:", e);
@@ -83,19 +79,10 @@ async function saveCfgAsync(c: PyHuntConfig) {
     localStorage.setItem(STORAGE_KEY, str);
   }
   // Route save through backend (service role — bypasses RLS)
-  const token = typeof window !== "undefined" ? sessionStorage.getItem("examguard_admin_jwt") : null;
-  const res = await fetch(`${BACKEND_URL}/api/admin/pyhunt/config/save`, {
+  await adminFetch("/admin/pyhunt/config/save", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     body: JSON.stringify({ config: str }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Save failed (${res.status})`);
-  }
 }
 
 /* ─── Styles ─────────────────────────────────── */
