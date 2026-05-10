@@ -4,7 +4,7 @@
  * Provides offline fallback for exam page
  */
 
-const CACHE_VERSION   = "v1";
+const CACHE_VERSION   = "v2";
 const STATIC_CACHE    = `exam-static-${CACHE_VERSION}`;
 const PYODIDE_CACHE   = `exam-pyodide-${CACHE_VERSION}`;
 
@@ -72,6 +72,16 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Bypass Service Worker entirely for dynamic data, non-GET requests, and external media
+  if (
+    request.method !== "GET" ||
+    url.pathname.startsWith("/api/") ||
+    url.host.includes("supabase.co") ||
+    url.host.includes("cloudinary.com")
+  ) {
+    return; // Browser handles the request natively
+  }
+
   // Pyodide CDN: Cache-first (these files don't change for a given version)
   if (url.href.startsWith(PYODIDE_CDN)) {
     event.respondWith(cacheFirst(request, PYODIDE_CACHE));
@@ -81,12 +91,6 @@ self.addEventListener("fetch", (event) => {
   // Next.js static assets: Cache-first (hashed filenames, safe forever)
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));
-    return;
-  }
-
-  // API calls: Network-only (never serve stale API from cache)
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(networkOnly(request));
     return;
   }
 
@@ -106,26 +110,18 @@ async function cacheFirst(request, cacheName) {
   const cache    = await caches.open(cacheName);
   const cached   = await cache.match(request);
   if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
-  return response;
-}
-
-async function networkOnly(request) {
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
   } catch (e) {
-    return new Response(JSON.stringify({ error: "offline" }), {
-      status: 503,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "offline" }), { status: 503 });
   }
 }
 
 async function networkWithOfflineFallback(request) {
   try {
-    const response = await fetch(request);
-    return response;
+    return await fetch(request);
   } catch (e) {
     const cache = await caches.open(STATIC_CACHE);
     const cached = await cache.match("/offline.html");
@@ -138,11 +134,15 @@ async function networkWithOfflineFallback(request) {
 async function staleWhileRevalidate(request, cacheName) {
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(request);
+  
   const fetchPromise = fetch(request).then((response) => {
     if (response.ok) cache.put(request, response.clone());
     return response;
   }).catch(() => null);
-  return cached || (await fetchPromise);
+
+  const res = cached || (await fetchPromise);
+  // Ensure we always return a valid Response object to prevent TypeError
+  return res || new Response(JSON.stringify({ error: "network error" }), { status: 502 });
 }
 
 // ── Background sync placeholder (future) ─────────────────────────────────────
