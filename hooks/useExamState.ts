@@ -38,7 +38,7 @@ export function clearExamStorage() {
 // Questions don't change during an exam session — cache them in
 // localStorage so if the student refreshes, they load instantly
 // from their own browser with zero server hit.
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL_MS = 0; // Always fetch fresh — admin changes must reflect immediately
 
 export function saveQuestionsToCache(title: string, questions: unknown[]) {
   if (typeof window === "undefined") return;
@@ -107,3 +107,4 @@ export function useExamState() {
 
   return { answers, dirtyIds, selectAnswer, selectCodeAnswer, clearDirty, getAnsweredCount };
 }
+
