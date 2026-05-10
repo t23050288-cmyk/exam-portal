@@ -588,6 +588,7 @@ function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong:
   const [code, setCode] = useState(`import turtle\n\nt = turtle.Turtle()\nt.speed(0)\n\n# Sketch your 5-pointed star here!\n# Hint: Use a loop and turn 144 degrees\n`);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
+  const [turtleErr, setTurtleErr] = useState<string>("");
 
   const handleRun = async () => {
     if (!ready || running) return;
@@ -598,6 +599,7 @@ function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong:
 
     setRunning(true);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setTurtleErr("");
 
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
@@ -628,8 +630,8 @@ def _parse_color(c):
 
 class Turtle:
     def __init__(self):
-        self._x = ${CX}
-        self._y = ${CY}
+        self._x = \${CX}
+        self._y = \${CY}
         self._angle = -90.0   # heading: 0=East, -90=North (canvas coords)
         self._pen = True
         self._color = "cyan"
@@ -668,7 +670,7 @@ class Turtle:
     # ── Position ──
     def goto(self, x, y=None):
         if y is None: x, y = x
-        nx, ny = float(x) + ${CX}, -float(y) + ${CY}
+        nx, ny = float(x) + \${CX}, -float(y) + \${CY}
         if self._pen:
             _emit(type="line", x1=self._x, y1=self._y, x2=nx, y2=ny,
                   color=self._color, lw=self._lw)
@@ -680,8 +682,8 @@ class Turtle:
     def home(self):
         self.goto(0, 0)
         self._angle = -90.0
-    def xcor(self): return self._x - ${CX}
-    def ycor(self): return -(self._y - ${CY})
+    def xcor(self): return self._x - \${CX}
+    def ycor(self): return -(self._y - \${CY})
     def pos(self): return (self.xcor(), self.ycor())
     def position(self): return self.pos()
     def heading(self): return (self._angle + 90) % 360
@@ -863,11 +865,25 @@ _sys.modules["turtle"] = _t_mod
 
       // Check if they drew something meaningful
       const stderr = (res.stderr || "").trim();
-      if (stderr && !stderr.includes("UserWarning")) {
-        // Has real error — show it but don't penalise
-        console.warn("Turtle stderr:", stderr);
+      const hasError = stderr && !stderr.includes("UserWarning") && !stderr.includes("DeprecationWarning");
+      if (hasError) console.warn("Turtle stderr:", stderr);
+
+      // Count actual line drawing commands
+      const drawCmds = (res.stdout || "").split("\n").filter(l => {
+        try { const c = JSON.parse(l.trim()); return c.type === "line" || c.type === "fill" || c.type === "dot"; }
+        catch { return false; }
+      });
+
+      if (hasError && drawCmds.length === 0) {
+        setTurtleErr(stderr);
+        onWrong();
+      } else if (drawCmds.length === 0 && !code.trim()) {
+        setTurtleErr("Write some turtle code first!");
+        onWrong();
+      } else {
+        if (hasError) setTurtleErr(stderr); // show warning but still complete
+        setDone(true);
       }
-      setDone(true);
     } catch (err: any) {
       console.error("Turtle Error:", err);
       onWrong();
@@ -921,8 +937,13 @@ _sys.modules["turtle"] = _t_mod
                width={400} 
                height={300} 
                className={styles.turtleCanvas} 
-               style={{ background: "#0c1117", borderRadius: 8, marginTop: 8 }}
+               style={{ background: "#0c1117", borderRadius: 8, marginTop: 8, display: "block", width: "100%" }}
              />
+             {turtleErr && (
+               <pre style={{ marginTop: 8, padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                 ⚠ {turtleErr}
+               </pre>
+             )}
           </div>
 
           {done && (
