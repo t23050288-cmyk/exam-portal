@@ -41,7 +41,8 @@ export default function InstructionsPage() {
     if (studentData) {
       try {
         const parsed = JSON.parse(studentData);
-        const examTitle = parsed.examTitle || "Online Assessment";
+        // PRIORITY: Use the exam title selected from dashboard, fallback to login data
+        const examTitle = sessionStorage.getItem("exam_selected_title") || parsed.examTitle || "Online Assessment";
         
         // Set initial info immediately so UI renders fast
         setStudentInfo({
