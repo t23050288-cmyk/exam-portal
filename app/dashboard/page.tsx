@@ -115,23 +115,36 @@ export default function DashboardPage() {
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
 
-    // Load exam history from Supabase
-    supabase.from("exam_results")
-      .select("exam_title, score, total_marks, category, submitted_at")
-      .eq("student_id", s.id)
-      .order("submitted_at", { ascending: false })
-      .then(({ data }: any) => {
-        if (data && data.length > 0) {
-          const history = data.map((r: any) => ({
-            examName: r.exam_title,
-            score: r.score,
-            totalMarks: r.total_marks,
-            category: r.category || "Others",
-            timestamp: r.submitted_at,
-          }));
-          setLocalHistory(history);
-        }
-      });
+    // Load exam history — merge Supabase DB + localStorage backup
+    const loadHistory = async () => {
+      // 1. Always load localStorage first (instant, no network)
+      const lsRaw = localStorage.getItem("nexus_exam_results");
+      const lsHistory: any[] = lsRaw ? JSON.parse(lsRaw) : [];
+
+      // 2. Fetch from Supabase
+      const { data } = await supabase.from("exam_results")
+        .select("exam_title, score, total_marks, category, submitted_at")
+        .eq("student_id", s.id)
+        .order("submitted_at", { ascending: false });
+
+      if (data && data.length > 0) {
+        const dbHistory = data.map((r: any) => ({
+          examName: r.exam_title,
+          score: r.score || 0,
+          totalMarks: r.total_marks || 0,
+          category: r.category || "Others",
+          timestamp: r.submitted_at,
+        }));
+        // Merge: DB is authoritative. Add any LS entries not already in DB
+        const dbNames = new Set(dbHistory.map((h: any) => h.examName));
+        const lsExtra = lsHistory.filter((h: any) => !dbNames.has(h.examName));
+        setLocalHistory([...dbHistory, ...lsExtra]);
+      } else if (lsHistory.length > 0) {
+        // No DB data — use localStorage
+        setLocalHistory(lsHistory);
+      }
+    };
+    loadHistory();
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -216,6 +229,8 @@ export default function DashboardPage() {
 
     if (activeNav === "Home") return true;
     if (["Profile", "History", "Insights", "PyHunt"].includes(activeNav)) return false;
+    // "Others" tab: show everything that isn't Aptitude or Programming
+    if (activeNav === "Others") return e.category !== "Aptitude" && e.category !== "Programming";
     return e.category === activeNav;
   }), [allExams, activeNav, localHistory]);
 
@@ -295,6 +310,7 @@ export default function DashboardPage() {
       case "PyHunt": return { title: "PyHunt", sub: "System ready for authorization" };
       case "History": return { title: "History", sub: "Review your previous assessments" };
       case "Insights": return { title: "Skills Insights", sub: "Track your performance" };
+      case "Others": return { title: "Other Quiz", sub: "Explore additional assessments" };
       default: return { title: activeNav, sub: "System ready for authorization" };
     }
   };
@@ -413,7 +429,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {activeNav !== "Home" && !["Profile", "Learning", "Insights", "PyHunt"].includes(activeNav) && (
+            {activeNav !== "Home" && !["Profile", "Insights", "PyHunt", "History"].includes(activeNav) && (
               <div className={styles.cardsGrid}>
                  {filteredExams.length > 0 ? (
                    filteredExams.map((exam: any) => (
@@ -646,5 +662,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
