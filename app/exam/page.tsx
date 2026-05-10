@@ -234,6 +234,12 @@ export default function ExamPage() {
           id: Math.random().toString(36).substr(2, 9)
         });
         localStorage.setItem("nexus_exam_results", JSON.stringify(history));
+        // Mark exam as completed so dashboard redirects to History
+        const completedExams = JSON.parse(localStorage.getItem("nexus_completed_exams") || "[]");
+        if (!completedExams.includes(examTitle)) {
+          completedExams.push(examTitle);
+          localStorage.setItem("nexus_completed_exams", JSON.stringify(completedExams));
+        }
 
         clearExamStorage();
         sessionStorage.removeItem("exam_token");
@@ -749,5 +755,6 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
 
