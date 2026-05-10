@@ -60,7 +60,7 @@ export default function AntiCheat({
   const processingViolationRef = useRef<boolean>(false);
 
   const triggerViolation = useCallback(
-    async (type: string, metadata?: Record<string, unknown>) => {
+    (type: string, metadata?: Record<string, unknown>) => {
       if (isSubmitted || !ready || processingViolationRef.current) return;
 
       const now = Date.now();
@@ -91,19 +91,18 @@ export default function AntiCheat({
       setModalMessage(message);
       setShowModal(true);
 
-      // Report to backend immediately
-      try {
-        await reportViolation(type, { 
-          ...metadata, 
-          warning_count: nextCount, 
-          status: isAutoSubmit ? "auto_submitted" : "active",
-          is_auto_submit: isAutoSubmit
-        });
-      } catch (err) {
+      // Release processing lock immediately — don't wait for network
+      processingViolationRef.current = false;
+
+      // Fire-and-forget: report to backend (don't block UI)
+      reportViolation(type, { 
+        ...metadata, 
+        warning_count: nextCount, 
+        status: isAutoSubmit ? "auto_submitted" : "active",
+        is_auto_submit: isAutoSubmit
+      }).catch((err) => {
         console.error("AntiCheat: Failed to report violation:", err);
-      } finally {
-        processingViolationRef.current = false;
-      }
+      });
 
       if (isAutoSubmit) {
         // Wait 2.5s for the student to read the terminal message before auto-submitting

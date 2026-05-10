@@ -13,7 +13,7 @@
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .card::before {
