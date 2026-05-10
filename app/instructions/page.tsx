@@ -70,23 +70,25 @@ export default function InstructionsPage() {
   }, [router]);
 
 
-  const handleStartExam = async () => {
+  const handleStartExam = () => {
     if (starting) return;
-    setStarting(true);
     
-    // Force fullscreen immediately (direct DOM call for better reliability)
+    // CRITICAL: requestFullscreen() MUST be called synchronously inside click handler.
+    // Browsers block it if called after any async operation (await, setTimeout, etc.)
+    const docElm = document.documentElement;
     try {
-      const docElm = document.documentElement;
-      if (docElm.requestFullscreen) { await docElm.requestFullscreen(); }
-      else if ((docElm as any).mozRequestFullScreen) { await (docElm as any).mozRequestFullScreen(); }
-      else if ((docElm as any).webkitRequestFullScreen) { await (docElm as any).webkitRequestFullScreen(); }
-      else if ((docElm as any).msRequestFullscreen) { await (docElm as any).msRequestFullscreen(); }
+      if (docElm.requestFullscreen) { docElm.requestFullscreen(); }
+      else if ((docElm as any).webkitRequestFullscreen) { (docElm as any).webkitRequestFullscreen(); }
+      else if ((docElm as any).mozRequestFullScreen) { (docElm as any).mozRequestFullScreen(); }
+      else if ((docElm as any).msRequestFullscreen) { (docElm as any).msRequestFullscreen(); }
     } catch (err) {
       console.warn("Fullscreen request failed", err);
     }
 
-    try {
-      const res = await startExam(studentInfo?.examTitle || "Initial Assessment");
+    setStarting(true);
+
+    // Now do async work after fullscreen is requested
+    startExam(studentInfo?.examTitle || "Initial Assessment").then((res) => {
       
       if (res.status === "submitted") {
         alert("You have already submitted this exam.");
@@ -103,11 +105,11 @@ export default function InstructionsPage() {
       }
 
       router.push("/exam");
-    } catch (err: any) {
+    }).catch((err: any) => {
       console.error("Failed to start exam", err);
       alert(err.message || "Error starting exam. Please try again.");
       setStarting(false);
-    }
+    });
   };
 
   const handleLogout = () => {
@@ -259,3 +261,4 @@ export default function InstructionsPage() {
     </div>
   );
 }
+
