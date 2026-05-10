@@ -198,14 +198,20 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
     );
   }
 
+  const MAX_CODE_ATTEMPTS = 4;
   const handleSubmit = () => {
     if (input.trim().toUpperCase() === clue.unlockCode.toUpperCase()) {
       setUnlocked(true);
       setTimeout(onUnlock, 1200);
     } else {
-      setAttempts(a => a + 1);
+      const next = attempts + 1;
+      setAttempts(next);
       setShaking(true);
       setTimeout(() => setShaking(false), 600);
+      if (next >= MAX_CODE_ATTEMPTS) {
+        // Auto-submit after max wrong code attempts
+        setTimeout(() => onUnlock(), 1500);
+      }
     }
   };
 
@@ -235,7 +241,10 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
             />
             {attempts > 0 && (
               <div className={styles.clueWrongMsg}>
-                ❌ Wrong code — check again! ({attempts} attempt{attempts>1?"s":""})
+                {attempts >= 4
+                  ? "🚫 Too many wrong attempts! Moving to next round automatically..."
+                  : `❌ Wrong code — ${4 - attempts} attempt${4 - attempts !== 1 ? "s" : ""} remaining`
+                }
               </div>
             )}
             <button className={styles.primaryBtn} onClick={handleSubmit}>
@@ -975,12 +984,12 @@ export default function PyHuntPage() {
       setWarningCount(prev => {
         const next = prev + 1;
         setLastViolation(reason);
-        if (next >= 3) {
+        if (next >= 4) {
           const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
+          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 4 });
           setTerminated(true);
           setFinished(true);
-          return 3;
+          return 4;
         }
         setShowWarning(true);
         return next;
@@ -1115,34 +1124,7 @@ export default function PyHuntPage() {
         </div>
       <ProgressBar round={round} showingClue={showingClue} />
       
-      {/* Warning Overlay */}
-      <AnimatePresence>
-        {showWarning && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            className={styles.warningOverlay}
-          >
-            <div className={styles.warningCard} style={{ border: "2px solid #ef4444" }}>
-              <div className={styles.warningIcon} style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>⚠️</div>
-              <h2 style={{ color: "#fff", fontSize: 24, marginBottom: 8 }}>Security Alert</h2>
-              <div style={{ background: "rgba(239,68,68,0.05)", padding: "12px 16px", borderRadius: 12, marginBottom: 20, border: "1px solid rgba(239,68,68,0.1)" }}>
-                <p style={{ color: "#fca5a5", fontSize: 13, textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", margin: 0 }}>
-                  DETECTED: {lastViolation.replace(/_/g, ' ')}
-                </p>
-              </div>
-              <div className={styles.warningStats}>
-                Warning <strong>{warningCount}</strong> of 3
-              </div>
-              <p className={styles.warningNote}>After 3 warnings, your session will be automatically terminated.</p>
-              <button className={styles.primaryBtn} onClick={() => setShowWarning(false)}>
-                I Understand — Resume Challenge
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
         <div className={styles.headerRight}>
           <div className={styles.statsBadge}>
             <span className={styles.statLabel}>Tries:</span>
@@ -1151,6 +1133,65 @@ export default function PyHuntPage() {
           <span className={styles.studentBadge}>👤 {studentName}</span>
         </div>
       </header>
+
+      {/* ── WARNING OVERLAY — blocks ALL interaction, centered ── */}
+      {showWarning && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 24, pointerEvents: "all",
+        }}>
+          <div style={{
+            maxWidth: 460, width: "100%",
+            background: "rgba(8,14,35,0.98)", border: "2px solid #ef4444",
+            borderRadius: 24, padding: "48px 40px", textAlign: "center",
+            boxShadow: "0 0 0 1px rgba(239,68,68,0.3), 0 32px 80px rgba(0,0,0,0.9)",
+            animation: "modalPop 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
+            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
+              {Array.from({length:4},(_,i)=>(
+                <div key={i} style={{ width:12, height:12, borderRadius:"50%",
+                  background: i < warningCount ? "#ef4444" : "rgba(255,255,255,0.12)",
+                  border: "1.5px solid " + (i < warningCount ? "#ef4444" : "rgba(255,255,255,0.2)")
+                }}/>
+              ))}
+            </div>
+            <h2 style={{ color: "#fff", fontSize: 22, fontWeight: 900, marginBottom: 8 }}>Security Alert</h2>
+            <div style={{ background: "rgba(239,68,68,0.08)", padding: "10px 16px", borderRadius: 12, marginBottom: 20, border: "1px solid rgba(239,68,68,0.15)" }}>
+              <p style={{ color: "#fca5a5", fontSize: 13, textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", margin: 0 }}>
+                DETECTED: {lastViolation.replace(/_/g, " ")}
+              </p>
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", background: "rgba(239,68,68,0.1)", borderRadius: 12, padding: "12px", marginBottom: 20 }}>
+              Warning <strong>{warningCount}</strong> of 4
+            </div>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              {warningCount >= 3
+                ? "🚨 FINAL WARNING! One more violation and your session will be terminated."
+                : "After 4 violations, your session will be automatically terminated."}
+            </p>
+            <button
+              style={{ width:"100%", padding:"16px", borderRadius:14, border:"none",
+                background: "linear-gradient(135deg,#ef4444,#dc2626)",
+                color:"#fff", fontWeight:900, fontSize:16, cursor:"pointer",
+                boxShadow:"0 8px 24px rgba(239,68,68,0.35)",
+              }}
+              onClick={() => {
+                setShowWarning(false);
+                // Re-enter fullscreen IMMEDIATELY on dismiss
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(()=>{});
+                }
+              }}
+            >
+              I Understand — Resume Challenge
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <main className={styles.content}>
