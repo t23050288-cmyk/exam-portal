@@ -412,6 +412,8 @@ function LiveStatusView() {
             {students.map((s, i) => {
               const roundNum = parseRound(s.current_round);
               const isFinished = s.status === "finished" || s.current_round?.toUpperCase() === "COMPLETED";
+              const isTerminated = s.status === "TERMINATED";
+              
               return (
                 <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
                   <td style={{padding:"12px 8px", fontWeight:700}}>{s.student_name}</td>
@@ -419,21 +421,21 @@ function LiveStatusView() {
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       width: 32, height: 32, borderRadius: "50%", fontWeight: 800, fontSize: 14,
-                      background: isFinished ? "rgba(16,185,129,0.15)" : "rgba(0,220,255,0.12)",
-                      color: isFinished ? "#10b981" : "#00dcff",
-                      border: isFinished ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(0,220,255,0.25)",
+                      background: isTerminated ? "rgba(239, 68, 68, 0.15)" : (isFinished ? "rgba(16,185,129,0.15)" : "rgba(0,220,255,0.12)"),
+                      color: isTerminated ? "#ef4444" : (isFinished ? "#10b981" : "#00dcff"),
+                      border: isTerminated ? "1px solid rgba(239, 68, 68, 0.3)" : (isFinished ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(0,220,255,0.25)"),
                     }}>
-                      {isFinished ? "✓" : roundNum}
+                      {isFinished ? "✓" : (isTerminated ? "X" : roundNum)}
                     </span>
                   </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{
                       padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800,
-                      background: isFinished ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
-                      color: isFinished ? "#10b981" : "#f59e0b",
-                      border: isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(245,158,11,0.2)",
+                      background: isTerminated ? "rgba(239, 68, 68, 0.1)" : (isFinished ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)"),
+                      color: isTerminated ? "#ef4444" : (isFinished ? "#10b981" : "#f59e0b"),
+                      border: isTerminated ? "1px solid rgba(239, 68, 68, 0.2)" : (isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(245,158,11,0.2)"),
                     }}>
-                      {isFinished ? "COMPLETED" : "IN PROGRESS"}
+                      {isTerminated ? "TERMINATED" : (isFinished ? "COMPLETED" : "IN PROGRESS")}
                     </span>
                   </td>
                   <td style={{padding:"12px 8px"}}>
@@ -452,11 +454,11 @@ function LiveStatusView() {
                       padding: "2px 8px",
                       borderRadius: 4,
                       fontSize: 10,
-                      background: isFinished ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)",
-                      color: isFinished ? "#10b981" : "#00dcff",
-                      border: isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)"
+                      background: isTerminated ? "rgba(239, 68, 68, 0.1)" : (isFinished ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)"),
+                      color: isTerminated ? "#ef4444" : (isFinished ? "#10b981" : "#00dcff"),
+                      border: isTerminated ? "1px solid rgba(239, 68, 68, 0.2)" : (isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)")
                     }}>
-                      {isFinished ? "FINISHED" : "ACTIVE"}
+                      {isTerminated ? "TERMINATED" : (isFinished ? "FINISHED" : "ACTIVE")}
                     </span>
                   </td>
                 </tr>

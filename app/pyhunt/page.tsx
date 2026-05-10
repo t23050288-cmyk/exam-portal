@@ -726,12 +726,14 @@ sys.modules["turtle"] = t_mod
 /* ═══════════════════════════════════════════════
    FINISH SCREEN
 ═══════════════════════════════════════════════ */
-function FinishScreen({ message, stats, timerSeconds }: { message: string; stats: { minutes: number; wrongs: number; warnings: number }; timerSeconds: number }) {
+function FinishScreen({ message, stats, timerSeconds, terminated }: { message: string; stats: { minutes: number; wrongs: number; warnings: number }; timerSeconds: number; terminated?: boolean }) {
   const router = useRouter();
   return (
-    <div className={styles.finishScreen}>
-      <div className={styles.finishEmoji}>🏆</div>
-      <div className={styles.finishTitle}>PYHUNT COMPLETE!</div>
+    <div className={styles.finishScreen} style={terminated ? { border: "2px solid #ef4444", background: "rgba(239, 68, 68, 0.05)", boxShadow: "0 0 40px rgba(239, 68, 68, 0.2)" } : {}}>
+      <div className={styles.finishEmoji}>{terminated ? "⛔" : "🏆"}</div>
+      <div className={styles.finishTitle} style={terminated ? { color: "#ef4444", textShadow: "0 0 20px rgba(239, 68, 68, 0.5)" } : {}}>
+        {terminated ? "SESSION TERMINATED" : "PYHUNT COMPLETE!"}
+      </div>
       
       <div className={styles.statsCard}>
         <div className={styles.statItem}>
@@ -743,14 +745,16 @@ function FinishScreen({ message, stats, timerSeconds }: { message: string; stats
           <div className={styles.statLabel}>Wrong Attempts</div>
         </div>
         <div className={styles.statItem}>
-          <div className={styles.statValue}>{stats.warnings}/3</div>
+          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/3</div>
           <div className={styles.statLabel}>Warnings</div>
         </div>
       </div>
 
-      <div className={styles.finishSub}>{message}</div>
+      <div className={styles.finishSub} style={terminated ? { color: "#fca5a5", fontWeight: 600 } : {}}>
+        {terminated ? "Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator." : message}
+      </div>
       <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard")}>
+        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard")} style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}>
           ← Back to Dashboard
         </button>
         <div style={{ fontSize: 12, opacity: 0.5 }}>
@@ -841,6 +845,7 @@ export default function PyHuntPage() {
   const [round, setRound] = useState(0);           // 0–4 = active round
   const [showingClue, setShowingClue] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [terminated, setTerminated] = useState(false);
   const [studentName, setStudentName] = useState("Student");
   
   // Stats tracking
@@ -853,6 +858,7 @@ export default function PyHuntPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
+  const lastWarningTimeRef = useRef(0);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -874,7 +880,7 @@ export default function PyHuntPage() {
       try {
         const studentId = localStorage.getItem("nexus_student_id") || "anonymous";
         const name = localStorage.getItem("nexus_student_name") || "Student";
-        const currentRound = finished ? "COMPLETED" : `Round ${round + 1}`;
+        const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
         
         await supabase
           .from('pyhunt_progress')
@@ -883,7 +889,7 @@ export default function PyHuntPage() {
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
-            status: finished ? 'finished' : 'active',
+            status: finished ? (terminated ? 'TERMINATED' : 'finished') : 'active',
             warnings: warningCount,
             last_violation: lastViolation
           }, { onConflict: 'student_id' });
@@ -892,7 +898,7 @@ export default function PyHuntPage() {
       }
     };
     updateProgress();
-  }, [round, finished, warningCount, lastViolation]);
+  }, [round, finished, terminated, warningCount, lastViolation]);
 
   // ── Fullscreen Watcher ──
   useEffect(() => {
@@ -961,15 +967,20 @@ export default function PyHuntPage() {
     if (finished) return;
 
     const handleViolation = (reason: string) => {
+      const now = Date.now();
+      if (now - lastWarningTimeRef.current < 1500) return; // throttle 1.5s
+      lastWarningTimeRef.current = now;
+
       // Always record violation even if warning is visible
       setWarningCount(prev => {
         const next = prev + 1;
         setLastViolation(reason);
-        if (next >= 4) {
+        if (next >= 3) {
           const duration = Math.floor((Date.now() - startTime) / 60000);
           setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
+          setTerminated(true);
           setFinished(true);
-          return 4;
+          return 3;
         }
         setShowWarning(true);
         return next;
@@ -1084,7 +1095,7 @@ export default function PyHuntPage() {
     <div className={styles.page}>
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
-      <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} />
+      <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} terminated={terminated} />
     </div>
   );
 
