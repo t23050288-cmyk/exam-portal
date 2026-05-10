@@ -58,6 +58,7 @@ interface StudentRow {
   branch: string;
   status: "not_started" | "active" | "submitted";
   warnings: number;
+  banned?: boolean;
   last_active: string | null;
   submitted_at: string | null;
   started_at: string | null;
@@ -353,6 +354,27 @@ export default function AdminPage() {
       alert("Cleanup failed: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBanStudent = async (s: StudentRow) => {
+    if (!confirm(`Ban ${s.name}? This will force-submit their exam and LOCK them out until you click Reset.`)) return;
+    try {
+      // Force submit first
+      if (s.status === "active") {
+        await forceSubmitAdminStudent(s.student_id);
+      }
+      // Then mark as banned in Supabase students table
+      const { createClient } = await import("@supabase/supabase-js");
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      await sb.from("students").update({ is_banned: true }).eq("id", s.student_id);
+      await fetchStudents();
+      alert(`${s.name} has been banned and their exam force-submitted.`);
+    } catch (err: any) {
+      alert("Ban failed: " + err.message);
     }
   };
 
@@ -670,11 +692,26 @@ export default function AdminPage() {
                         {s.submitted_at ? new Date(s.submitted_at).toLocaleTimeString() : "—"}
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 4 }}>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {s.status === "active" && (
                             <button className="btn btn-outline" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => handleForceSubmit(s)}>
                               Submit
                             </button>
+                          )}
+                          {/* BAN: force-submit + lock until admin resets */}
+                          {!s.banned && s.status !== "submitted" && (
+                            <button
+                              style={{ fontSize: 10, padding: "4px 8px", borderRadius: 6, border: "1px solid #ef4444", background: "rgba(239,68,68,0.12)", color: "#ef4444", cursor: "pointer", fontWeight: 700 }}
+                              onClick={() => handleBanStudent(s)}
+                              title="Force submit & lock — student cannot re-take until Reset"
+                            >
+                              🚫 Ban
+                            </button>
+                          )}
+                          {s.banned && (
+                            <span style={{ fontSize: 10, padding: "4px 8px", borderRadius: 6, background: "rgba(239,68,68,0.08)", color: "#ef4444", fontWeight: 700, border: "1px solid rgba(239,68,68,0.2)" }}>
+                              🔒 Banned
+                            </span>
                           )}
                           <button className="btn btn-outline" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => resetAdminStudent(s.student_id).then(fetchStudents)}>
                             Reset
@@ -2264,5 +2301,6 @@ function StudentsTab() {
     </div>
   );
 }
+
 
 
