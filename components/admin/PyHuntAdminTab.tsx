@@ -50,7 +50,7 @@ const DEFAULT: PyHuntConfig = {
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const BACKEND_URL = ""; // Always use relative paths for Vercel deployment to avoid CORS issues
 
 async function loadCfgAsync(): Promise<PyHuntConfig> {
   // Route through backend — bypasses Supabase RLS
