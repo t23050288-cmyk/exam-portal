@@ -26,7 +26,6 @@ export default function AntiCheat({
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const warningRef = useRef(initialWarningCount);
-  const lastViolationRef = useRef(0); 
 
   const [ready, setReady] = useState(false);
 
