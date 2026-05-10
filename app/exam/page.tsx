@@ -388,11 +388,6 @@ export default function ExamPage() {
 
             </div>
 
-
-            {/* Detailed Breakdown */}
-              </div>
-            )}
-
             {showResultDetails && submitResult && (
               <div className={styles.resultCard}>
                 <div className={styles.resultDetail}>
