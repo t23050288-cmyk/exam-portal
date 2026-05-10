@@ -865,19 +865,38 @@ export default function PyHuntPage() {
 
   const enterFullscreen = useCallback(() => {
     const el = document.documentElement;
-    if (el.requestFullscreen) {
-      el.requestFullscreen().catch(() => {
-        console.log("Auto-fullscreen blocked by browser policy");
-      });
+    if (!document.fullscreenElement) {
+      el.requestFullscreen()
+        .then(() => {
+          console.log("[PyHunt] Fullscreen entered successfully");
+          setIsFullscreen(true);
+        })
+        .catch((err) => {
+          console.warn("[PyHunt] Fullscreen blocked:", err.message);
+        });
     }
-    setIsFullscreen(true);
   }, []);
 
   // ── Auto-Fullscreen Enforcement ──
+  // Force fullscreen on mount and whenever it's exited
+  useEffect(() => {
+    if (finished) return;
+    
+    // Try fullscreen immediately
+    enterFullscreen();
+    
+    // Retry after 500ms in case first was blocked
+    const retry = setTimeout(enterFullscreen, 500);
+    
+    return () => clearTimeout(retry);
+  }, [finished, enterFullscreen]);
+
+  // Re-enter fullscreen whenever user exits it
   useEffect(() => {
     if (finished) return;
     if (!isFullscreen) {
-      enterFullscreen();
+      const timer = setTimeout(enterFullscreen, 300);
+      return () => clearTimeout(timer);
     }
   }, [isFullscreen, finished, enterFullscreen]);
 
@@ -917,6 +936,12 @@ export default function PyHuntPage() {
         setShowWarning(true);
         return next;
       });
+      // Force re-enter fullscreen after any violation
+      setTimeout(() => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      }, 300);
     };
 
     const onVisibilityChange = () => { 

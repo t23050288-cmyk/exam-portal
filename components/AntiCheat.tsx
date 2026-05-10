@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { reportViolation } from "@/lib/api";
 import { useTelemetry } from "@/hooks/useTelemetry";
-import { useFullscreen } from "@/hooks/useFullscreen";
 import WarningModal from "./WarningModal";
 import dynamic from "next/dynamic";
 
@@ -18,59 +17,93 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
   const [warningCount, setWarningCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const { enter: enterFullscreen } = useFullscreen();
   const { queueEvent } = useTelemetry({ isSubmitted });
+  const warningRef = useRef(0); // Track count without stale closure issues
 
-  // ── Enforce fullscreen immediately on mount ────────────────
+  // ── Force fullscreen on mount (synchronous with user gesture from dashboard click) ──
   useEffect(() => {
-    if (!isSubmitted) {
-      const timer = setTimeout(() => { enterFullscreen(); }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isSubmitted, enterFullscreen]);
+    if (isSubmitted) return;
+    
+    const forceFullscreen = () => {
+      const el = document.documentElement;
+      if (!document.fullscreenElement) {
+        el.requestFullscreen().then(() => {
+          console.log("[AntiCheat] Fullscreen entered successfully");
+        }).catch((err) => {
+          console.warn("[AntiCheat] Fullscreen blocked by browser:", err.message);
+        });
+      }
+    };
+
+    // Try immediately (works if page was navigated via user click)
+    forceFullscreen();
+    
+    // Retry after a short delay in case the first attempt was blocked
+    const retry = setTimeout(forceFullscreen, 500);
+    return () => clearTimeout(retry);
+  }, [isSubmitted]);
 
   const [ready, setReady] = useState(false);
 
-  // Grace period: don't fire violations for first 10 seconds to allow setup/fullscreen
+  // Grace period: reduced to 3 seconds (enough for page setup, not so long violations are missed)
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 10000);
+    const t = setTimeout(() => setReady(true), 3000);
     return () => clearTimeout(t);
   }, []);
 
   const isMobile = typeof window !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
+  // ── Force re-enter fullscreen ──
+  const forceReenterFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch((err) => {
+        console.warn("[AntiCheat] Re-enter fullscreen failed:", err.message);
+      });
+    }
+  }, []);
+
   const triggerViolation = useCallback(
     async (type: string, metadata?: Record<string, unknown>) => {
-      if (isSubmitted || !ready || showModal) return;
+      if (isSubmitted || !ready) return;
 
       // Queue telemetry event (batched, low-overhead)
       queueEvent(type, metadata);
 
-      // Also report to violation counter (this drives warnings + auto-submit logic)
-    try {
-      const res = await reportViolation(type, metadata);
-      const count = res.warning_count;
-      setWarningCount(count);
-      setModalMessage(res.message);
+      // Increment warning count
+      const nextCount = warningRef.current + 1;
+      warningRef.current = nextCount;
+      setWarningCount(nextCount);
+
+      // Build message based on count
+      let message: string;
+      if (nextCount >= 3) {
+        message = `⚠️ 3rd violation detected (${type.replace(/_/g, ' ')}). Your exam has been auto-submitted.`;
+      } else if (nextCount === 2) {
+        message = `🚨 Final warning! Violation: ${type.replace(/_/g, ' ')}. One more and your exam will be auto-submitted.`;
+      } else {
+        message = `⚠️ Warning ${nextCount}: ${type.replace(/_/g, ' ')} detected. Please return to the exam and stay focused.`;
+      }
+
+      setModalMessage(message);
       setShowModal(true);
-      if (res.auto_submitted) onAutoSubmit();
-    } catch {
-      setWarningCount((prev) => {
-        const next = prev + 1;
-        if (next >= 3) {
-          setModalMessage("⚠️ 3rd violation detected. Your exam has been auto-submitted.");
-          onAutoSubmit();
-        } else if (next === 2) {
-          setModalMessage("🚨 Final warning! One more violation and your exam will be auto-submitted.");
-        } else {
-          setModalMessage("⚠️ Warning 1: Please return to the exam and stay focused.");
-        }
-        setShowModal(true);
-        return next;
-      });
-    }
+
+      // Auto-submit on 3rd violation
+      if (nextCount >= 3) {
+        onAutoSubmit();
+      }
+
+      // Also try to report to backend (non-blocking)
+      try {
+        await reportViolation(type, metadata);
+      } catch {
+        // Backend failure doesn't affect local enforcement
+      }
+
+      // Force re-enter fullscreen after any violation
+      setTimeout(forceReenterFullscreen, 300);
     },
-    [isSubmitted, ready, onAutoSubmit, queueEvent]
+    [isSubmitted, ready, onAutoSubmit, queueEvent, forceReenterFullscreen]
   );
 
   // ── Tab/window visibility ──────────────────────────────────
@@ -91,16 +124,15 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     return () => window.removeEventListener("blur", handler);
   }, [triggerViolation, isMobile]);
 
-  // ── Fullscreen exit ────────────────────────────────────────
+  // ── Fullscreen exit detection + auto re-enter ──────────────
   useEffect(() => {
     const handler = () => {
-      const isFullscreen = !!(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-      if (!isFullscreen) triggerViolation("fullscreen_exit");
+      if (!document.fullscreenElement) {
+        console.log("[AntiCheat] Fullscreen exited — triggering violation + auto re-enter");
+        triggerViolation("fullscreen_exit");
+        // Auto re-enter fullscreen immediately
+        setTimeout(forceReenterFullscreen, 200);
+      }
     };
     document.addEventListener("fullscreenchange", handler);
     document.addEventListener("webkitfullscreenchange", handler);
@@ -108,7 +140,7 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
       document.removeEventListener("fullscreenchange", handler);
       document.removeEventListener("webkitfullscreenchange", handler);
     };
-  }, [triggerViolation]);
+  }, [triggerViolation, forceReenterFullscreen]);
 
   // ── Right-click prevention ─────────────────────────────────
   useEffect(() => {
@@ -159,8 +191,12 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
         <WarningModal
           message={modalMessage}
           warningCount={warningCount}
-          onDismiss={() => setShowModal(false)}
-          onReenterFullscreen={enterFullscreen}
+          onDismiss={() => {
+            setShowModal(false);
+            // Re-enter fullscreen when user dismisses the warning
+            forceReenterFullscreen();
+          }}
+          onReenterFullscreen={forceReenterFullscreen}
         />
       )}
       {/* {!isMobile && <FaceMonitor isSubmitted={isSubmitted} onViolation={triggerViolation} />} */}

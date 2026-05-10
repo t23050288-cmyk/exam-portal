@@ -237,6 +237,17 @@ export default function DashboardPage() {
       setActiveNav("History");
       return;
     }
+
+    // ── CRITICAL: Request fullscreen SYNCHRONOUSLY within the click handler ──
+    // Browsers require requestFullscreen() to be called directly from user interaction.
+    // If placed after an await or setTimeout, the browser will block it.
+    try {
+      await document.documentElement.requestFullscreen();
+      console.log("[Dashboard] Fullscreen entered on exam launch");
+    } catch (err: any) {
+      console.warn("[Dashboard] Fullscreen blocked:", err.message);
+    }
+
     setWarpActive(true);
     sessionStorage.setItem("exam_selected_title", exam.exam_name);
     await new Promise((r: any) => setTimeout(r, 1200));
