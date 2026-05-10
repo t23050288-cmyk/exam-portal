@@ -113,7 +113,7 @@ export default function ExamPage() {
             .single()
             .then(({ data }: { data: any }) => {
               if (data?.status === "submitted") {
-                router.replace("/dashboard");
+                router.replace("/dashboard?tab=Insights");
               }
             });
         });
@@ -279,8 +279,6 @@ export default function ExamPage() {
         }
 
         clearExamStorage();
-        sessionStorage.removeItem("exam_token");
-        sessionStorage.removeItem("exam_student");
         setIsSubmitted(true);
         setSubmitResult(res);
         setSubmitting(false);
@@ -301,11 +299,16 @@ export default function ExamPage() {
   useEffect(() => {
     if (!isSubmitted) return;
     
+    if (resultTimerSeconds === 0) {
+       router.replace("/dashboard?tab=Insights");
+       return;
+    }
+
     const interval = setInterval(() => {
       setResultTimerSeconds(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.replace("/dashboard");
+          router.replace("/dashboard?tab=Insights");
           return 0;
         }
         return prev - 1;
@@ -313,7 +316,7 @@ export default function ExamPage() {
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [isSubmitted, router]);
+  }, [isSubmitted, resultTimerSeconds, router]);
 
   const formatResultTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -454,9 +457,9 @@ export default function ExamPage() {
             <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
               <button 
                 className={styles.backToDashboardBtn}
-                onClick={() => router.replace("/dashboard")}
+                onClick={() => router.replace("/dashboard?tab=Insights")}
               >
-                Back to Dashboard
+                GO TO SKILLS INSIGHTS →
               </button>
               <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>
                 Auto-redirecting in {resultTimerSeconds}s...
@@ -500,7 +503,7 @@ export default function ExamPage() {
   }
 
   return (
-    <div className={`${styles.wrapper} no-select`} data-theme={activeTheme}>
+    <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
       <Background />
       {/* ── Weightless Exam Overlay (inactive / scheduled) ── */}
       {(examInactive || examScheduled) && (
@@ -613,12 +616,6 @@ export default function ExamPage() {
                {examTitle || "Online Assessment"}
              </h1>
              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-               <button 
-                 className={styles.navBackBtn}
-                 onClick={() => router.replace("/dashboard")}
-               >
-                 ← Back
-               </button>
                {student && (
                  <ExamTimer
                    startTime={student.examStartTime || new Date().toISOString()}
@@ -642,87 +639,89 @@ export default function ExamPage() {
                 onCodeSubmit={handleCodeSubmit}
                 isSubmitted={isSubmitted}
               >
-                {/* Previous */}
-                <button
-                  type="button"
-                  style={{
-                    background: "rgba(13, 148, 136, 0.08)",
-                    border: "1.5px solid rgba(13, 148, 136, 0.3)",
-                    color: "#0d9488",
-                    padding: "12px 24px",
-                    borderRadius: "12px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    opacity: activeQuestionIndex === 0 ? 0.3 : 1,
-                    pointerEvents: activeQuestionIndex === 0 ? "none" : "auto",
-                    transition: "all 0.2s ease",
-                  }}
-                  onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
-                >
-                  Previous
-                </button>
+                <div style={{ 
+                  display: "flex", 
+                  gap: 16, 
+                  alignItems: "center", 
+                  justifyContent: "flex-end",
+                  marginTop: 20,
+                  paddingTop: 20,
+                  borderTop: "1px solid var(--rim-metal)"
+                }}>
+                  {/* Next */}
+                  {activeQuestionIndex < questions.length - 1 && (
+                    <button
+                      type="button"
+                      style={{
+                        background: "linear-gradient(135deg, #06b6d4, #3b82f6)",
+                        color: "#fff",
+                        border: "none",
+                        padding: "16px 36px",
+                        borderRadius: "16px",
+                        fontWeight: 900,
+                        fontSize: "14px",
+                        cursor: "pointer",
+                        boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)",
+                        transition: "all 0.3s ease",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase"
+                      }}
+                      onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                    >
+                      NEXT QUESTION →
+                    </button>
+                  )}
 
-                {/* Mark for Review */}
-                <button
-                  type="button"
-                  style={{
-                    background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.08)" : "transparent",
-                    border: flagged.has(activeQuestionIndex) ? "1.5px solid #eab308" : "1.5px solid rgba(0,0,0,0.1)",
-                    color: flagged.has(activeQuestionIndex) ? "#ca8a04" : "#475569",
-                    padding: "12px 24px",
-                    borderRadius: "12px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                  onClick={toggleFlag}
-                >
-                  {flagged.has(activeQuestionIndex) ? "🚩 Marked" : "Mark for Review"}
-                </button>
-
-                {/* Save & Next / Submit */}
-                {activeQuestionIndex < questions.length - 1 ? (
+                  {/* Mark as Flag */}
                   <button
                     type="button"
                     style={{
-                      background: "#0d9488",
-                      color: "#fff",
-                      border: "none",
-                      padding: "12px 28px",
-                      borderRadius: "12px",
-                      fontWeight: 700,
+                      background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)",
+                      border: flagged.has(activeQuestionIndex) ? "2px solid #eab308" : "1px solid rgba(255,255,255,0.15)",
+                      color: flagged.has(activeQuestionIndex) ? "#eab308" : "var(--text-primary)",
+                      padding: "16px 28px",
+                      borderRadius: "16px",
+                      fontWeight: 800,
                       fontSize: "14px",
                       cursor: "pointer",
-                      boxShadow: "0 4px 14px rgba(13,148,136,0.3)",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase"
                     }}
-                    onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                    onClick={toggleFlag}
                   >
-                    Save &amp; Next
+                    <span>{flagged.has(activeQuestionIndex) ? "🚩" : "🏳️"}</span>
+                    {flagged.has(activeQuestionIndex) ? "FLAG" : "MARK AS FLAG"}
                   </button>
-                ) : (
+
+                  {/* Submit */}
                   <button
                     id="submit-exam-btn"
                     type="button"
                     style={{
-                      background: "#ef4444",
+                      background: "linear-gradient(135deg, #ff4d4d, #cc0000)",
                       color: "#fff",
                       border: "none",
-                      padding: "12px 28px",
-                      borderRadius: "12px",
-                      fontWeight: 700,
-                      fontSize: "14px",
+                      padding: "20px 48px",
+                      borderRadius: "18px",
+                      fontWeight: 900,
+                      fontSize: "16px",
                       cursor: "pointer",
-                      boxShadow: "0 4px 14px rgba(239,68,68,0.3)",
+                      boxShadow: "0 10px 30px rgba(255, 77, 77, 0.4)",
+                      transition: "all 0.3s ease",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      marginLeft: "auto"
                     }}
                     onClick={() => setConfirmSubmit(true)}
                     disabled={submitting}
                   >
-                    {submitting ? "Submitting..." : "Submit Exam"}
+                    {submitting ? "..." : "SUBMIT EXAM"}
                   </button>
-                )}
+                </div>
               </QuestionCard>
             )}
           </div>

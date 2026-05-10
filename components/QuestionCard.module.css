@@ -240,6 +240,25 @@
   display: block;
 }
 
+.multiMedia {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin: 16px 0 24px 0;
+}
+
+.multiMedia > div {
+  flex: 1;
+  margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .multiMedia {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
 /* ── Actions container ── */
 .actionsContainer {
   display: flex;

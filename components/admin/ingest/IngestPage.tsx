@@ -537,7 +537,14 @@ export default function IngestPage() {
                   {q.image_url && (
                     <div className={styles.qImageContainer}>
                       <img src={q.image_url} alt={`Asset for Q${i + 1}`} className={styles.qImage} />
-                      <div className={styles.imageLabel}>Extracted PDF Asset</div>
+                      <div className={styles.imageLabel}>Extracted Image Asset</div>
+                    </div>
+                  )}
+
+                  {q.audio_url && (
+                    <div className={styles.qAudioContainer}>
+                      <audio src={q.audio_url} controls style={{ width: "100%", height: 32 }} />
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2, textAlign: "center", textTransform: "uppercase", fontWeight: 600 }}>Extracted Audio Asset</div>
                     </div>
                   )}
 

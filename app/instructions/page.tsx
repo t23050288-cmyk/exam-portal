@@ -179,16 +179,10 @@ export default function InstructionsPage() {
             </p>
             <div style={{ display: "flex", gap: 12 }}>
               <button
-                onClick={() => router.replace("/dashboard")}
-                style={{ flex: 1, padding: "14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", fontWeight: 600, cursor: "pointer", fontSize: 15 }}
-              >
-                Back to Dashboard
-              </button>
-              <button
                 onClick={handleEnterSecureMode}
-                style={{ flex: 1, padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", fontSize: 15, boxShadow: "0 8px 20px rgba(40,215,214,0.25)" }}
+                style={{ flex: 1, padding: "16px", borderRadius: 16, border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", fontSize: 16, boxShadow: "0 8px 25px rgba(40,215,214,0.3)" }}
               >
-                Enter Secure Mode
+                ENTER SECURE MODE →
               </button>
             </div>
             <div style={{ marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em", fontWeight: 700 }}>
@@ -286,16 +280,7 @@ export default function InstructionsPage() {
           </ul>
 
           <div className={styles.actionArea}>
-            <button 
-              className={styles.backBtn}
-              onClick={() => router.replace("/dashboard")}
-              disabled={starting}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6"/>
-              </svg>
-              Back to Dashboard
-            </button>
+            <div style={{ flex: 1 }} /> {/* Spacer */}
             <button 
               onClick={handleStartExam} 
               className={styles.startBtn}

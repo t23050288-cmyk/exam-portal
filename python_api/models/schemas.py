@@ -301,13 +301,13 @@ class ReportViolationResponse(BaseModel):
 # ── Folder Management ─────────────────────────────────────────
 
 class FolderRenameRequest(BaseModel):
-    old_name: str
+    old_name: Optional[str] = None
     new_name: str
 
 
 class FolderEditBranchRequest(BaseModel):
-    exam_name: str
-    old_branch: str
+    exam_name: Optional[str] = None
+    old_branch: Optional[str] = None
     new_branch: str
 
 

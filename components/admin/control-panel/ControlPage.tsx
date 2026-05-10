@@ -429,6 +429,20 @@ export default function OrbitalControlPage() {
 
               {/* Active/Inactive Luminous Toggle */}
               <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "24px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "rgba(148,163,184,0.6)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Attempts</label>
+                  <select
+                    className={styles.markSelect}
+                    style={{ width: "80px", height: "32px", padding: "0 8px" }}
+                    value={config.max_attempts}
+                    onChange={(e) => setConfig((c) => ({ ...c, max_attempts: Number(e.target.value) }))}
+                  >
+                    {[1, 2, 3, 5, 10].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div
                   style={{
                     width: "60px",
@@ -443,6 +457,7 @@ export default function OrbitalControlPage() {
                     padding: "4px",
                     boxShadow: config.is_active ? "0 0 15px rgba(6,182,212,0.2)" : "none",
                     transition: "all 0.3s ease",
+                    marginTop: "16px",
                   }}
                   onClick={() => setConfig(c => ({ ...c, is_active: !c.is_active }))}
                 >
@@ -460,7 +475,7 @@ export default function OrbitalControlPage() {
                     }}
                   />
                 </div>
-                <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", flexDirection: "column", marginTop: "16px" }}>
                   <span style={{ fontSize: "14px", fontWeight: 700, color: config.is_active ? "#06b6d4" : "rgba(148,163,184,0.7)", letterSpacing: "0.02em" }}>
                     {config.is_active ? "Luminous (Active)" : "Latent (Deactivated)"}
                   </span>
@@ -734,11 +749,28 @@ export default function OrbitalControlPage() {
                   </span>
                 </div>
               </div>
+
               <div className={styles.currentStatusRow}>
                 <span className={`${styles.quizStatusBadge} ${config.is_active ? styles.quizStatusActive : styles.quizStatusInactive}`}>
                   {config.is_active ? "● Active" : "○ Inactive"}
                 </span>
                 <span className={styles.currentStatusLabel}>Current Status</span>
+              </div>
+
+              <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <label className={styles.settingsLabel}>Attempt Policy</label>
+                <select
+                  className={styles.settingsSelect}
+                  value={config.max_attempts}
+                  onChange={(e) => setConfig((c) => ({ ...c, max_attempts: Number(e.target.value) }))}
+                >
+                  {[1, 2, 3, 5, 10, 100].map((m) => (
+                    <option key={m} value={m}>{m === 100 ? "Unlimited" : `${m} Attempt${m > 1 ? "s" : ""}`}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)", marginTop: 8 }}>
+                  Restricts how many times a student can take this specific quiz.
+                </p>
               </div>
             </div>
 

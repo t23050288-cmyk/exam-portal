@@ -510,3 +510,29 @@ select.input option {
 .card:hover .cardThumbnail {
   transform: scale(1.08);
 }
+
+.mediaSplit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.mediaBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mediaLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+@media (max-width: 600px) {
+  .mediaSplit {
+    grid-template-columns: 1fr;
+  }
+}

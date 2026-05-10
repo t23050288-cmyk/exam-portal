@@ -468,12 +468,22 @@ export async function deleteAdminFolder(folderName: string): Promise<void> {
 }
 
 export async function renameAdminFolder(oldName: string, newName: string): Promise<void> {
-  return adminFetch<void>(`/admin/folders/${encodeURIComponent(oldName)}`, { method: "PATCH", body: JSON.stringify({ new_name: newName }) });
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(oldName)}`, { 
+    method: "PATCH", 
+    body: JSON.stringify({ old_name: oldName, new_name: newName }) 
+  });
 }
 
 export async function editAdminFolderBranch(folderName: string, branches: string | string[]): Promise<void> {
-  const newBranch = Array.isArray(branches) ? branches[0] : branches;
-  return adminFetch<void>(`/admin/folders/${encodeURIComponent(folderName)}/branch`, { method: "PATCH", body: JSON.stringify({ new_branch: newBranch }) });
+  const newBranch = Array.isArray(branches) ? `,${branches.join(",")},` : branches;
+  return adminFetch<void>(`/admin/folders/${encodeURIComponent(folderName)}/branch`, { 
+    method: "PATCH", 
+    body: JSON.stringify({ 
+      exam_name: folderName,
+      old_branch: "", // Redundant but required by current schema
+      new_branch: newBranch 
+    }) 
+  });
 }
 
 export async function uploadQuestionImage(file: File, questionId?: string): Promise<{ url: string; public_id?: string; image_url?: string }> {

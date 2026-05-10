@@ -5,7 +5,7 @@ import { reportViolation } from "@/lib/api";
 import WarningModal from "./WarningModal";
 import dynamic from "next/dynamic";
 
-const FaceMonitor = dynamic(() => import("./FaceMonitor"), { ssr: false });
+// const FaceMonitor = dynamic(() => import("./FaceMonitor"), { ssr: false });
 
 interface AntiCheatProps {
   isSubmitted: boolean;
@@ -35,9 +35,8 @@ export default function AntiCheat({
     warningRef.current = initialWarningCount;
   }, [initialWarningCount]);
 
-  // Grace period: 6 seconds after mount
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 6000);
+    const t = setTimeout(() => setReady(true), 2000);
     return () => clearTimeout(t);
   }, []);
 
@@ -101,15 +100,16 @@ export default function AntiCheat({
   useEffect(() => {
     if (isMobile) return;
     const vh = () => { if (document.visibilityState === "hidden") triggerViolation("tab_switch"); };
-    document.addEventListener("visibilitychange", vh);
-    window.addEventListener("blur", () => {
+    const bh = () => {
       // Small delay to see if visibilitychange follows (tab switch)
       setTimeout(() => {
         if (document.visibilityState === "visible") {
           triggerViolation("window_blur");
         }
       }, 100);
-    });
+    };
+    document.addEventListener("visibilitychange", vh);
+    window.addEventListener("blur", bh);
     
     return () => {
       document.removeEventListener("visibilitychange", vh);
@@ -149,18 +149,32 @@ export default function AntiCheat({
 
   useEffect(() => {
     const kdh = (e: KeyboardEvent) => {
+      const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      
+      const key = e.key.toLowerCase();
+      const code = e.code.toLowerCase();
+
       const blocked = [
-        (e.ctrlKey || e.metaKey) && ["c", "v", "a", "u", "s", "p", "f"].includes(e.key.toLowerCase()),
-        e.key === "F12",
-        e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C"),
-        e.altKey && (e.key === "Tab" || e.key === "F4"),
-        e.key === "PrintScreen",
-        (e.metaKey || e.ctrlKey) && (e.key === "Tab" || e.key === "w")
+        cmdOrCtrl && ["c", "v", "a", "u", "s", "p", "f"].includes(key),
+        key === "f12",
+        cmdOrCtrl && e.shiftKey && (key === "i" || key === "j" || key === "c"),
+        e.altKey && ["tab", "f4", "d", "enter"].includes(key),
+        key === "printscreen" || code === "printscreen",
+        (e.metaKey || e.ctrlKey) && (key === "tab" || key === "w" || code === "tab"),
+        cmdOrCtrl && e.shiftKey && key === "escape", // Task Manager
+        // Screenshot shortcuts
+        (e.metaKey && e.shiftKey && ["3", "4", "5", "s"].includes(key)), // Mac + Win Snipping
+        (e.metaKey && key === "s"), // Windows + S
       ].some(Boolean);
 
       if (blocked) {
         e.preventDefault();
-        triggerViolation("keyboard_shortcut", { key: e.key });
+        e.stopPropagation();
+        const isScreenshot = key === "printscreen" || code === "printscreen" || 
+                           (e.shiftKey && (key === "s" || key === "3" || key === "4")) ||
+                           (e.metaKey && key === "s");
+        triggerViolation(isScreenshot ? "screenshot_attempt" : "keyboard_shortcut", { key: e.key, code: e.code });
       }
     };
     document.addEventListener("keydown", kdh, true);
@@ -180,7 +194,7 @@ export default function AntiCheat({
           onReenterFullscreen={localReenter}
         />
       )}
-      <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} />
+      {/* <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} /> */}
     </>
   );
 }

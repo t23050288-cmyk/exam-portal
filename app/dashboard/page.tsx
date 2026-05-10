@@ -27,6 +27,7 @@ interface ExamNode {
   duration_minutes: number; scheduled_start: string | null;
   question_count?: number; category: string;
   submitted?: boolean; score?: number; total_marks?: number;
+  max_attempts?: number; attempt_count?: number;
 }
 interface StudentInfo {
   id: string; name: string; email: string; branch: string;
@@ -145,6 +146,15 @@ export default function DashboardPage() {
       }
     };
     loadHistory();
+
+    // Check for direct tab deep-linking (e.g. ?tab=Insights)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab && NAV_ITEMS.find(n => n.id === tab)) {
+        setActiveNav(tab);
+      }
+    }
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -155,27 +165,31 @@ export default function DashboardPage() {
 
       const studentRaw = sessionStorage.getItem("exam_student");
       const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
-      let submittedMap: Record<string, { score: number; total_marks: number }> = {};
+      let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       if (studentId) {
-        const { data: statusData } = await supabase.from("exam_status").select("status").eq("student_id", studentId);
+        const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
         const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
-        // Build submittedMap from exam_results (which now has exam_title) — primary source
+        
+        // Build submittedMap from exam_results
         if (resultsData) {
           resultsData.forEach((r: any) => {
             if (r.exam_title) {
-              submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+              if (!submittedMap[r.exam_title]) {
+                submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
+              }
+              submittedMap[r.exam_title].attempt_count++;
+              // Keep the latest score (simplification)
+              submittedMap[r.exam_title].score = r.score;
+              submittedMap[r.exam_title].total_marks = r.total_marks;
             }
           });
         }
-        // Also check exam_status for submitted rows (multi-exam support)
+        // Also check exam_status for submitted rows
         if (statusData) {
           statusData.forEach((s: any) => {
-            if (s.status === "submitted") {
-              const r: any = resultsData?.find((rd: any) => rd.exam_title === s.exam_title) || {};
-              // If exam_title exists in status row, use it; otherwise mark all as submitted fallback
-              const key = s.exam_title || "";
-              if (key && !submittedMap[key]) {
-                submittedMap[key] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+            if (s.status === "submitted" && s.exam_title) {
+              if (!submittedMap[s.exam_title]) {
+                submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
               }
             }
           });
@@ -202,6 +216,7 @@ export default function DashboardPage() {
                 duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
                 question_count: data.count, category: data.category,
                 submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
+                max_attempts: cfg.max_attempts || 1, attempt_count: sub?.attempt_count || 0,
               });
               seen.add(nid);
             }
@@ -220,8 +235,13 @@ export default function DashboardPage() {
   }, [loadExams]);
 
   const filteredExams = useMemo(() => allExams.filter(e => {
-    // Exclude exams the student has already submitted (from DB or local history)
-    if (e.submitted) return false;
+    // Exclude exams based on attempt limits
+    const maxA = e.max_attempts || 1;
+    const currentA = e.attempt_count || 0;
+    
+    if (currentA >= maxA) return false;
+    if (e.submitted && maxA <= 1) return false;
+
     const isCompletedInHistory = localHistory.some(h => 
       (h.examName || "").trim() === (e.exam_name || "").trim()
     );
@@ -265,8 +285,8 @@ export default function DashboardPage() {
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
-    // Block re-entry if already completed (check both DB flag and history)
-    if (exam.submitted || localHistory.some(h => h.examName === exam.exam_name)) {
+    // Block re-entry if already completed (check attempt limits)
+    if ((exam.attempt_count || 0) >= (exam.max_attempts || 1)) {
       setActiveNav("History");
       return;
     }

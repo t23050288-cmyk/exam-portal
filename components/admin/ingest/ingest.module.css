@@ -624,6 +624,17 @@
   background: #fbfbfb;
 }
 
+.qAudioContainer {
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .imageLabel {
   position: absolute;
   top: 8px;

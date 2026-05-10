@@ -11,6 +11,8 @@ interface ExamCardProps {
     submitted?: boolean;
     score?: number;
     total_marks?: number;
+    attempt_count?: number;
+    max_attempts?: number;
   };
   isUpcoming?: boolean;
   timeUntil?: string | null;
@@ -46,6 +48,10 @@ export default function ExamCard({ exam, isUpcoming, timeUntil, onLaunch }: Exam
         <div className={styles.metaItem}>
           <span className={styles.icon}>🕐</span>
           <span>{schedDate.toTimeString().slice(0, 5)} • {exam.duration_minutes} min</span>
+        </div>
+        <div className={styles.metaItem}>
+          <span className={styles.icon}>🎯</span>
+          <span>Attempts: {exam.attempt_count || 0} / {exam.max_attempts || 1}</span>
         </div>
       </div>
 
