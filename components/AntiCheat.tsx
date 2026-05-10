@@ -175,7 +175,7 @@ export default function AntiCheat({
           onReenterFullscreen={localReenter}
         />
       )}
-      <FaceMonitor />
+      <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} />
     </>
   );
 }
