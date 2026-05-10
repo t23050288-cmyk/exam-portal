@@ -1274,12 +1274,12 @@ export default function PyHuntPage() {
       setWarningCount(prev => {
         const next = prev + 1;
         setLastViolation(reason);
-        if (next >= 4) {
+        if (next >= 3) {
           const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 4 });
+          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
           setTerminated(true);
           setFinished(true);
-          return 4;
+          return 3;
         }
         setShowWarning(true);
         return next;
@@ -1445,7 +1445,7 @@ export default function PyHuntPage() {
           }}>
             <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
-              {Array.from({length:4},(_,i)=>(
+              {Array.from({length:3},(_,i)=>(
                 <div key={i} style={{ width:12, height:12, borderRadius:"50%",
                   background: i < warningCount ? "#ef4444" : "rgba(255,255,255,0.12)",
                   border: "1.5px solid " + (i < warningCount ? "#ef4444" : "rgba(255,255,255,0.2)")
@@ -1459,12 +1459,12 @@ export default function PyHuntPage() {
               </p>
             </div>
             <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", background: "rgba(239,68,68,0.1)", borderRadius: 12, padding: "12px", marginBottom: 20 }}>
-              Warning <strong>{warningCount}</strong> of 4
+              Warning <strong>{warningCount}</strong> of 3
             </div>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-              {warningCount >= 3
+              {warningCount >= 2
                 ? "🚨 FINAL WARNING! One more violation and your session will be terminated."
-                : "After 4 violations, your session will be automatically terminated."}
+                : "After 3 violations, your session will be automatically terminated."}
             </p>
             <button
               style={{ width:"100%", padding:"16px", borderRadius:14, border:"none",

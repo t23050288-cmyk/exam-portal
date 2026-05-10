@@ -483,12 +483,7 @@ export default function ExamPage() {
       )}
 
       {/* Anti-cheat: all proctoring attached here */}
-      <SyncStatusBar
-          syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
-          offlineMsg={offlineMsg}
-          onDownload={downloadBackup}
-        />
+
         <AntiCheat isSubmitted={isSubmitted} onAutoSubmit={handleAutoSubmit} />
 
       {/* ── Welcome Banner (always visible, matching mockup) ── */}

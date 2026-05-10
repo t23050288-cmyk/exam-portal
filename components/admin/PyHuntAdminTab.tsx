@@ -389,7 +389,7 @@ export default function PyHuntAdminTab() {
 function LiveStatusView() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedArt, setSelectedArt] = useState<{name: string, img: string} | null>(null);
+  const [selectedArt, setSelectedArt] = useState<{id: string, name: string, img: string} | null>(null);
 
   const fetchStatus = async () => {
     try {
@@ -404,6 +404,23 @@ function LiveStatusView() {
       console.error("Fetch error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteArt = async (studentId: string) => {
+    if (!confirm("Are you sure you want to delete this student's artwork? This cannot be undone.")) return;
+    try {
+      const { error } = await supabase
+        .from('pyhunt_progress')
+        .update({ turtle_image: null })
+        .eq('student_id', studentId);
+      
+      if (error) throw error;
+      setSelectedArt(null);
+      fetchStatus();
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete artwork.");
     }
   };
 
@@ -455,7 +472,7 @@ function LiveStatusView() {
               return (
                 <tr key={i} style={{
                   borderBottom:"1px solid rgba(255,255,255,0.03)",
-                  background: s.warnings >= 3 ? "rgba(239, 68, 68, 0.05)" : "transparent"
+                  background: s.warnings >= 2 ? "rgba(239, 68, 68, 0.05)" : "transparent"
                 }}>
                    <td style={{padding:"12px 8px"}}>
                      <div style={{fontWeight:700}}>{s.student_name}</div>
@@ -483,8 +500,8 @@ function LiveStatusView() {
                     </span>
                   </td>
                   <td style={{padding:"12px 8px"}}>
-                     <span style={s.warnings >= 3 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
-                       {s.warnings || 0} / 4
+                     <span style={s.warnings >= 2 ? { ...$.clueBadge, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" } : $.clueBadge}>
+                       {s.warnings || 0} / 3
                      </span>
                   </td>
                   <td style={{padding:"12px 8px", fontSize: 11, color: "#f87171", fontWeight: 700}}>
@@ -507,8 +524,8 @@ function LiveStatusView() {
                   </td>
                   <td style={{padding:"12px 8px"}}>
                     {s.turtle_image ? (
-                      <div 
-                        onClick={() => setSelectedArt({ name: s.student_name, img: s.turtle_image })}
+                     <div 
+                        onClick={() => setSelectedArt({ id: s.student_id, name: s.student_name, img: s.turtle_image })}
                         style={{
                           width: 40, height: 30, background: "#000", borderRadius: 4, 
                           border: "1px solid rgba(0,220,255,0.3)", cursor: "pointer",
@@ -553,6 +570,16 @@ function LiveStatusView() {
             </div>
             <div style={{ background: "#000", borderRadius: 12, padding: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
               <img src={selectedArt.img} style={{ width: "100%", borderRadius: 8 }} alt="Turtle Art" />
+            </div>
+            <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
+              <button 
+                onClick={() => setSelectedArt(null)}
+                style={{ ...$.btnEdit, flex: 1, padding: "12px" }}
+              >Close</button>
+              <button 
+                onClick={() => deleteArt(selectedArt.id)}
+                style={{ ...$.btnDel, flex: 1, padding: "12px" }}
+              >Delete Submission</button>
             </div>
             <div style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
               Round 5 · Student Generated Canvas Turtle Art

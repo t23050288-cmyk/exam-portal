@@ -144,7 +144,7 @@ export default function DashboardPage() {
       const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
       let submittedMap: Record<string, { score: number; total_marks: number }> = {};
       if (studentId) {
-        const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
+        const { data: statusData } = await supabase.from("exam_status").select("status").eq("student_id", studentId);
         const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
         // Build submittedMap from exam_results (which now has exam_title) — primary source
         if (resultsData) {
