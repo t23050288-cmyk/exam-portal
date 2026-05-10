@@ -74,6 +74,7 @@ export default function LoginPage() {
     try {
       const data = await loginStudent(usn.trim(), password);
       sessionStorage.setItem("exam_token", data.access_token);
+      sessionStorage.setItem("exam_login_at", Date.now().toString());
       sessionStorage.setItem("exam_student", JSON.stringify({
         id: data.student_id,
         name: data.student_name,
@@ -114,6 +115,7 @@ export default function LoginPage() {
         branch
       });
       sessionStorage.setItem("exam_token", data.access_token);
+      sessionStorage.setItem("exam_login_at", Date.now().toString());
       sessionStorage.setItem("exam_student", JSON.stringify({
         id: data.student_id,
         name: data.student_name,
@@ -336,3 +338,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
