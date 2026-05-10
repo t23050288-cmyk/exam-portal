@@ -23,9 +23,10 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
 
   const [ready, setReady] = useState(false);
 
-  // Grace period: 2 seconds after mount before violations are enforced
+  // Grace period: 6 seconds after mount before violations are enforced
+  // (fullscreen permission dialog causes blur/focus events during first few seconds)
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 2000);
+    const t = setTimeout(() => setReady(true), 6000);
     return () => clearTimeout(t);
   }, []);
 
@@ -111,7 +112,12 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
   useEffect(() => {
     const handler = () => {
       if (!document.fullscreenElement && !isSubmitted) {
-        triggerViolation("fullscreen_exit");
+        // Small delay to avoid false positives from fullscreen dialog
+        setTimeout(() => {
+          if (!document.fullscreenElement && !isSubmitted) {
+            triggerViolation("fullscreen_exit");
+          }
+        }, 600);
         setTimeout(forceReenterFullscreen, 300);
       }
     };
@@ -182,4 +188,5 @@ export default function AntiCheat({ isSubmitted, onAutoSubmit }: AntiCheatProps)
     </>
   );
 }
+
 
