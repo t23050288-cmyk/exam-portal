@@ -18,6 +18,8 @@ export default function InstructionsPage() {
     totalQuestions: number
   } | null>(null);
   const [starting, setStarting] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSecureGate, setShowSecureGate] = useState(true);
 
   useEffect(() => {
     // Check authentication
@@ -69,25 +71,35 @@ export default function InstructionsPage() {
     }
   }, [router]);
 
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFsChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      if (fs) setShowSecureGate(false);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
+  }, []);
+
+
+  // Called from "Enter Secure Mode" button — synchronous click → fullscreen
+  const handleEnterSecureMode = () => {
+    const docElm = document.documentElement;
+    if (docElm.requestFullscreen) { docElm.requestFullscreen(); }
+    else if ((docElm as any).webkitRequestFullscreen) { (docElm as any).webkitRequestFullscreen(); }
+    else if ((docElm as any).mozRequestFullScreen) { (docElm as any).mozRequestFullScreen(); }
+    // setShowSecureGate(false) will happen via fullscreenchange listener
+  };
 
   const handleStartExam = () => {
     if (starting) return;
-    
-    // CRITICAL: requestFullscreen() MUST be called synchronously inside click handler.
-    // Browsers block it if called after any async operation (await, setTimeout, etc.)
-    const docElm = document.documentElement;
-    try {
-      if (docElm.requestFullscreen) { docElm.requestFullscreen(); }
-      else if ((docElm as any).webkitRequestFullscreen) { (docElm as any).webkitRequestFullscreen(); }
-      else if ((docElm as any).mozRequestFullScreen) { (docElm as any).mozRequestFullScreen(); }
-      else if ((docElm as any).msRequestFullscreen) { (docElm as any).msRequestFullscreen(); }
-    } catch (err) {
-      console.warn("Fullscreen request failed", err);
-    }
-
     setStarting(true);
 
-    // Now do async work after fullscreen is requested
     startExam(studentInfo?.examTitle || "Initial Assessment").then((res) => {
       
       if (res.status === "submitted") {
@@ -136,6 +148,45 @@ export default function InstructionsPage() {
 
   return (
     <div className={styles.wrapper}>
+      {/* ── SECURE MODE GATE — shown until fullscreen is entered ── */}
+      {showSecureGate && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "linear-gradient(135deg, #060b1a 0%, #0a1020 100%)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "rgba(10,15,30,0.97)", border: "1px solid rgba(40,215,214,0.3)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.7)", padding: "48px 40px",
+            borderRadius: "24px", textAlign: "center", maxWidth: 480, width: "90%",
+          }}>
+            <div style={{ fontSize: 56, marginBottom: 20 }}>🛡️</div>
+            <h2 style={{ fontSize: "24px", fontWeight: 900, color: "#fff", marginBottom: 12 }}>
+              Secure Environment Required
+            </h2>
+            <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: 36, fontSize: 15, lineHeight: 1.6 }}>
+              This exam requires mandatory full-screen mode to ensure assessment integrity.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => router.replace("/dashboard")}
+                style={{ flex: 1, padding: "14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", fontWeight: 600, cursor: "pointer", fontSize: 15 }}
+              >
+                Back to Dashboard
+              </button>
+              <button
+                onClick={handleEnterSecureMode}
+                style={{ flex: 1, padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", fontSize: 15, boxShadow: "0 8px 20px rgba(40,215,214,0.25)" }}
+              >
+                Enter Secure Mode
+              </button>
+            </div>
+            <div style={{ marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em", fontWeight: 700 }}>
+              VIOLATIONS ARE RECORDED IN REAL-TIME
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
@@ -261,4 +312,5 @@ export default function InstructionsPage() {
     </div>
   );
 }
+
 
