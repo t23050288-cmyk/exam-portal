@@ -146,11 +146,24 @@ export default function DashboardPage() {
       if (studentId) {
         const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
         const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
+        // Build submittedMap from exam_results (which now has exam_title) — primary source
+        if (resultsData) {
+          resultsData.forEach((r: any) => {
+            if (r.exam_title) {
+              submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+            }
+          });
+        }
+        // Also check exam_status for submitted rows (multi-exam support)
         if (statusData) {
           statusData.forEach((s: any) => {
             if (s.status === "submitted") {
               const r: any = resultsData?.find((rd: any) => rd.exam_title === s.exam_title) || {};
-              submittedMap[s.exam_title || ""] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+              // If exam_title exists in status row, use it; otherwise mark all as submitted fallback
+              const key = s.exam_title || "";
+              if (key && !submittedMap[key]) {
+                submittedMap[key] = { score: r.score || 0, total_marks: r.total_marks || 0 };
+              }
             }
           });
         }
@@ -633,4 +646,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
