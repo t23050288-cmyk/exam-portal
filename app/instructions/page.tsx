@@ -28,19 +28,7 @@ export default function InstructionsPage() {
       router.replace("/login");
       return;
     }
-    // Check if token is likely expired (> 23 hours old)
-    const loginAt = sessionStorage.getItem("exam_login_at");
-    if (loginAt) {
-      const ageMs = Date.now() - parseInt(loginAt, 10);
-      if (ageMs > 23 * 60 * 60 * 1000) {
-        sessionStorage.removeItem("exam_token");
-        sessionStorage.removeItem("exam_student");
-        sessionStorage.removeItem("exam_login_at");
-        alert("Your session has expired. Please log in again.");
-        router.replace("/login");
-        return;
-      }
-    }
+    // Token is long-lived (30 days) — no expiry check needed
 
     const studentData = sessionStorage.getItem("exam_student");
     if (studentData) {
