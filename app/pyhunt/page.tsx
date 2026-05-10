@@ -597,82 +597,278 @@ function RoundTurtle({ onComplete, onWrong }: { onComplete: () => void; onWrong:
     if (!ctx) return;
 
     setRunning(true);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ── Bridge Python Turtle to JS Canvas ──
-    // Because Pyodide runs in a Web Worker, it has no DOM access.
-    // Instead, the Turtle class will print drawing commands as JSON to stdout.
-    // The main thread will parse the stdout and render it on the canvas.
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // ── Full Python→Canvas Turtle Bridge ──
+    // Turtle emits JSON drawing commands to stdout.
+    // Supports: forward/fd, backward/bk, left/lt, right/rt,
+    //           goto/setpos, setheading/seth, home,
+    //           penup/pu, pendown/pd, pensize/width,
+    //           color, pencolor, fillcolor, begin_fill, end_fill,
+    //           circle, dot, hideturtle/ht, showturtle/st,
+    //           speed, clear, reset, bgcolor, title, setup,
+    //           done/mainloop/exitonclick (no-ops)
     const bridgeScript = `
-import json
-from math import radians, cos, sin
+import json as _json
+import sys as _sys
+from math import radians as _rad, cos as _cos, sin as _sin
+from types import ModuleType as _Mod
+
+def _emit(**kw):
+    print(_json.dumps(kw))
+
+def _parse_color(c):
+    if isinstance(c, (list, tuple)) and len(c) == 3:
+        r,g,b = [int(x*255) if x<=1 else int(x) for x in c]
+        return f"rgb({r},{g},{b})"
+    return str(c)
 
 class Turtle:
     def __init__(self):
-        self.x = ${canvas.width/2}
-        self.y = ${canvas.height/2}
-        self.angle = -90  # Start facing up
-        self.is_down = True
-        print(json.dumps({"type": "init", "x": self.x, "y": self.y}))
+        self._x = ${CX}
+        self._y = ${CY}
+        self._angle = -90.0   # heading: 0=East, -90=North (canvas coords)
+        self._pen = True
+        self._color = "cyan"
+        self._fill_color = "cyan"
+        self._fill_pts = None
+        self._lw = 1
+        _emit(type="init", x=self._x, y=self._y)
 
-    def forward(self, dist):
-        nx = self.x + dist * cos(radians(self.angle))
-        ny = self.y + dist * sin(radians(self.angle))
-        if self.is_down:
-            print(json.dumps({"type": "line", "x": nx, "y": ny}))
+    # ── Movement ──
+    def _move(self, dist):
+        nx = self._x + dist * _cos(_rad(self._angle))
+        ny = self._y + dist * _sin(_rad(self._angle))
+        if self._pen:
+            _emit(type="line", x1=self._x, y1=self._y, x2=nx, y2=ny,
+                  color=self._color, lw=self._lw)
         else:
-            print(json.dumps({"type": "move", "x": nx, "y": ny}))
-        self.x, self.y = nx, ny
+            _emit(type="move", x=nx, y=ny)
+        if self._fill_pts is not None:
+            self._fill_pts.append((nx, ny))
+        self._x, self._y = nx, ny
 
-    def left(self, deg):  self.angle -= deg
-    def right(self, deg): self.angle += deg
-    def penup(self):   self.is_down = False
-    def pendown(self): self.is_down = True
+    def forward(self, d): self._move(float(d))
+    def fd(self, d): self._move(float(d))
+    def backward(self, d): self._move(-float(d))
+    def bk(self, d): self._move(-float(d))
+    def back(self, d): self._move(-float(d))
+
+    # ── Turning ──
+    def left(self, deg): self._angle -= float(deg)
+    def lt(self, deg): self._angle -= float(deg)
+    def right(self, deg): self._angle += float(deg)
+    def rt(self, deg): self._angle += float(deg)
+    def setheading(self, deg): self._angle = float(deg) - 90
+    def seth(self, deg): self.setheading(deg)
+
+    # ── Position ──
+    def goto(self, x, y=None):
+        if y is None: x, y = x
+        nx, ny = float(x) + ${CX}, -float(y) + ${CY}
+        if self._pen:
+            _emit(type="line", x1=self._x, y1=self._y, x2=nx, y2=ny,
+                  color=self._color, lw=self._lw)
+        else:
+            _emit(type="move", x=nx, y=ny)
+        self._x, self._y = nx, ny
+    def setpos(self, x, y=None): self.goto(x, y)
+    def setposition(self, x, y=None): self.goto(x, y)
+    def home(self):
+        self.goto(0, 0)
+        self._angle = -90.0
+    def xcor(self): return self._x - ${CX}
+    def ycor(self): return -(self._y - ${CY})
+    def pos(self): return (self.xcor(), self.ycor())
+    def position(self): return self.pos()
+    def heading(self): return (self._angle + 90) % 360
+
+    # ── Pen ──
+    def penup(self): self._pen = False
+    def pu(self): self._pen = False
+    def up(self): self._pen = False
+    def pendown(self): self._pen = True
+    def pd(self): self._pen = True
+    def down(self): self._pen = True
+    def isdown(self): return self._pen
+    def pensize(self, w): self._lw = float(w)
+    def width(self, w): self._lw = float(w)
+    def pencolor(self, *args):
+        self._color = _parse_color(args[0] if len(args)==1 else args)
+    def fillcolor(self, *args):
+        self._fill_color = _parse_color(args[0] if len(args)==1 else args)
+    def color(self, *args):
+        if len(args) == 1:
+            self._color = _parse_color(args[0])
+            self._fill_color = self._color
+        elif len(args) == 2:
+            self._color = _parse_color(args[0])
+            self._fill_color = _parse_color(args[1])
+        elif len(args) == 3:
+            c = _parse_color(args)
+            self._color = c; self._fill_color = c
+
+    # ── Fill ──
+    def begin_fill(self):
+        self._fill_pts = [(self._x, self._y)]
+    def end_fill(self):
+        if self._fill_pts:
+            _emit(type="fill", pts=self._fill_pts, color=self._fill_color)
+            self._fill_pts = None
+
+    # ── Shapes ──
+    def circle(self, r, extent=360, steps=None):
+        steps = steps or max(int(abs(r) * abs(extent) / 20), 12)
+        step_angle = extent / steps
+        step_len = 2 * 3.14159265 * abs(r) * (extent / 360) / steps
+        for _ in range(steps):
+            self._move(step_len)
+            self.left(step_angle)
+
+    def dot(self, size=None, *args):
+        sz = size if size else self._lw + 4
+        c = _parse_color(args[0]) if args else self._color
+        _emit(type="dot", x=self._x, y=self._y, r=sz/2, color=c)
+
+    def stamp(self): pass
+    def clearstamp(self, *a): pass
+    def write(self, txt, *a, **kw):
+        _emit(type="text", x=self._x, y=self._y, text=str(txt), color=self._color)
+
+    # ── Misc no-ops ──
     def speed(self, s): pass
+    def hideturtle(self): pass
+    def ht(self): pass
+    def showturtle(self): pass
+    def st(self): pass
+    def isvisible(self): return True
+    def clear(self): pass
+    def reset(self): pass
+    def tracer(self, *a, **kw): pass
+    def update(self): pass
+    def shape(self, *a): pass
+    def shapesize(self, *a): pass
+    def turtlesize(self, *a): pass
+    def ondrag(self, *a, **kw): pass
+    def onclick(self, *a, **kw): pass
+    def onrelease(self, *a, **kw): pass
 
-# Mock the turtle module
-import sys
-from types import ModuleType
-t_mod = ModuleType("turtle")
-t_mod.Turtle = Turtle
-sys.modules["turtle"] = t_mod
+_t_instance = None
+def _get_screen(): return type("Screen", (), {
+    "bgcolor": lambda s,*a: None, "title": lambda s,*a: None,
+    "setup": lambda s,*a: None, "tracer": lambda s,*a: None,
+    "update": lambda s: None,
+})()
+
+_t_mod = _Mod("turtle")
+_t_mod.Turtle = Turtle
+_t_mod.RawTurtle = Turtle
+_t_mod.Pen = Turtle
+_t_mod.RawPen = Turtle
+_t_mod.Screen = _get_screen
+_t_mod.getscreen = _get_screen
+
+# Module-level convenience functions (turtle.forward(), turtle.right(), etc.)
+_t_global = Turtle()
+_t_mod.forward = _t_global.forward;  _t_mod.fd = _t_global.fd
+_t_mod.backward = _t_global.backward; _t_mod.bk = _t_global.bk
+_t_mod.left = _t_global.left;        _t_mod.lt = _t_global.lt
+_t_mod.right = _t_global.right;      _t_mod.rt = _t_global.rt
+_t_mod.goto = _t_global.goto;        _t_mod.setpos = _t_global.setpos
+_t_mod.setheading = _t_global.setheading; _t_mod.seth = _t_global.seth
+_t_mod.home = _t_global.home
+_t_mod.penup = _t_global.penup;      _t_mod.pu = _t_global.pu
+_t_mod.pendown = _t_global.pendown;  _t_mod.pd = _t_global.pd
+_t_mod.pensize = _t_global.pensize;  _t_mod.width = _t_global.width
+_t_mod.color = _t_global.color
+_t_mod.pencolor = _t_global.pencolor
+_t_mod.fillcolor = _t_global.fillcolor
+_t_mod.begin_fill = _t_global.begin_fill
+_t_mod.end_fill = _t_global.end_fill
+_t_mod.circle = _t_global.circle
+_t_mod.dot = _t_global.dot
+_t_mod.speed = _t_global.speed
+_t_mod.hideturtle = _t_global.hideturtle; _t_mod.ht = _t_global.ht
+_t_mod.showturtle = _t_global.showturtle; _t_mod.st = _t_global.st
+_t_mod.write = _t_global.write
+_t_mod.done = lambda: None
+_t_mod.mainloop = lambda: None
+_t_mod.exitonclick = lambda: None
+_t_mod.tracer = lambda *a,**kw: None
+_t_mod.update = lambda: None
+_t_mod.bgcolor = lambda *a: None
+_t_mod.title = lambda *a: None
+_t_mod.setup = lambda *a,**kw: None
+_t_mod.xcor = _t_global.xcor; _t_mod.ycor = _t_global.ycor
+_t_mod.pos = _t_global.pos; _t_mod.position = _t_global.position
+_t_mod.heading = _t_global.heading
+_sys.modules["turtle"] = _t_mod
 `;
 
+    // Replace template placeholders with actual canvas center
+    const bridge = bridgeScript
+      .replace(/\$\{CX\}/g, String(cx))
+      .replace(/\$\{CY\}/g, String(cy));
+
     try {
-      const res = await runCode(bridgeScript + "\n" + code);
-      
-      // Execute the parsed drawing commands
-      ctx.beginPath();
-      ctx.strokeStyle = "#00dcff";
-      ctx.lineWidth = 2;
-      
-      const lines = (res.stdout || "").split("\\n");
+      const res = await runCode(bridge + "\n" + code);
+
+      // Render all drawing commands
+      let curColor = "#00dcff";
+      let curLw = 2;
+      let curX = cx, curY = cy;
+
+      const lines = (res.stdout || "").split("\n");
       for (const line of lines) {
-          const tLine = line.trim();
-          if (tLine.startsWith("{")) {
-              try {
-                  const cmd = JSON.parse(tLine);
-                  if (cmd.type === "init" || cmd.type === "move") {
-                      ctx.moveTo(cmd.x, cmd.y);
-                  } else if (cmd.type === "line") {
-                      ctx.lineTo(cmd.x, cmd.y);
-                      ctx.stroke();
-                  }
-              } catch (e) {
-                  // Ignore parse errors (student might have printed their own dict)
+        const tl = line.trim();
+        if (!tl.startsWith("{")) continue;
+        try {
+          const cmd = JSON.parse(tl);
+          if (cmd.type === "init" || cmd.type === "move") {
+            curX = cmd.x; curY = cmd.y;
+          } else if (cmd.type === "line") {
+            ctx.beginPath();
+            ctx.strokeStyle = cmd.color || curColor;
+            ctx.lineWidth = cmd.lw || curLw;
+            ctx.moveTo(cmd.x1, cmd.y1);
+            ctx.lineTo(cmd.x2, cmd.y2);
+            ctx.stroke();
+            curX = cmd.x2; curY = cmd.y2;
+          } else if (cmd.type === "fill") {
+            if (cmd.pts && cmd.pts.length > 1) {
+              ctx.beginPath();
+              ctx.moveTo(cmd.pts[0][0], cmd.pts[0][1]);
+              for (let i = 1; i < cmd.pts.length; i++) {
+                ctx.lineTo(cmd.pts[i][0], cmd.pts[i][1]);
               }
+              ctx.closePath();
+              ctx.fillStyle = cmd.color || curColor;
+              ctx.fill();
+            }
+          } else if (cmd.type === "dot") {
+            ctx.beginPath();
+            ctx.arc(cmd.x, cmd.y, cmd.r, 0, Math.PI * 2);
+            ctx.fillStyle = cmd.color || curColor;
+            ctx.fill();
+          } else if (cmd.type === "text") {
+            ctx.fillStyle = cmd.color || curColor;
+            ctx.font = "14px monospace";
+            ctx.fillText(cmd.text, cmd.x, cmd.y);
           }
+        } catch { /* ignore non-JSON lines */ }
       }
 
-      // Basic heuristic to check if they actually tried to draw a star
-      const hasStarLogic = code.includes("144") && code.includes("forward");
-      if (hasStarLogic) {
-        setDone(true);
-      } else {
-        // Just let them finish but don't mark as "verified" yet
-        setDone(true); 
+      // Check if they drew something meaningful
+      const stderr = (res.stderr || "").trim();
+      if (stderr && !stderr.includes("UserWarning")) {
+        // Has real error — show it but don't penalise
+        console.warn("Turtle stderr:", stderr);
       }
-    } catch (err) {
+      setDone(true);
+    } catch (err: any) {
       console.error("Turtle Error:", err);
       onWrong();
     } finally {
