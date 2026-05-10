@@ -901,7 +901,7 @@ export default function PyHuntPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'exam_config', filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
-        (payload) => {
+        (payload: any) => {
           console.log("[PyHunt] Realtime config update received via WebSocket");
           if (payload.new && (payload.new as any).category) {
             const rawData = (payload.new as any).category;
