@@ -2021,7 +2021,7 @@ function StudentsTab() {
           // Find exams that have at least one question for this student's branch AND match category filter
           const branchExams = new Set(qMap
             .filter((q: any) => {
-              const bMatch = q.branch?.includes("," + studentBranch + ",") || q.branch === studentBranch;
+              const bMatch = (q.branch === studentBranch || q.branch?.includes(studentBranch));
               const cMatch = catFilter === "all" || q.category === catFilter;
               const isActive = activeExamTitles.has(q.exam_name);
               return bMatch && cMatch && isActive;
@@ -2112,8 +2112,8 @@ function StudentsTab() {
         const filteredResults = catFilter(infoCatTab);
         
         const overall = {
-          done: new Set(qMap.filter((q: any) => (q.branch?.includes("," + sBranch + ",") || q.branch === sBranch) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name).filter((t: any) => sResults.some((r: any) => r.exam_title === t))).size,
-          total: new Set(qMap.filter((q: any) => (q.branch?.includes("," + sBranch + ",") || q.branch === sBranch) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name)).size
+          done: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name).filter((t: any) => sResults.some((r: any) => r.exam_title === t))).size,
+          total: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name)).size
         };
 
         return (
@@ -2264,4 +2264,5 @@ function StudentsTab() {
     </div>
   );
 }
+
 
