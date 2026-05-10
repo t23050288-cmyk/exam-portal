@@ -2226,11 +2226,6 @@ function StudentsTab() {
         </div>
         );
       })()}
-          </div>
-        </div>
-        );
-      })()}
-
       {showModal && (
         <div className={adminStyles.modalOverlay} onClick={() => setShowModal(false)}>
           <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()}>
