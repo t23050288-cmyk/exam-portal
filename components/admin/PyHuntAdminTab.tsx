@@ -47,12 +47,38 @@ const DEFAULT: PyHuntConfig = {
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
 
-function loadCfg(): PyHuntConfig {
-  if (typeof window === "undefined") return DEFAULT;
-  try { const s = localStorage.getItem(STORAGE_KEY); return s ? { ...DEFAULT, ...JSON.parse(s) } : DEFAULT; }
-  catch { return DEFAULT; }
+async function loadCfgAsync(): Promise<PyHuntConfig> {
+  try {
+    const { data } = await supabase.from("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").single();
+    if (data && data.category) {
+      return { ...DEFAULT, ...JSON.parse(data.category) };
+    }
+  } catch (e) {
+    console.warn("Failed to load from Supabase, falling back to local:", e);
+  }
+  if (typeof window !== "undefined") {
+    try { const s = localStorage.getItem(STORAGE_KEY); return s ? { ...DEFAULT, ...JSON.parse(s) } : DEFAULT; }
+    catch { return DEFAULT; }
+  }
+  return DEFAULT;
 }
-function saveCfg(c: PyHuntConfig) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
+
+async function saveCfgAsync(c: PyHuntConfig) {
+  const str = JSON.stringify(c);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STORAGE_KEY, str);
+  }
+  try {
+    const { data } = await supabase.from("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG");
+    if (data && data.length > 0) {
+      await supabase.from("exam_config").update({ category: str, is_active: true, duration_minutes: 0 }).eq("id", data[0].id);
+    } else {
+      await supabase.from("exam_config").insert({ exam_title: "PYHUNT_GLOBAL_CONFIG", category: str, is_active: true, duration_minutes: 0 });
+    }
+  } catch (e) {
+    console.error("Failed to save to Supabase:", e);
+  }
+}
 
 /* ─── Styles ─────────────────────────────────── */
 const $ = {
@@ -96,10 +122,12 @@ export default function PyHuntAdminTab() {
   const [saved, setSaved] = useState(false);
   const [editIdx, setEditIdx] = useState<number|null>(null);
 
-  useEffect(() => { setCfg(loadCfg()); }, []);
+  useEffect(() => { 
+    loadCfgAsync().then(c => setCfg(c)); 
+  }, []);
 
-  const handleSave = () => {
-    saveCfg(cfg);
+  const handleSave = async () => {
+    await saveCfgAsync(cfg);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

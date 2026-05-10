@@ -74,7 +74,24 @@ const DEFAULT_CONFIG: PyHuntConfig = {
 /* ═══════════════════════════════════════════════
    CONFIG LOADER
 ═══════════════════════════════════════════════ */
-function loadPyHuntConfig(): PyHuntConfig {
+async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
+  try {
+    const { data } = await supabase.from("exam_config").select("category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").single();
+    if (data && data.category) {
+      const parsed = JSON.parse(data.category);
+      return {
+        mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
+        jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
+        round3: parsed.round3 || DEFAULT_CONFIG.round3,
+        round4: parsed.round4 || DEFAULT_CONFIG.round4,
+        clues: parsed.clues || DEFAULT_CONFIG.clues,
+        finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
+      };
+    }
+  } catch (e) {
+    console.warn("Failed to load global PyHunt config, falling back to local storage:", e);
+  }
+
   if (typeof window === "undefined") return DEFAULT_CONFIG;
   try {
     const s = localStorage.getItem("nexus_pyhunt_config_v2");
@@ -843,7 +860,7 @@ export default function PyHuntPage() {
     // Show loading orb for 2s on mount
     setPyhuntLoading(true);
     const t = setTimeout(() => setPyhuntLoading(false), 2000);
-    setCfg(loadPyHuntConfig());
+    loadPyHuntConfigAsync().then(c => setCfg(c));
     try { 
       const n = localStorage.getItem("nexus_student_name"); 
       if (n) setStudentName(n); 
