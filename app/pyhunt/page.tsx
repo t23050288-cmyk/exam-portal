@@ -6,6 +6,7 @@ import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import GoldenOrb from "@/components/GoldenOrb";
+import AntiCheat from "@/components/AntiCheat";
 
 /* ═══════════════════════════════════════════════
    TYPES
@@ -589,7 +590,7 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
 /* ═══════════════════════════════════════════════
    ROUND 5 — TURTLE
 ═══════════════════════════════════════════════ */
-function RoundTurtle({ problem, onComplete, onWrong }: { problem: TurtleProblem; onComplete: (dataUrl?: string) => void; onWrong: () => void }) {
+function RoundTurtle({ problem, onComplete, onWrong, onDrawUpdate }: { problem: TurtleProblem; onComplete: (dataUrl?: string) => void; onWrong: () => void; onDrawUpdate?: (img: string) => void }) {
   const { ready, loadError, runCode } = usePyodide();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [code, setCode] = useState(problem.starterCode || `import turtle\nt = turtle.Turtle()\n`);
@@ -896,6 +897,9 @@ _sys.modules["turtle"] = _t_mod
       onWrong();
     } finally {
       setRunning(false);
+      if (canvasRef.current && onDrawUpdate) {
+        onDrawUpdate(canvasRef.current.toDataURL("image/png"));
+      }
     }
   };
 
@@ -1304,92 +1308,7 @@ export default function PyHuntPage() {
     return () => clearTimeout(graceTimer);
   }, []);
 
-  useEffect(() => {
-    if (finished) return;
-
-    const handleViolation = (reason: string) => {
-      // Skip during grace period (first 8s) — fullscreen dialog causes false blur/focus events
-      if (gracePeriodRef.current) return;
-      const now = Date.now();
-      if (now - lastWarningTimeRef.current < 2000) return; // throttle 2s (was 1.5s)
-      lastWarningTimeRef.current = now;
-
-      // Always record violation even if warning is visible
-      setWarningCount(prev => {
-        const next = prev + 1;
-        setLastViolation(reason);
-        if (next >= 3) {
-          const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
-          setTerminated(true);
-          setFinished(true);
-          return 3;
-        }
-        setShowWarning(true);
-        return next;
-      });
-      // Force re-enter fullscreen after any violation
-      setTimeout(() => {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        }
-      }, 300);
-    };
-
-    const onVisibilityChange = () => { 
-      if (document.visibilityState === "hidden") handleViolation("tab_switch"); 
-    };
-    // Skip blur violation if we're entering fullscreen (dialog causes blur)
-    const onBlur = () => {
-      if (!document.fullscreenElement && !gracePeriodRef.current) {
-        handleViolation("window_blur");
-      }
-    };
-    const onFullscreenChange = () => {
-      // Only count fullscreen exit violation AFTER grace period
-      if (!document.fullscreenElement && !finished && !gracePeriodRef.current) handleViolation("fullscreen_exit");
-    };
-
-    const onContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      handleViolation("right_click");
-    };
-    const onCopy = (e: ClipboardEvent) => {
-      e.preventDefault();
-      handleViolation("copy_attempt");
-    };
-    const onPaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      handleViolation("paste_attempt");
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      // Check for common shortcuts like Ctrl+C, Ctrl+V, Alt+Tab, etc.
-      if (e.ctrlKey || e.altKey || e.metaKey || (e.key >= 'F1' && e.key <= 'F12')) {
-        if (["c", "v", "a", "x", "p", "s"].includes(e.key.toLowerCase())) {
-          e.preventDefault();
-          handleViolation("keyboard_shortcut");
-        }
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("blur", onBlur);
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    window.addEventListener("contextmenu", onContextMenu);
-    window.addEventListener("copy", onCopy);
-    window.addEventListener("paste", onPaste);
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
-      window.removeEventListener("contextmenu", onContextMenu);
-      window.removeEventListener("copy", onCopy);
-      window.removeEventListener("paste", onPaste);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [finished, startTime, totalWrongs, showWarning]);
+  // (Removed redundant manual listeners – now handled by AntiCheat component)
 
   const handleRoundComplete = (dataUrl?: string) => {
     if (dataUrl) {
@@ -1459,6 +1378,22 @@ export default function PyHuntPage() {
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
 
+      <AntiCheat 
+        isSubmitted={finished} 
+        onAutoSubmit={() => {
+          setTerminated(true);
+          setFinished(true);
+          const duration = Math.floor((Date.now() - startTime) / 60000);
+          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
+        }}
+        onViolation={(type) => {
+          setLastViolation(type);
+          setWarningCount(prev => Math.min(prev + 1, 3));
+        }}
+        initialWarningCount={warningCount}
+        forceReenterFullscreen={enterFullscreen}
+      />
+
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.logo}>
@@ -1481,63 +1416,7 @@ export default function PyHuntPage() {
       </header>
 
       {/* ── WARNING OVERLAY — blocks ALL interaction, centered ── */}
-      {showWarning && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: 24, pointerEvents: "all",
-        }}>
-          <div style={{
-            maxWidth: 460, width: "100%",
-            background: "rgba(8,14,35,0.98)", border: "2px solid #ef4444",
-            borderRadius: 24, padding: "48px 40px", textAlign: "center",
-            boxShadow: "0 0 0 1px rgba(239,68,68,0.3), 0 32px 80px rgba(0,0,0,0.9)",
-            animation: "modalPop 0.25s cubic-bezier(0.34,1.56,0.64,1)",
-          }}>
-            <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
-            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
-              {Array.from({length:3},(_,i)=>(
-                <div key={i} style={{ width:12, height:12, borderRadius:"50%",
-                  background: i < warningCount ? "#ef4444" : "rgba(255,255,255,0.12)",
-                  border: "1.5px solid " + (i < warningCount ? "#ef4444" : "rgba(255,255,255,0.2)")
-                }}/>
-              ))}
-            </div>
-            <h2 style={{ color: "#fff", fontSize: 22, fontWeight: 900, marginBottom: 8 }}>Security Alert</h2>
-            <div style={{ background: "rgba(239,68,68,0.08)", padding: "10px 16px", borderRadius: 12, marginBottom: 20, border: "1px solid rgba(239,68,68,0.15)" }}>
-              <p style={{ color: "#fca5a5", fontSize: 13, textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", margin: 0 }}>
-                DETECTED: {lastViolation.replace(/_/g, " ")}
-              </p>
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", background: "rgba(239,68,68,0.1)", borderRadius: 12, padding: "12px", marginBottom: 20 }}>
-              Warning <strong>{warningCount}</strong> of 3
-            </div>
-            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-              {warningCount >= 2
-                ? "🚨 FINAL WARNING! One more violation and your session will be terminated."
-                : "After 3 violations, your session will be automatically terminated."}
-            </p>
-            <button
-              style={{ width:"100%", padding:"16px", borderRadius:14, border:"none",
-                background: "linear-gradient(135deg,#ef4444,#dc2626)",
-                color:"#fff", fontWeight:900, fontSize:16, cursor:"pointer",
-                boxShadow:"0 8px 24px rgba(239,68,68,0.35)",
-              }}
-              onClick={() => {
-                setShowWarning(false);
-                // Re-enter fullscreen IMMEDIATELY on dismiss
-                if (!document.fullscreenElement) {
-                  document.documentElement.requestFullscreen().catch(()=>{});
-                }
-              }}
-            >
-              I Understand — Resume Challenge
-            </button>
-          </div>
-        </div>
-      )}
+      {/* (Warning overlay now handled by AntiCheat component for consistency) */}
 
       {/* Content */}
       <main className={styles.content}>
@@ -1551,7 +1430,7 @@ export default function PyHuntPage() {
         {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
         {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
         {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+        {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
       </main>
     </div>
   );

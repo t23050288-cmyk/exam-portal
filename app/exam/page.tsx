@@ -812,6 +812,33 @@ export default function ExamPage() {
         </aside>
       </main>
 
+      {/* ── Secure Mode Gate ── */}
+      {!isFullscreen && !isSubmitted && !loading && (
+        <div className={styles.secureGate}>
+          <div className={styles.gateCard}>
+            <div className={styles.gateIcon}>🛡️</div>
+            <h2 className={styles.gateTitle}>Secure Mode Required</h2>
+            <p className={styles.gateText}>
+              To proceed with your assessment, please enter secure full-screen mode.
+              This ensures a fair testing environment for all students.
+            </p>
+            
+            <div className={styles.gateRules}>
+              <div className={styles.rule}>• Tab switching is strictly prohibited</div>
+              <div className={styles.rule}>• External applications must be closed</div>
+              <div className={styles.rule}>• Your face must remain visible to the proctor</div>
+            </div>
+
+            <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
+              Enter Secure Mode →
+            </button>
+            <p style={{ marginTop: 24, fontSize: 12, color: "#475569", fontWeight: 600 }}>
+              Exiting full-screen will record a violation. (Limit: 3)
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Submit confirmation dialog ──────────────────────── */}
       {confirmSubmit && (
         <div className={styles.confirmOverlay}>

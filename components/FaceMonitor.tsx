@@ -68,7 +68,7 @@ export default function FaceMonitor({ onViolation, isSubmitted }: FaceMonitorPro
   }, []);
 
   const checkFace = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || isSubmitted || !isReady) return;
+    if (!videoRef.current || !canvasRef.current || isSubmitted || !isReady || document.visibilityState !== "visible") return;
 
     try {
       const video = videoRef.current;

@@ -101,10 +101,15 @@ export default function AntiCheat({
   useEffect(() => {
     if (isMobile) return;
     const vh = () => { if (document.visibilityState === "hidden") triggerViolation("tab_switch"); };
-    const bh = () => { if (document.visibilityState === "visible") triggerViolation("window_blur"); };
-    
     document.addEventListener("visibilitychange", vh);
-    window.addEventListener("blur", bh);
+    window.addEventListener("blur", () => {
+      // Small delay to see if visibilitychange follows (tab switch)
+      setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          triggerViolation("window_blur");
+        }
+      }, 100);
+    });
     
     return () => {
       document.removeEventListener("visibilitychange", vh);
