@@ -80,9 +80,9 @@ def get_questions(
         # questions and filter them securely in Python.
         result = (
             db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name, image_url")
+            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category")
             .order("order_index")
-            .limit(200)
+            .limit(500)
             .execute()
         )
         

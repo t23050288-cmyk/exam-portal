@@ -64,8 +64,8 @@ export default function AntiCheat({
       if (isSubmitted || !ready || processingViolationRef.current) return;
 
       const now = Date.now();
-      // Enforce 3-second mandatory cooling period between ANY violations to prevent accidental warning drain
-      if (now - lastViolationRef.current < 3000) return;
+      // Enforce 1.5-second mandatory cooling period between ANY violations to prevent accidental double-fire
+      if (now - lastViolationRef.current < 1500) return;
       
       processingViolationRef.current = true;
       lastViolationRef.current = now;
@@ -121,14 +121,15 @@ export default function AntiCheat({
   // ── Listeners ──
   useEffect(() => {
     if (isMobile) return;
-    const vh = () => { if (document.visibilityState === "hidden") triggerViolation("tab_switch"); };
+    // Tab switch: fires when tab becomes hidden
+    const vh = () => { 
+      if (document.visibilityState === "hidden") {
+        triggerViolation("tab_switch"); 
+      }
+    };
+    // Window blur: fires when window loses focus (alt-tab, clicking outside, etc.)
     const bh = () => {
-      // Small delay to see if visibilitychange follows (tab switch)
-      setTimeout(() => {
-        if (document.visibilityState === "visible") {
-          triggerViolation("window_blur");
-        }
-      }, 150);
+      triggerViolation("window_blur");
     };
     document.addEventListener("visibilitychange", vh);
     window.addEventListener("blur", bh);
