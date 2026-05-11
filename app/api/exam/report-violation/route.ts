@@ -4,12 +4,13 @@ import { getStudentFromRequest, supabaseAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SERVER_DEBOUNCE_MS = 3000; // ignore violations within 3s of the last one
+const SERVER_DEBOUNCE_MS = 3000; // ignore violations within 3s of last one
 const MAX_WARNINGS = 3;
 
 /**
  * POST /api/exam/report-violation
  * Records an anti-cheat violation. Server-side debounced.
+ * Uses 'last_active' as debounce timestamp (works without migration).
  * Returns { warning_count, auto_submitted }
  */
 export async function POST(req: NextRequest) {
@@ -26,16 +27,14 @@ export async function POST(req: NextRequest) {
     // ── Get current exam_status for this student ──────────────────────
     const { data: statusRow } = await supabaseAdmin
       .from("exam_status")
-      .select("warnings, status, last_violation_at, auto_submitted")
+      .select("*")
       .eq("student_id", student.id)
       .maybeSingle();
 
     const currentWarnings = statusRow?.warnings || 0;
-    const isAlreadySubmitted =
-      statusRow?.status === "submitted" ||
-      statusRow?.auto_submitted === true;
+    const isAlreadySubmitted = statusRow?.status === "submitted";
 
-    // If already submitted, just return current state
+    // If already submitted, return current state
     if (isAlreadySubmitted) {
       return NextResponse.json({
         ok: true,
@@ -44,12 +43,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Server-side debounce ──────────────────────────────────────────
-    if (statusRow?.last_violation_at) {
-      const lastViolationAt = new Date(statusRow.last_violation_at).getTime();
-      const msSinceLast = Date.now() - lastViolationAt;
+    // ── Server-side debounce using last_active timestamp ──────────────
+    // Use last_active as the debounce field (available without migration)
+    const debounceField = statusRow?.last_violation_at ?? statusRow?.last_active;
+    if (debounceField) {
+      const msSinceLast = Date.now() - new Date(debounceField).getTime();
       if (msSinceLast < SERVER_DEBOUNCE_MS) {
-        // Too soon — return current state without incrementing
         return NextResponse.json({
           ok: true,
           warning_count: currentWarnings,
@@ -62,6 +61,7 @@ export async function POST(req: NextRequest) {
     // ── Increment warning count ───────────────────────────────────────
     const newWarningCount = currentWarnings + 1;
     const isAutoSubmit = newWarningCount >= MAX_WARNINGS;
+    const now = new Date().toISOString();
 
     // Insert violation record
     await supabaseAdmin.from("violations").insert({
@@ -72,21 +72,31 @@ export async function POST(req: NextRequest) {
         warning_count: newWarningCount,
         is_auto_submit: isAutoSubmit,
       },
-      timestamp: new Date().toISOString(),
+      timestamp: now,
     });
 
-    // Upsert exam_status with new warning count + debounce timestamp
-    await supabaseAdmin.from("exam_status").upsert(
-      {
-        student_id: student.id,
-        warnings: newWarningCount,
-        status: isAutoSubmit ? "submitted" : "active",
-        auto_submitted: isAutoSubmit,
-        last_violation_at: new Date().toISOString(),
-        ...(isAutoSubmit ? { submitted_at: new Date().toISOString() } : {}),
-      },
-      { onConflict: "student_id" }
-    );
+    // Build the update object — include new columns only if they exist
+    const updateData: Record<string, any> = {
+      student_id: student.id,
+      warnings: newWarningCount,
+      status: isAutoSubmit ? "submitted" : "active",
+      last_active: now,
+      ...(isAutoSubmit ? { submitted_at: now } : {}),
+    };
+
+    // Try to set new columns if they exist (won't error if missing in upsert)
+    try {
+      await supabaseAdmin.from("exam_status").upsert(
+        { ...updateData, last_violation_at: now, auto_submitted: isAutoSubmit },
+        { onConflict: "student_id" }
+      );
+    } catch {
+      // Fallback without new columns if migration hasn't been run yet
+      await supabaseAdmin.from("exam_status").upsert(
+        updateData,
+        { onConflict: "student_id" }
+      );
+    }
 
     console.log(
       `[VIOLATION] type=${type} | student=${student.studentId} | warnings=${newWarningCount}/${MAX_WARNINGS} | auto_submit=${isAutoSubmit}`
