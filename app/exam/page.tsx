@@ -120,6 +120,12 @@ export default function ExamPage() {
       }
     }
 
+    // Request fullscreen immediately on mount (browser allows this right
+    // after navigating from the instructions page which was already fullscreen)
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
     // Wire token into sync engine
     setExamToken(token || "");
     setExamSessionId(sessionStorage.getItem("exam_session_id") || "");
@@ -185,22 +191,8 @@ export default function ExamPage() {
         .then(async (qs: any) => {
           console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
           if (qs.length === 0) {
-            console.warn(`[EXAM] WARNING: Zero questions for "${quizTitle}". Trying fallback fetch with no title filter.`);
-            // Fallback: try fetching with a blank title so backend returns all questions for this branch
-            try {
-              const fallback = await fetchQuestions("");
-              if (fallback.length > 0) {
-                console.log(`[EXAM] Fallback returned ${fallback.length} questions.`);
-                setQuestions(fallback);
-                saveQuestionsToCache(quizTitle, fallback);
-                setLoadSource("network");
-                setLoading(false);
-                enterFullscreen();
-                return;
-              }
-            } catch {}
-            // Still 0: show friendly error
-            setError(`No questions found for this exam. Please contact your invigilator. (Title: "${quizTitle}")`);
+            console.warn(`[EXAM] WARNING: Zero questions for title="${quizTitle}". Check that questions in admin have exam_name="${quizTitle}".`);
+            setError(`No questions found for exam "${quizTitle}". Please contact your invigilator or refresh the page.`);
             setLoading(false);
             return;
           }
@@ -543,29 +535,9 @@ export default function ExamPage() {
     );
   }
 
-  // ── Secure Mode Gate ──────────────────────────────
-  if (!isFullscreen && !isSubmitted && !loading && !error) {
-    return (
-      <div className={styles.secureGate}>
-        <div className={styles.gateCard}>
-          <div className={styles.gateIcon}>🔒</div>
-          <h2 className={styles.gateTitle}>SECURE MODE REQUIRED</h2>
-          <p className={styles.gateText}>
-            To protect assessment integrity, this exam must be taken in <b>Fullscreen Mode</b>. 
-            Exiting fullscreen or switching tabs will be recorded as a violation.
-          </p>
-          <div className={styles.gateRules}>
-            <div className={styles.rule}>• 3 Warnings = Auto-Submission</div>
-            <div className={styles.rule}>• Tab Switching Prohibited</div>
-            <div className={styles.rule}>• Keyboard Shortcuts Blocked</div>
-          </div>
-          <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
-            ENTER SECURE MODE
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ── Secure Mode Gate: handled via inline overlay inside main return ──
+  // DO NOT use an early return here — it would prevent AntiCheat from mounting!
+  // AntiCheat must always be rendered to keep violation listeners active.
 
   return (
     <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
@@ -953,6 +925,7 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
 
 
