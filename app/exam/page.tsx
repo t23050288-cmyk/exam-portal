@@ -10,7 +10,10 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import ExamTimer from "@/components/ExamTimer";
 import QuestionCard from "@/components/QuestionCard";
 import nextDynamic from "next/dynamic";
-const AntiCheat = nextDynamic(() => import("@/components/AntiCheat"), { ssr: false });
+const AntiCheat = nextDynamic(() => import("@/components/AntiCheat"), { 
+  ssr: false,
+  loading: () => <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 999999, display: 'grid', placeItems: 'center', color: '#fff'}}>Loading Security Suite...</div>
+});
 import Skeleton from "@/components/Skeleton";
 import Background from "@/components/dashboard/Background";
 import styles from "./exam.module.css";
@@ -190,21 +193,20 @@ export default function ExamPage() {
       console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
       fetchQuestions(quizTitle, Date.now())
         .then(async (qs: any) => {
-          console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
-          if (qs.length === 0) {
+          const qsArr = Array.isArray(qs) ? qs : (qs.questions || []);
+          console.log(`[EXAM] Processed ${qsArr.length} questions.`);
+          
+          if (qsArr.length === 0) {
             console.warn(`[EXAM] WARNING: Zero questions for title="${quizTitle}".`);
             let msg = `No questions found for exam "${quizTitle}". Please contact your invigilator or refresh the page.`;
-            // @ts-ignore
             if (qs.available_exams && qs.available_exams.length > 0) {
-              // @ts-ignore
               msg += `\n\nAvailable exams: ${qs.available_exams.join(", ")}`;
             }
             setError(msg);
             setLoading(false);
             return;
           }
-          setQuestions(Array.isArray(qs) ? qs : (qs.questions || []));
-          // saveQuestionsToCache(quizTitle, qs);
+          setQuestions(qsArr);
           setLoadSource("network");
           setLoading(false);
           // Note: enterFullscreen() is called from the Start button click (user gesture)
