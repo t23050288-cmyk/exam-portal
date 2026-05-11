@@ -1303,12 +1303,43 @@ export default function PyHuntPage() {
   // Grace period ref: violations ignored for 8 seconds after mount (fullscreen dialog causes blur)
   const gracePeriodRef = useRef(true);
   useEffect(() => {
-    // Give 8 seconds before proctoring starts — fullscreen dialog + page load causes false positives
-    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 8000);
+    // Give 1.5 seconds before proctoring starts (fullscreen dialog grace)
+    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 1500);
     return () => clearTimeout(graceTimer);
   }, []);
 
-  // (Removed redundant manual listeners – now handled by AntiCheat component)
+  // ── Active fullscreen re-enforcement for PyHunt ──
+  // When student switches tab and returns, force fullscreen immediately
+  useEffect(() => {
+    if (finished) return;
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !finished) {
+        setTimeout(() => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        }, 100);
+      }
+    };
+
+    const onFsChange = () => {
+      if (!document.fullscreenElement && !finished) {
+        setTimeout(() => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("fullscreenchange", onFsChange);
+    };
+  }, [finished]);
 
   const handleRoundComplete = (dataUrl?: string) => {
     if (dataUrl) {
@@ -1435,6 +1466,7 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
 
 
 
