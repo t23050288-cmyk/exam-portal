@@ -141,7 +141,18 @@ export default function ExamPage() {
     };
     
     // STRICT OVERRIDE: Always force 20 minutes for production
-    info.examDurationMinutes = 20;
+    info.examDurationMinutes = info.examDurationMinutes || 20;
+    // Always ensure examStartTime is set — use stored start or now
+    if (!info.examStartTime) {
+      const storedStart = sessionStorage.getItem("exam_start_time");
+      if (storedStart) {
+        info.examStartTime = storedStart;
+      } else {
+        const nowIso = new Date().toISOString();
+        sessionStorage.setItem("exam_start_time", nowIso);
+        info.examStartTime = nowIso;
+      }
+    }
     
     setStudent(info);
 
@@ -627,10 +638,24 @@ export default function ExamPage() {
                {examTitle || "Online Assessment"}
              </h1>
              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+               {/* Warning counter badge — always visible */}
+               {!isSubmitted && (
+                 <div style={{
+                   display: "flex", alignItems: "center", gap: 6,
+                   background: warningCount >= 2 ? "rgba(239,68,68,0.18)" : warningCount === 1 ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)",
+                   border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.6)" : warningCount === 1 ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.12)"}`,
+                   borderRadius: 10, padding: "4px 12px",
+                   color: warningCount >= 2 ? "#ef4444" : warningCount === 1 ? "#f59e0b" : "rgba(148,163,184,0.7)",
+                   fontWeight: 700, fontSize: 13,
+                   transition: "all 0.4s ease",
+                 }}>
+                   ⚠️ {warningCount}/3 Warnings
+                 </div>
+               )}
                {student && (
                  <ExamTimer
                    startTime={student.examStartTime || new Date().toISOString()}
-                   durationMinutes={student.examDurationMinutes}
+                   durationMinutes={student.examDurationMinutes || 20}
                    onExpire={handleAutoSubmit}
                  />
                )}
