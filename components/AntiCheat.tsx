@@ -17,7 +17,7 @@ interface AntiCheatProps {
   isMobile?: boolean;
 }
 
-const MAX_WARNINGS = 4;
+const MAX_WARNINGS = 3;
 const COOLDOWN_MS = 4000; // min ms between two separate violations
 
 export default function AntiCheat({
@@ -100,13 +100,11 @@ export default function AntiCheat({
 
       let msg: string;
       if (isAutoSubmit) {
-        msg = `🔴 VIOLATION 4/4 (${label}): Exam auto-submitted for security review.`;
-      } else if (newCount === 3) {
-        msg = `🚨 Warning 3 of 4 (${label}): ONE more violation = auto-submit!`;
+        msg = `🔴 VIOLATION 3/3 (${label}): Exam auto-submitted for security review.`;
       } else if (newCount === 2) {
-        msg = `⚠️ Warning 2 of 4 (${label}): 2 violations remaining.`;
+        msg = `🚨 Warning 2 of 3 (${label}): ONE more violation = auto-submit!`;
       } else {
-        msg = `⚠️ Warning 1 of 4 (${label}): Stay in fullscreen and don't switch tabs.`;
+        msg = `⚠️ Warning 1 of 3 (${label}): Stay in fullscreen and don't switch tabs.`;
       }
 
       setOverlayMessage(msg);
@@ -244,8 +242,8 @@ export default function AntiCheat({
         return;
       }
 
-      // Ctrl+T (new tab), Ctrl+W (close), Ctrl+R (reload), Ctrl+P (print)
-      if (ctrl && ["t", "w", "r", "p", "l"].includes(key.toLowerCase())) {
+      // Ctrl+T (new tab), Ctrl+W (close), Ctrl+R (reload), Ctrl+P (print), Ctrl+U (source)
+      if (ctrl && ["t", "w", "r", "p", "l", "u"].includes(key.toLowerCase())) {
         e.preventDefault();
         triggerViolation("keyboard_shortcut");
         return;
@@ -253,6 +251,19 @@ export default function AntiCheat({
 
       // Alt+Tab / Windows key: can't fully block, but log blur/visibility
       // These are handled by blur/visibilitychange above
+    };
+
+    // ── 4b. resize — catches DevTools opening (which changes window dimensions) ──
+    const handleResize = () => {
+      if (isSubmitted || autoSubmitted || !stabilizedRef.current) return;
+      
+      const threshold = 160;
+      const widthDiff = window.outerWidth - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      
+      if (widthDiff > threshold || heightDiff > threshold) {
+        triggerViolation("devtools_detected");
+      }
     };
 
     // ── 5. context menu ──
@@ -282,6 +293,7 @@ export default function AntiCheat({
     document.addEventListener("mozfullscreenchange", handleFsChange);
     document.addEventListener("MSFullscreenChange", handleFsChange);
     window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("resize", handleResize);
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleClipboard);
     document.addEventListener("paste", handleClipboard);

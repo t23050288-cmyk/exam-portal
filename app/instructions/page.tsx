@@ -51,8 +51,9 @@ export default function InstructionsPage() {
           usn: parsed.usn || "Candidate",
           examTitle,
           duration: 20,
-          totalQuestions: 0
+          totalQuestions: 0 // Will be updated by fetchQuestionsCount
         });
+        fetchQuestionsCount(examTitle);
       } catch (e) { console.error(e); }
     }
 
@@ -85,6 +86,24 @@ export default function InstructionsPage() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const fetchQuestionsCount = async (title: string) => {
+    const token = sessionStorage.getItem("exam_token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/exam/questions?title=${encodeURIComponent(title)}&_=${Date.now()}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const count = Array.isArray(data) ? data.length : 0;
+        setStudentInfo(prev => prev ? { ...prev, totalQuestions: count } : null);
+      }
+    } catch (e) {
+      console.error("Failed to fetch question count:", e);
+    }
+  };
 
   const fetchStatus = async () => {
     const token = sessionStorage.getItem("exam_token");
