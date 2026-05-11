@@ -1133,8 +1133,9 @@ export default function PyHuntPage() {
     });
     
     try { 
-      const n = localStorage.getItem("nexus_student_name"); 
-      const sid = localStorage.getItem("nexus_student_id");
+      const examStudent = sessionStorage.getItem("exam_student"); const examStudentData = examStudent ? JSON.parse(examStudent) : {};
+      const n = examStudentData.name || null;
+      const sid = examStudentData.id || null;
       const sessionStudent = JSON.parse(sessionStorage.getItem("exam_student") || "{}");
 
       if (n) setStudentName(n); 
@@ -1201,7 +1202,8 @@ export default function PyHuntPage() {
   useEffect(() => {
     const updateProgress = async () => {
       try {
-        const studentId = localStorage.getItem("nexus_student_id") || "anonymous";
+        const examStudent2 = sessionStorage.getItem("exam_student"); const sid2 = examStudent2 ? JSON.parse(examStudent2).id : null;
+        const studentId = sid2 || "anonymous";
         const name = studentName || "Student";
         const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
         

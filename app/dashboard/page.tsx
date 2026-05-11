@@ -129,22 +129,10 @@ export default function DashboardPage() {
       setActiveNav("History");
       // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
-    } else {
-      // Also auto-switch if they already have history (completed an exam)
-      const savedHistory = localStorage.getItem("nexus_exam_results");
-      if (savedHistory) {
-        const h = JSON.parse(savedHistory);
-        if (h.length > 0) setActiveNav("History");
-      }
     }
 
-    // Load exam history — merge Supabase DB + localStorage backup
+    // Load exam history from Supabase DB (centralized — works across all devices)
     const loadHistory = async () => {
-      // 1. Always load localStorage first (instant, no network)
-      const lsRaw = localStorage.getItem("nexus_exam_results");
-      const lsHistory: any[] = lsRaw ? JSON.parse(lsRaw) : [];
-
-      // 2. Fetch from Supabase
       const token2 = sessionStorage.getItem("exam_token") || "";
       const histResp = await fetch("/api/exam/history", {
         headers: { "Authorization": `Bearer ${token2}` }
@@ -159,13 +147,7 @@ export default function DashboardPage() {
           category: r.category || "Others",
           timestamp: r.submitted_at,
         }));
-        // Merge: DB is authoritative. Add any LS entries not already in DB
-        const dbNames = new Set(dbHistory.map((h: any) => h.examName));
-        const lsExtra = lsHistory.filter((h: any) => !dbNames.has(h.examName));
-        setLocalHistory([...dbHistory, ...lsExtra]);
-      } else if (lsHistory.length > 0) {
-        // No DB data — use localStorage
-        setLocalHistory(lsHistory);
+        setLocalHistory(dbHistory);
       }
     };
     loadHistory();
@@ -180,20 +162,21 @@ export default function DashboardPage() {
       }
     }
 
-    // Reload history when student returns from exam (window focus)
-    const onFocus = () => {
-      const lsRaw = localStorage.getItem("nexus_exam_results");
-      if (lsRaw) {
-        const h = JSON.parse(lsRaw);
-        if (h.length > 0) {
-          setLocalHistory(prev => {
-            // Merge without duplicates
-            const names = new Set(prev.map((x: any) => x.examName));
-            const newItems = h.filter((x: any) => !names.has(x.examName));
-            return [...prev, ...newItems];
-          });
-          setActiveNav("History");
-        }
+    // Reload history from DB when student returns from exam (window focus)
+    const onFocus = async () => {
+      const token2 = sessionStorage.getItem("exam_token") || "";
+      const histResp = await fetch("/api/exam/history", {
+        headers: { "Authorization": `Bearer ${token2}` }
+      }).then(r => r.ok ? r.json() : null).catch(() => null);
+      const data = histResp?.results || null;
+      if (data && data.length > 0) {
+        setLocalHistory(data.map((r: any) => ({
+          examName: r.exam_title,
+          score: r.score || 0,
+          totalMarks: r.total_marks || 0,
+          category: r.category || "Others",
+          timestamp: r.submitted_at,
+        })));
       }
     };
     window.addEventListener("focus", onFocus);

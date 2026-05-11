@@ -115,8 +115,6 @@ export default function ExamPage() {
               if (data?.status === "submitted") {
                 router.replace("/dashboard?tab=History");
               }
-            });
-        });
       }
     }
 
@@ -157,7 +155,6 @@ export default function ExamPage() {
             if (data) {
               setWarningCount(data.warnings || 0);
             }
-          });
       });
     }
 
@@ -214,7 +211,6 @@ export default function ExamPage() {
           console.error("[EXAM] Question fetch failed:", err);
           setError("Failed to load exam questions. Please check your connection and refresh.");
           setLoading(false);
-        });
     }, jitterMs);
 
     return () => {
@@ -288,21 +284,7 @@ export default function ExamPage() {
         await flush();
         const res = await submitExam(answers, examTitle);
         
-        const history = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
-        history.push({
-          examName: examTitle,
-          score: res.score,
-          totalMarks: res.total_marks,
-          timestamp: new Date().toISOString(),
-          id: Math.random().toString(36).substr(2, 9)
-        });
-        localStorage.setItem("nexus_exam_results", JSON.stringify(history));
-        
-        const completedExams = JSON.parse(localStorage.getItem("nexus_completed_exams") || "[]");
-        if (!completedExams.includes(examTitle)) {
-          completedExams.push(examTitle);
-          localStorage.setItem("nexus_completed_exams", JSON.stringify(completedExams));
-        }
+        // Results stored in Supabase DB via submit API
 
         clearExamStorage();
         setIsSubmitted(true);

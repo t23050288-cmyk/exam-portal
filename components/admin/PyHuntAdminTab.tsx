@@ -52,33 +52,21 @@ const DEFAULT: PyHuntConfig = {
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
 
 async function loadCfgAsync(): Promise<PyHuntConfig> {
-  // Route through backend — bypasses Supabase RLS
+  // Always load from backend DB — centralized, works across all devices
   try {
     const json = await adminFetch<any>("/admin/pyhunt/config");
     if (json.ok && json.config) {
-      const c = json.config;
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
-      }
-      return { ...DEFAULT, ...c };
+      return { ...DEFAULT, ...json.config };
     }
   } catch (e) {
-    console.warn("Backend load failed, falling back to localStorage:", e);
-  }
-  if (typeof window !== "undefined") {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? { ...DEFAULT, ...JSON.parse(s) } : DEFAULT; }
-    catch { return DEFAULT; }
+    console.warn("Backend config load failed:", e);
   }
   return DEFAULT;
 }
 
 async function saveCfgAsync(c: PyHuntConfig) {
   const str = JSON.stringify(c);
-  // Always update localStorage so admin UI is snappy
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, str);
-  }
-  // Route save through backend (service role — bypasses RLS)
+  // Save to backend DB — all devices see the update
   await adminFetch("/admin/pyhunt/config/save", {
     method: "POST",
     body: JSON.stringify({ config: str }),
@@ -170,7 +158,7 @@ export default function PyHuntAdminTab() {
         {saved && <span style={$.saved}>✓ Saved to device!</span>}
       </div>
       <div style={$.sub}>
-        Changes are saved to this device's localStorage and immediately visible to students using the same device / browser.
+        Changes are saved to the central database and immediately visible to all students on any device.
       </div>
 
       {/* Sub-tabs */}
