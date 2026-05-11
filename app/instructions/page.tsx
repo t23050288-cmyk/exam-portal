@@ -6,6 +6,7 @@ import styles from "./instructions.module.css";
 import { startExam } from "@/lib/api";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import Skeleton from "@/components/Skeleton";
+import { supabase } from "@/lib/supabase";
 
 export default function InstructionsPage() {
   const router = useRouter();
@@ -20,6 +21,9 @@ export default function InstructionsPage() {
   const [starting, setStarting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSecureGate, setShowSecureGate] = useState(true);
+  const [scheduledStart, setScheduledStart] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState<number>(0);
+  const [examActive, setExamActive] = useState(true);
 
   useEffect(() => {
     // Check authentication
@@ -28,14 +32,58 @@ export default function InstructionsPage() {
       router.replace("/login");
       return;
     }
-    
-    // ── Prevent Back Navigation ──
-    window.history.pushState(null, "", window.location.href);
-    const handlePopState = () => {
-      window.history.pushState(null, "", window.location.href);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+
+    // ── Realtime Status Sync ──
+    // Listen for admin changes to exam_config (activation/deactivation)
+    const channel = supabase
+      .channel("exam_instructions_sync")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "exam_config" }, (payload) => {
+        const examTitle = sessionStorage.getItem("exam_selected_title");
+        if (payload.new && payload.new.exam_title === examTitle) {
+          console.log("[REALTIME] Exam config updated:", payload.new);
+          setExamActive(payload.new.is_active);
+          if (payload.new.scheduled_start) {
+            const start = new Date(payload.new.scheduled_start);
+            setScheduledStart(start);
+            const diff = Math.floor((start.getTime() - Date.now()) / 1000);
+            setCountdown(diff > 0 ? diff : 0);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-    window.addEventListener("popstate", handlePopState);
-    // Token is long-lived (30 days) — no expiry check needed
+  }, []);
+
+  const fetchStatus = async () => {
+    const token = sessionStorage.getItem("exam_token");
+    const examTitle = sessionStorage.getItem("exam_selected_title") || "Online Assessment";
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/admin/exam/config/public`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const configs = await res.json();
+      const myConfig = configs.find((c: any) => c.exam_title === examTitle);
+      if (myConfig) {
+        setExamActive(myConfig.is_active);
+        if (myConfig.scheduled_start) {
+          const start = new Date(myConfig.scheduled_start);
+          setScheduledStart(start);
+          const diff = Math.floor((start.getTime() - Date.now()) / 1000);
+          if (diff > 0) setCountdown(diff);
+        }
+      }
+    } catch (e) {}
+  };
 
     const studentData = sessionStorage.getItem("exam_student");
     if (studentData) {
@@ -53,7 +101,25 @@ export default function InstructionsPage() {
           totalQuestions: parsed.totalQuestions || 30,
         });
 
-        // Fetch the real question count for this branch + exam from the backend
+        // Fetch the real question count AND scheduled start for this exam
+        fetch(`/api/admin/exam/config/public`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+          .then(r => r.ok ? r.json() : [])
+          .then(configs => {
+            const myConfig = configs.find((c: any) => c.exam_title === examTitle);
+            if (myConfig) {
+              setExamActive(myConfig.is_active);
+              if (myConfig.scheduled_start) {
+                const start = new Date(myConfig.scheduled_start);
+                setScheduledStart(start);
+                const diff = Math.floor((start.getTime() - Date.now()) / 1000);
+                if (diff > 0) setCountdown(diff);
+              }
+            }
+          })
+          .catch(() => {});
+
         fetch(`/api/exam/questions?title=${encodeURIComponent(examTitle)}`, {
           headers: { "Authorization": `Bearer ${token}` }
         })
@@ -82,6 +148,21 @@ export default function InstructionsPage() {
       window.removeEventListener("popstate", handlePopState);
     };
   }, [router]);
+
+  // ── Countdown Tick ──
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -309,11 +390,30 @@ export default function InstructionsPage() {
           </ul>
 
           <div className={styles.actionArea}>
-            <div style={{ flex: 1 }} /> {/* Spacer */}
+            <div style={{ flex: 1 }}>
+              {countdown > 0 && (
+                <div style={{ 
+                  color: "#28D7D6", fontWeight: 700, fontSize: "14px", 
+                  display: "flex", alignItems: "center", gap: 8,
+                  background: "rgba(40,215,214,0.1)", padding: "8px 16px", borderRadius: "12px"
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  Exam starts in: {Math.floor(countdown / 60)}m {countdown % 60}s
+                </div>
+              )}
+              {!examActive && countdown <= 0 && (
+                <div style={{ color: "#ff4d4d", fontSize: "13px", fontWeight: 600 }}>
+                  Exam is currently deactivated by administrator.
+                </div>
+              )}
+            </div>
             <button 
               onClick={handleStartExam} 
               className={styles.startBtn}
-              disabled={starting}
+              disabled={starting || countdown > 0 || !examActive}
             >
                {starting ? (
                 <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>

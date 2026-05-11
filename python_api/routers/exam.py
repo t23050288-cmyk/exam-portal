@@ -50,10 +50,34 @@ def update_last_active(student_id: str):
     db.table("exam_status").update(
         {"last_active": datetime.now(timezone.utc).isoformat()}
     ).eq("student_id", student_id).execute()
+@router.get("/status")
+def get_exam_status(current: dict = Depends(get_current_student)):
+    """
+    Returns the current student's exam session status.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+    try:
+        result = db.table("exam_status").select("*").eq("student_id", student_id).execute()
+        return {"data": result.data or []}
+    except Exception as e:
+        print(f"[EXAM] Status fetch error: {e}")
+        return {"data": []}
 
 
-
-
+@router.get("/history")
+def get_exam_history(current: dict = Depends(get_current_student)):
+    """
+    Returns the student's past exam results.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+    try:
+        result = db.table("exam_results").select("*").eq("student_id", student_id).order("submitted_at", desc=True).execute()
+        return {"results": result.data or []}
+    except Exception as e:
+        print(f"[EXAM] History fetch error: {e}")
+        return {"results": []}
 @router.get("/questions", response_model=QuestionsResponse)
 def get_questions(
     title: str,

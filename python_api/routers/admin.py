@@ -484,7 +484,7 @@ async def get_exam_config(title: Optional[str] = None, _: bool = Depends(verify_
     """Get exam activation state and schedule. If title is provided, fetch specific config."""
     db = get_supabase()
     try:
-        query = db.table("exam_config").select("*")
+        query = db.table("exam_config").select("*").neq("exam_title", "PYHUNT_GLOBAL_CONFIG")
         if title:
             result = query.eq("exam_title", title).execute()
         else:
@@ -607,7 +607,7 @@ async def get_exam_config_public():
     """Public exam config endpoint (no auth) — returns all configurations."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, duration_minutes, exam_title").execute()
+        result = db.table("exam_config").select("is_active, scheduled_start, duration_minutes, exam_title").neq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
         return result.data or []
     except Exception:
         return []

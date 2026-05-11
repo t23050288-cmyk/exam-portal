@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 90
+    jwt_expire_minutes: int = 43200
 
     # Admin
     admin_secret: str = "rudranshsarvam"

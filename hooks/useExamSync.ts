@@ -173,7 +173,9 @@ export function useExamSync({ sessionId, token, enabled = true }: UseExamSyncOpt
 
   function _restartFlushTimer() {
     if (flushTimer.current) clearInterval(flushTimer.current);
-    flushTimer.current = setInterval(flush, intervalMsRef.current);
+    // Add 0-5s jitter to smooth out 200+ simultaneous requests
+    const jitter = Math.floor(Math.random() * 5000);
+    flushTimer.current = setInterval(flush, intervalMsRef.current + jitter);
   }
 
   // ── Throttle polling ────────────────────────────────────────────────────────

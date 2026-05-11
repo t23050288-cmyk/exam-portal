@@ -255,7 +255,9 @@ export default function ExamPage() {
       }
     };
     checkConfig();
-    const id = setInterval(checkConfig, 15_000);
+    // Add jitter (15s + 0-10s) to status checks to prevent concurrent spikes
+    const jitter = Math.floor(Math.random() * 10000);
+    const id = setInterval(checkConfig, 15_000 + jitter);
     return () => clearInterval(id);
   }, [examTitle]);
 
