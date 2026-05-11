@@ -85,12 +85,28 @@ export async function GET(req: NextRequest) {
       .select("*")
       .order("order_index");
 
+    const dbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+    const dbKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
     if (error) {
       console.error("[QUESTIONS] DB error:", error.message);
-      return NextResponse.json({ questions: [], total: 0 }, { headers: NO_CACHE });
+      return NextResponse.json({ 
+        questions: [], 
+        total: 0, 
+        error: error.message,
+        debug: { url: dbUrl.substring(0, 20) + "...", key: dbKey ? "set" : "missing" }
+      }, { headers: NO_CACHE });
     }
 
     const all = allRows || [];
+    if (all.length === 0) {
+       return NextResponse.json({ 
+         questions: [], 
+         total: 0, 
+         message: "Database table 'questions' is empty.",
+         debug: { rowCount: 0, title } 
+       }, { headers: NO_CACHE });
+    }
     const t = titleLower.trim();
 
     // ── Title Filtering ──────────────────────────────────────────
