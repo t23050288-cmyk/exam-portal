@@ -33,10 +33,9 @@ export default function AntiCheat({
     }
   }, [initialWarningCount]);
 
-  // 3-second grace period on mount — gives fullscreen dialog time to settle
-  // and prevents page load blur from counting as violation
+  // Reduce grace period to 0.5s so proctoring starts almost immediately
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 3000);
+    const t = setTimeout(() => setReady(true), 500);
     return () => clearTimeout(t);
   }, []);
 

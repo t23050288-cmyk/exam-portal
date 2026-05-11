@@ -333,6 +333,7 @@ export default function ExamPage() {
     return () => clearInterval(interval);
   }, [isSubmitted, resultTimerSeconds, router]);
 
+  // ── Rendering ───────────────────────────────────────────
   const answeredCount = getAnsweredCount(questions.length);
   const progressPercentage = questions.length > 0 ? (activeQuestionIndex + 1) / questions.length : 0;
 
@@ -346,9 +347,27 @@ export default function ExamPage() {
 
   const activeQuestion = questions[activeQuestionIndex];
 
+  // Helper to wrap content with AntiCheat
+  const withAntiCheat = (content: React.ReactNode) => (
+    <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
+      <Background />
+      <AntiCheat 
+        isSubmitted={isSubmitted} 
+        onAutoSubmit={() => handleSubmit(true)}
+        onViolation={(type, meta) => {
+          recordEvent(type as any);
+          if (meta && typeof meta.warning_count === 'number') setWarningCount(meta.warning_count);
+        }}
+        initialWarningCount={warningCount}
+        forceReenterFullscreen={enterFullscreen}
+      />
+      {content}
+    </div>
+  );
+
   if (loading) {
-    return (
-      <div className={styles.wrapper} style={{ padding: 28 }}>
+    return withAntiCheat(
+      <div style={{ padding: 28 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
           <Skeleton height={80} borderRadius={20} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20 }}>
@@ -364,22 +383,20 @@ export default function ExamPage() {
   }
 
   if (error && !isSubmitted) {
-    return (
+    return withAntiCheat(
       <div className="page-center">
         <div className={styles.errorBox}>
           <p className="text-danger">{error}</p>
+          <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '8px', color: 'var(--text-secondary)' }}>
+            Exam Node: {examTitle} | Branch: {student?.id ? "Syncing..." : "Offline"}
+          </div>
           <button 
             className="btn btn-primary" 
+            style={{ marginTop: '20px' }}
             disabled={submitting}
-            onClick={() => {
-              if (error.includes("Failed to load") || error.includes("refresh")) {
-                window.location.reload();
-              } else {
-                handleSubmit(error.toLowerCase().includes("auto-submit"));
-              }
-            }}
+            onClick={() => window.location.reload()}
           >
-            {submitting ? "Retrying..." : "Retry"}
+            {submitting ? "..." : "Refresh Page"}
           </button>
         </div>
       </div>
@@ -387,14 +404,12 @@ export default function ExamPage() {
   }
 
   if (submitting) {
-    return (
-      <div className={styles.wrapper} style={{ display: "grid", placeItems: "center" }}>
+    return withAntiCheat(
+      <div style={{ display: "grid", placeItems: "center", height: "60vh" }}>
         <div style={{ textAlign: "center", zIndex: 10 }}>
-          <div className="skeleton" style={{ width: 300, height: 60, borderRadius: 30, marginBottom: 20, margin: "0 auto" }} />
           <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)" }}>Submitting exam...</h2>
           <p style={{ opacity: 0.7 }}>Securely uploading your responses</p>
         </div>
-        <div className="skeleton" style={{ position: "absolute", inset: 0, opacity: 0.05 }} />
       </div>
     );
   }
@@ -407,12 +422,7 @@ export default function ExamPage() {
         <div className={styles.successCapsule}>
           <div className={styles.hourglassBg}>
             <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <path d="M5 2h14" />
-              <path d="M5 22h14" />
-              <path d="M19 2a33 33 0 0 1-14 0" />
-              <path d="M19 22a33 33 0 0 0-14 0" />
-              <path d="M15 2v1c0 5-6 5-6 10s6 5 6 10v1" />
-              <path d="M9 2v1c0 5 6 5 6 10s-6 5-6 10v1" />
+              <path d="M5 2h14" /><path d="M5 22h14" /><path d="M19 2a33 33 0 0 1-14 0" /><path d="M19 22a33 33 0 0 0-14 0" /><path d="M15 2v1c0 5-6 5-6 10s6 5 6 10v1" /><path d="M9 2v1c0 5 6 5 6 10s-6 5-6 10v1" />
             </svg>
           </div>
           <div style={{ position: "relative", zIndex: 1 }}>
@@ -427,35 +437,18 @@ export default function ExamPage() {
             </div>
             {showResultDetails && (
               <div className={styles.resultCard}>
-                <div className={styles.resultDetail}>
-                  <div className={styles.detailValue} style={{ color: "#34d399" }}>{submitResult.correct_count}</div>
-                  <div className={styles.detailLabel}>Correct</div>
-                </div>
-                <div className={styles.resultDetail}>
-                  <div className={styles.detailValue} style={{ color: "#f87171" }}>{submitResult.wrong_count}</div>
-                  <div className={styles.detailLabel}>Wrong</div>
-                </div>
-                <div className={styles.resultDetail}>
-                  <div className={styles.detailValue} style={{ color: "#94a3b8" }}>
-                    {questions.length - (submitResult.correct_count + submitResult.wrong_count)}
-                  </div>
-                  <div className={styles.detailLabel}>Skipped</div>
-                </div>
+                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#34d399" }}>{submitResult.correct_count}</div><div className={styles.detailLabel}>Correct</div></div>
+                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#f87171" }}>{submitResult.wrong_count}</div><div className={styles.detailLabel}>Wrong</div></div>
+                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#94a3b8" }}>{questions.length - (submitResult.correct_count + submitResult.wrong_count)}</div><div className={styles.detailLabel}>Skipped</div></div>
                 <div style={{ gridColumn: "1 / -1", marginTop: 12, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                    <div style={{ fontSize: 13, opacity: 0.6 }}>Total Score</div>
-                   <div style={{ fontSize: 24, fontWeight: 800, color: "var(--accent-light)" }}>
-                     {submitResult.score}/{submitResult.total_marks}
-                   </div>
+                   <div style={{ fontSize: 24, fontWeight: 800, color: "var(--accent-light)" }}>{submitResult.score}/{submitResult.total_marks}</div>
                 </div>
               </div>
             )}
             <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
-              <button className={styles.backToDashboardBtn} onClick={() => router.replace("/dashboard?tab=History")}>
-                GO TO SKILLS INSIGHTS →
-              </button>
-              <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>
-                Auto-redirecting in {resultTimerSeconds}s...
-              </div>
+              <button className={styles.backToDashboardBtn} onClick={() => router.replace("/dashboard?tab=History")}>GO TO SKILLS INSIGHTS →</button>
+              <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>Auto-redirecting in {resultTimerSeconds}s...</div>
             </div>
           </div>
         </div>
@@ -463,9 +456,8 @@ export default function ExamPage() {
     );
   }
 
-  return (
-    <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
-      <Background />
+  return withAntiCheat(
+    <>
       {(examInactive || examScheduled) && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column",
@@ -480,17 +472,6 @@ export default function ExamPage() {
           </p>
         </div>
       )}
-
-      <AntiCheat 
-        isSubmitted={isSubmitted} 
-        onAutoSubmit={() => handleSubmit(true)}
-        onViolation={(type, meta) => {
-          recordEvent(type as any);
-          if (meta && typeof meta.warning_count === 'number') setWarningCount(meta.warning_count);
-        }}
-        initialWarningCount={warningCount}
-        forceReenterFullscreen={enterFullscreen}
-      />
 
       <div style={{ padding: "16px 28px 0", zIndex: 2, position: "relative" }}>
         <div style={{ background: "var(--panel-glass)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", padding: "16px 28px", borderRadius: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid var(--rim-metal)" }}>
