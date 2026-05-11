@@ -1,86 +1,129 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStudentFromRequest, supabaseAdmin } from "@/lib/auth";
+import { createClient } from "@supabase/supabase-js";
+import * as crypto from "crypto";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const NO_CACHE = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Pragma": "no-cache",
 };
 
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  return createClient(url, key);
+}
+
+function verifyToken(token: string): string | null {
+  try {
+    const secret = process.env.JWT_SECRET || "examguard-super-secret-jwt-2024";
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [header, payload, signature] = parts;
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(`${header}.${payload}`)
+      .digest("base64url");
+    if (signature !== expected) return null;
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) return null;
+    return decoded.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const auth = req.headers.get("authorization");
-    const student = await getStudentFromRequest(auth);
-    if (!student) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    // ── Auth ──────────────────────────────────────────────────
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    
+    let studentBranch = "CS"; // default
+    
+    if (token) {
+      const sub = verifyToken(token);
+      if (sub) {
+        try {
+          const sb = getSupabase();
+          // Try by id first, then usn
+          let { data: s } = await sb.from("students").select("branch").eq("id", sub).maybeSingle();
+          if (!s) {
+            const { data: s2 } = await sb.from("students").select("branch").eq("usn", sub).maybeSingle();
+            s = s2;
+          }
+          if (!s) {
+            const { data: s3 } = await sb.from("students").select("branch").eq("usn", sub.toUpperCase()).maybeSingle();
+            s = s3;
+          }
+          if (s?.branch) studentBranch = s.branch.trim().toUpperCase();
+        } catch (e) {
+          console.warn("[QUESTIONS] Student lookup failed, using default branch:", e);
+        }
+      } else {
+        // Invalid token
+        return NextResponse.json({ detail: "Unauthorized" }, { status: 401, headers: NO_CACHE });
+      }
+    } else {
+      // No token at all
+      return NextResponse.json({ detail: "Unauthorized" }, { status: 401, headers: NO_CACHE });
     }
 
-    // Support ?title=nb  (ignore ?_t= cache-buster param)
-    const title = req.nextUrl.searchParams.get("title") || "";
+    // ── Title param ───────────────────────────────────────────
+    const title = (req.nextUrl.searchParams.get("title") || "").trim();
     if (!title) {
       return NextResponse.json({ questions: [], total: 0 }, { headers: NO_CACHE });
     }
+    const titleLower = title.toLowerCase();
+    console.log(`[QUESTIONS] title="${title}" branch="${studentBranch}"`);
 
-    const titleLower = title.trim().toLowerCase();
-    console.log(`[QUESTIONS] Fetching for title='${title}', branch='${student.branch}'`);
-
-    const { data: allQuestions, error } = await supabaseAdmin
+    // ── Fetch ALL questions from DB ───────────────────────────
+    const sb = getSupabase();
+    const { data: rows, error } = await sb
       .from("questions")
-      .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category, correct_answer, starter_code, test_cases")
+      .select("id,text,options,branch,order_index,marks,exam_name,image_url,audio_url,question_type,starter_code,test_cases")
       .order("order_index")
-      .limit(500);
+      .limit(1000);
 
     if (error) {
-      console.error("[QUESTIONS] DB error:", error);
+      console.error("[QUESTIONS] DB error:", error.message);
       return NextResponse.json({ questions: [], total: 0 }, { headers: NO_CACHE });
     }
 
-    const rows = allQuestions || [];
-    console.log(`[QUESTIONS] Total rows: ${rows.length}`);
+    const all = rows || [];
+    console.log(`[QUESTIONS] DB returned ${all.length} total rows`);
 
-    // Debug: log unique exam_names in DB
-    const uniqueExams = [...new Set(rows.map((q: any) => q.exam_name))];
-    console.log(`[QUESTIONS] Unique exam_names in DB: ${JSON.stringify(uniqueExams)}`);
-
-    // Filter by exam — checks BOTH exam_name column AND spectral tag in text
-    const examFiltered = rows.filter((q: any) => {
+    // ── Filter by exam name (exact match after trim+lowercase) ─
+    const examRows = all.filter((q: any) => {
       let qExam = (q.exam_name || "").trim().toLowerCase();
-
-      // Spectral tag in text ALWAYS overrides exam_name column
-      const text: string = q.text || "";
-      if (text.startsWith("⟦EXAM:")) {
-        const end = text.indexOf("⟧");
-        if (end !== -1) {
-          qExam = text.slice(6, end).trim().toLowerCase();
-        }
+      // Spectral tag override
+      const txt: string = q.text || "";
+      if (txt.startsWith("⟦EXAM:")) {
+        const end = txt.indexOf("⟧");
+        if (end !== -1) qExam = txt.slice(6, end).trim().toLowerCase();
       }
-
-      return (
-        qExam === titleLower ||
-        qExam.replace(/\s+/g, "") === titleLower.replace(/\s+/g, "")
-        // Note: removed .includes() checks — they caused false positives
-        // e.g. "nb" is a substring of "initial assessment"... wait no it isn't
-        // But "nb" includes "nb" ✓ and being safe: exact match + no-whitespace match only
-      );
+      return qExam === titleLower || qExam.replace(/\s+/g,"") === titleLower.replace(/\s+/g,"");
     });
 
-    console.log(`[QUESTIONS] Matched ${examFiltered.length} questions for '${title}'`);
+    console.log(`[QUESTIONS] Exam filter: ${examRows.length} rows match "${title}"`);
 
-    // Filter by branch
-    const studentBranch = (student.branch || "CS").trim().toUpperCase();
-    let filtered = examFiltered.filter((q: any) => {
-      const qBranch = (q.branch || "").trim().toUpperCase();
-      if (!qBranch) return true;
-      return studentBranch === qBranch || qBranch.includes(studentBranch) || studentBranch.includes(qBranch);
+    // ── Filter by branch ──────────────────────────────────────
+    let filtered = examRows.filter((q: any) => {
+      const qb = (q.branch || "").trim().toUpperCase();
+      if (!qb) return true;
+      return qb === studentBranch;
     });
 
-    // Branch fallback: if no branch match, return all exam questions
-    if (filtered.length === 0 && examFiltered.length > 0) {
-      console.log(`[QUESTIONS] Branch fallback — returning all ${examFiltered.length}`);
-      filtered = examFiltered;
+    // Fallback: if branch filter kills everything, return all exam rows
+    if (filtered.length === 0 && examRows.length > 0) {
+      console.log("[QUESTIONS] Branch fallback — returning all exam rows");
+      filtered = examRows;
     }
 
+    // ── Shape output ─────────────────────────────────────────
     const questions = filtered.map((q: any) => {
-      // Strip spectral tag from displayed text
       let text: string = q.text || "";
       if (text.startsWith("⟦EXAM:")) {
         const end = text.indexOf("⟧");
@@ -90,8 +133,8 @@ export async function GET(req: NextRequest) {
         id: q.id,
         text,
         options: q.options || [],
-        branch: q.branch || student.branch,
-        order_index: q.order_index,
+        branch: q.branch || studentBranch,
+        order_index: q.order_index ?? 0,
         marks: q.marks || 1,
         image_url: q.image_url || null,
         audio_url: q.audio_url || null,
@@ -105,7 +148,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ questions, total: questions.length }, { headers: NO_CACHE });
 
   } catch (err: any) {
-    console.error("[QUESTIONS] Error:", err);
-    return NextResponse.json({ detail: err.message }, { status: 500, headers: NO_CACHE });
+    console.error("[QUESTIONS] Unhandled error:", err?.message || err);
+    return NextResponse.json(
+      { detail: "Internal server error", error: err?.message },
+      { status: 500, headers: NO_CACHE }
+    );
   }
 }
