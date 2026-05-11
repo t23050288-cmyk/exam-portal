@@ -24,6 +24,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data || []);
 }
 
+export async function POST(req: NextRequest) {
+  return PUT(req);
+}
+
 export async function PUT(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

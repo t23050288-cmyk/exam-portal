@@ -12,31 +12,36 @@ function checkAdmin(req: NextRequest): boolean {
   return secret === ADMIN_SECRET;
 }
 
-// GET all students
 export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Fetch from exam_status and join with students to get name, branch, etc.
+  // We use .select("*, students(*)") to perform the join in Supabase
   const { data, error } = await supabase
     .from("exam_status")
-    .select("*")
-    .order("name", { ascending: true });
+    .select("*, students(*)");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Normalize the field names
-  const students = (data || []).map((s: any) => ({
-    student_id: s.student_id || s.id,
-    usn: s.usn || s.roll_number || "",
-    name: s.name || "",
-    email: s.email || null,
-    branch: s.branch || "CS",
-    status: s.status || "not_started",
-    warnings: s.warnings || 0,
-    last_active: s.last_active || null,
-    submitted_at: s.submitted_at || null,
-    started_at: s.started_at || null,
-    password: s.password || null,
-  }));
+  // Normalize and flatten the joined data
+  const students = (data || []).map((s: any) => {
+    const info = s.students || {};
+    return {
+      student_id: s.student_id,
+      usn: info.usn || s.usn || "UNKNOWN",
+      name: info.name || s.name || "UNKNOWN",
+      email: info.email || s.email || null,
+      branch: info.branch || s.branch || "CS",
+      status: s.status || "not_started",
+      warnings: s.warnings || 0,
+      last_active: s.last_active || null,
+      submitted_at: s.submitted_at || null,
+      started_at: s.started_at || null,
+    };
+  });
+
+  // Sort by name in JavaScript since sorting by joined column is tricky in some Supabase setups
+  students.sort((a, b) => a.name.localeCompare(b.name));
 
   return NextResponse.json(students);
 }
@@ -47,22 +52,38 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { data, error } = await supabase
-      .from("exam_status")
+    const usn = (body.usn || "").trim().toUpperCase();
+
+    // 1. Insert into students table first
+    const { data: student, error: sError } = await supabase
+      .from("students")
       .insert({
-        usn: body.usn,
-        name: body.name,
+        usn: usn,
+        name: body.name || "Unknown",
         email: body.email || null,
         branch: body.branch || "CS",
-        password: body.password || body.usn,
-        status: "not_started",
-        warnings: 0,
+        password: body.password || usn,
       })
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+    if (sError) return NextResponse.json({ error: sError.message }, { status: 500 });
+
+    // 2. Initialize exam_status record
+    const { error: eError } = await supabase
+      .from("exam_status")
+      .insert({
+        student_id: student.id,
+        status: "not_started",
+        warnings: 0,
+      });
+
+    if (eError) {
+      console.error("Failed to init exam_status:", eError.message);
+      // We don't fail the whole request since the student is already created
+    }
+
+    return NextResponse.json(student);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
