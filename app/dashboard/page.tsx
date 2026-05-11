@@ -145,10 +145,11 @@ export default function DashboardPage() {
       const lsHistory: any[] = lsRaw ? JSON.parse(lsRaw) : [];
 
       // 2. Fetch from Supabase
-      const { data } = await supabase.from("exam_results")
-        .select("score, total_marks, submitted_at, exam_title, category")
-        .eq("student_id", s.id) // Use actual UUID
-        .order("submitted_at", { ascending: false });
+      const token2 = sessionStorage.getItem("exam_token") || "";
+      const histResp = await fetch("/api/exam/history", {
+        headers: { "Authorization": `Bearer ${token2}` }
+      }).then(r => r.ok ? r.json() : null).catch(() => null);
+      const data = histResp?.results || null;
 
       if (data && data.length > 0) {
         const dbHistory = data.map((r: any) => ({
@@ -220,7 +221,11 @@ export default function DashboardPage() {
         
         try {
           if (isUuid) {
-            const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
+            const token = sessionStorage.getItem("exam_token") || "";
+            const statusResp = await fetch("/api/exam/status", {
+              headers: { "Authorization": `Bearer ${token}` }
+            }).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+            const statusData: any[] = statusResp.data || [];
             const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
             
             if (resultsData) {
@@ -769,3 +774,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
