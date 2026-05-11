@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       
       // Support comma-separated branches and substring matches (e.g. "CS" matches in "CSE,ISE")
       const branches = qb.split(",").map((b: string) => b.trim().toUpperCase());
-      return branches.some(b => b === sb || b.includes(sb) || sb.includes(b));
+      return branches.some((b: string) => b === sb || b.includes(sb) || sb.includes(b));
     });
 
     // Fallback: if branch filter kills everything, return all exam rows
