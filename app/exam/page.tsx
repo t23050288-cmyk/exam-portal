@@ -113,7 +113,7 @@ export default function ExamPage() {
             .single()
             .then(({ data }: { data: any }) => {
               if (data?.status === "submitted") {
-                router.replace("/dashboard?tab=Insights");
+                router.replace("/dashboard?tab=History");
               }
             });
         });
@@ -182,10 +182,27 @@ export default function ExamPage() {
     const timeoutId = setTimeout(() => {
       console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
       fetchQuestions(quizTitle)
-        .then((qs: any) => {
+        .then(async (qs: any) => {
           console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
           if (qs.length === 0) {
-            console.warn(`[EXAM] WARNING: Zero questions returned for title "${quizTitle}". Branch or Title mismatch?`);
+            console.warn(`[EXAM] WARNING: Zero questions for "${quizTitle}". Trying fallback fetch with no title filter.`);
+            // Fallback: try fetching with a blank title so backend returns all questions for this branch
+            try {
+              const fallback = await fetchQuestions("");
+              if (fallback.length > 0) {
+                console.log(`[EXAM] Fallback returned ${fallback.length} questions.`);
+                setQuestions(fallback);
+                saveQuestionsToCache(quizTitle, fallback);
+                setLoadSource("network");
+                setLoading(false);
+                enterFullscreen();
+                return;
+              }
+            } catch {}
+            // Still 0: show friendly error
+            setError(`No questions found for this exam. Please contact your invigilator. (Title: "${quizTitle}")`);
+            setLoading(false);
+            return;
           }
           setQuestions(qs);
           saveQuestionsToCache(quizTitle, qs);
@@ -195,7 +212,7 @@ export default function ExamPage() {
         })
         .catch((err) => {
           console.error("[EXAM] Question fetch failed:", err);
-          setError("Failed to load exam questions. Please check your connection.");
+          setError("Failed to load exam questions. Please check your connection and refresh.");
           setLoading(false);
         });
     }, jitterMs);
@@ -316,7 +333,7 @@ export default function ExamPage() {
     if (!isSubmitted) return;
     
     if (resultTimerSeconds === 0) {
-       router.replace("/dashboard?tab=Insights");
+       router.replace("/dashboard?tab=History");
        return;
     }
 
@@ -324,7 +341,7 @@ export default function ExamPage() {
       setResultTimerSeconds(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.replace("/dashboard?tab=Insights");
+          router.replace("/dashboard?tab=History");
           return 0;
         }
         return prev - 1;
@@ -339,6 +356,38 @@ export default function ExamPage() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // ── Active Fullscreen Enforcement (re-enters on tab switch) ──────────
+  useEffect(() => {
+    if (isSubmitted || loading) return;
+
+    const forceFullscreen = () => {
+      if (!document.fullscreenElement && !isSubmitted) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    };
+
+    // When tab becomes visible again after switch — force fullscreen
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !isSubmitted) {
+        forceFullscreen();
+      }
+    };
+
+    // When fullscreen lost — immediately re-enter
+    const onFsChange = () => {
+      if (!document.fullscreenElement && !isSubmitted) {
+        setTimeout(forceFullscreen, 300);
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("fullscreenchange", onFsChange);
+    };
+  }, [isSubmitted, loading]);
 
   // ── Derived State (must be before early returns) ──────────
   const answeredCount = getAnsweredCount(questions.length);
@@ -826,29 +875,49 @@ export default function ExamPage() {
         </aside>
       </main>
 
-      {/* ── Secure Mode Gate ── */}
+      {/* ── Secure Mode Gate (hard overlay — covers everything) ── */}
       {!isFullscreen && !isSubmitted && !loading && (
-        <div className={styles.secureGate}>
-          <div className={styles.gateCard}>
-            <div className={styles.gateIcon}>🛡️</div>
-            <h2 className={styles.gateTitle}>Secure Mode Required</h2>
-            <p className={styles.gateText}>
-              To proceed with your assessment, please enter secure full-screen mode.
-              This ensures a fair testing environment for all students.
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "radial-gradient(ellipse at 50% 40%, #0d0f1a 0%, #050710 100%)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        }}>
+          <div style={{
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,0,60,0.4)",
+            borderRadius: 20, padding: "40px 36px", maxWidth: 440, width: "90%",
+            textAlign: "center", boxShadow: "0 0 60px rgba(255,0,60,0.15)",
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🛡️</div>
+            <h2 style={{ color: "#ff4466", fontWeight: 900, fontSize: 20, letterSpacing: "0.05em", margin: "0 0 12px" }}>
+              SECURE MODE REQUIRED
+            </h2>
+            <p style={{ color: "#aab8cc", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              This exam must run in <strong style={{color:"#fff"}}>fullscreen mode</strong>.<br/>
+              Tab switching, window blur, and keyboard shortcuts are all monitored.<br/>
+              <strong style={{color:"#ff4466"}}>3 violations = automatic submission.</strong>
             </p>
-            
-            <div className={styles.gateRules}>
-              <div className={styles.rule}>• Tab switching is strictly prohibited</div>
-              <div className={styles.rule}>• External applications must be closed</div>
-              <div className={styles.rule}>• Your face must remain visible to the proctor</div>
+            <div style={{ background: "rgba(255,0,60,0.08)", borderRadius: 10, padding: "12px 16px", marginBottom: 24, textAlign: "left" }}>
+              <div style={{ color: "#ff8899", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>RULES:</div>
+              <div style={{ color: "#8899aa", fontSize: 12, lineHeight: 1.8 }}>
+                • No tab switching — instant violation<br/>
+                • No window blur / Alt+Tab<br/>
+                • No right-click, copy, paste<br/>
+                • No keyboard shortcuts (Ctrl+C, F12, etc.)
+              </div>
             </div>
-
-            <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
-              Enter Secure Mode →
+            <button
+              style={{
+                background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+                color: "#fff", border: "none", borderRadius: 12,
+                padding: "14px 32px", fontSize: 15, fontWeight: 800,
+                cursor: "pointer", width: "100%", letterSpacing: "0.05em",
+                boxShadow: "0 4px 24px rgba(124,58,237,0.4)",
+              }}
+              onClick={() => enterFullscreen()}
+            >
+              🔒 ENTER SECURE MODE
             </button>
-            <p style={{ marginTop: 24, fontSize: 12, color: "#475569", fontWeight: 600 }}>
-              Exiting full-screen will record a violation. (Limit: 3)
-            </p>
           </div>
         </div>
       )}
@@ -884,6 +953,7 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
 
 
