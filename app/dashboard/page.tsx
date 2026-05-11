@@ -203,11 +203,14 @@ export default function DashboardPage() {
     try {
       const configs = await fetchPublicExamConfig();
       const active = configs.filter((c: any) => c.is_active);
-      const { data: qData } = await supabase.from("questions").select("branch, exam_name, category");
+      const { data: qData, error: qError } = await supabase.from("questions").select("branch, exam_name, category");
+      
+      if (qError) console.error("[DASHBOARD] Questions fetch error:", qError.message);
 
       const studentRaw = sessionStorage.getItem("exam_student");
       const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
       const studentId = studentObj?.id;
+      const studentBranch = studentObj?.branch?.trim().toUpperCase() || "";
       
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       
@@ -251,13 +254,19 @@ export default function DashboardPage() {
         }
       }
 
-      const studentBranch = studentRaw ? JSON.parse(studentRaw).branch?.trim().toUpperCase() : "";
+
 
       const nodes: ExamNode[] = []; const seen = new Set<string>();
-      if (qData && active.length > 0) {
+      
+      console.log(`[DASHBOARD] Processing ${active.length} active configs against ${qData?.length || 0} questions.`);
+
+      if (active.length > 0) {
         for (const cfg of active) {
-          const qs = (qData || []).filter((q: any) => q.exam_name === cfg.exam_title);
-          if (qs.length === 0) continue;
+          const cfgTitle = (cfg.exam_title || "").trim().toLowerCase();
+          const qs = (qData || []).filter((q: any) => (q.exam_name || "").trim().toLowerCase() === cfgTitle);
+          
+          // Show the exam even if 0 questions are found (so they can see the error in instructions page)
+          // if (qs.length === 0) continue; 
 
           // ── Branch-aware counting ──
           let matchCount = 0;
@@ -291,7 +300,7 @@ export default function DashboardPage() {
       }
       setAllExams(nodes);
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     loadExams();
@@ -461,6 +470,14 @@ export default function DashboardPage() {
                         onLaunch={() => {}} 
                       />
                     ))}
+                    {activeExams.length === 0 && upcomingExams.length === 0 && (
+                      <div className={styles.noExamsMsg}>
+                         <div style={{fontSize: "40px", marginBottom: "16px"}}>✨</div>
+                         <h3>All Clear!</h3>
+                         <p>No active or upcoming exams found for your branch ({student?.branch || "General"}).</p>
+                         <button onClick={loadExams} className={styles.refreshBtn}>Check Again</button>
+                      </div>
+                    )}
                   </div>
                 </section>
 

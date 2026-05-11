@@ -1050,3 +1050,54 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+.noExamsMsg {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: var(--nexus-glass-bg);
+  border: 1px dashed var(--nexus-glass-border);
+  border-radius: var(--nexus-radius-lg);
+  text-align: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.noExamsMsg h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.noExamsMsg p {
+  font-size: 1rem;
+  opacity: 0.6;
+  max-width: 400px;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.refreshBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refreshBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
