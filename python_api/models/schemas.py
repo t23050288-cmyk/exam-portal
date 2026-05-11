@@ -290,6 +290,7 @@ class ExamConfigUpdate(BaseModel):
 class ReportViolationRequest(BaseModel):
     type: str
     metadata: Optional[dict] = None
+    sessionId: Optional[str] = None
 
 
 class ReportViolationResponse(BaseModel):
