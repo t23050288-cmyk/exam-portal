@@ -280,9 +280,11 @@ export async function loginStudent(
   });
 }
 
-export async function fetchQuestions(title: string): Promise<Question[]> {
+export async function fetchQuestions(title: string, _cacheBust?: number): Promise<Question[]> {
+  const bust = _cacheBust || Date.now();
   const data = await apiFetch<{ questions: Question[]; total: number }>(
-    `/exam/questions?title=${encodeURIComponent(title)}`
+    `/exam/questions?title=${encodeURIComponent(title)}&_t=${bust}`,
+    { cache: "no-store" } as any
   );
   return data.questions;
 }
