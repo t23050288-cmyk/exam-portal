@@ -212,7 +212,27 @@ export default function AntiCheat({
       // If the browser exits fullscreen because of a tab switch, don't double-trigger
       if (document.hidden || tabSwitchRef.current || fsReentryRef.current) return;
       
-      if (!document.fullscreenElement && !isSubmitted && !autoSubmitted) {
+      const fsElement = document.fullscreenElement || 
+                        (document as any).webkitFullscreenElement || 
+                        (document as any).mozFullScreenElement ||
+                        (document as any).msFullscreenElement;
+
+      if (!fsElement && !isSubmitted && !autoSubmitted) {
+        triggerViolation("fullscreen_exit");
+      }
+    };
+
+    // Resize fallback — if window becomes smaller than screen, they likely exited FS
+    const handleResize = () => {
+      if (fsReentryRef.current || isSubmitted || autoSubmitted) return;
+      
+      // Heuristic: if window width or height is significantly smaller than screen
+      // Most browsers exit FS mode when window is resized or maximized from FS
+      const isActuallyFS = window.innerWidth >= window.screen.width - 2 && 
+                           window.innerHeight >= window.screen.height - 2;
+      
+      if (!isActuallyFS && !document.fullscreenElement && !tabSwitchRef.current) {
+        // Only trigger if we're not currently doing a re-entry
         triggerViolation("fullscreen_exit");
       }
     };
@@ -270,6 +290,9 @@ export default function AntiCheat({
     window.addEventListener("blur", handleBlur);
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
+    document.addEventListener("mozfullscreenchange", handleFsChange);
+    document.addEventListener("MSFullscreenChange", handleFsChange);
+    window.addEventListener("resize", handleResize);
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleClipboard);
     document.addEventListener("paste", handleClipboard);
@@ -281,6 +304,9 @@ export default function AntiCheat({
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      document.removeEventListener("mozfullscreenchange", handleFsChange);
+      document.removeEventListener("MSFullscreenChange", handleFsChange);
+      window.removeEventListener("resize", handleResize);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("copy", handleClipboard);
       document.removeEventListener("paste", handleClipboard);
