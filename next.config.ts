@@ -53,13 +53,13 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Exam questions (per-student auth required, short browser cache)
+      // Exam questions: NO cache — auth-gated, per-student, must always be fresh
       {
         source: "/api/exam/questions",
         headers: [
           {
             key: "Cache-Control",
-            value: "private, max-age=1800, stale-while-revalidate=600",
+            value: "no-store, no-cache, must-revalidate",
           },
         ],
       },
