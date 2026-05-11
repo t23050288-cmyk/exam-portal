@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
       if (!qb || qb === "GLOBAL" || qb === "ALL") return true;
       
       // Support comma-separated branches
-      const branches = qb.split(",").map(b => b.trim());
+      const branches = qb.split(",").map((b: string) => b.trim());
       return branches.includes(studentBranch);
     });
 
