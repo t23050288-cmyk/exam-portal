@@ -1267,7 +1267,7 @@ export default function PyHuntPage() {
       setResultTimerSeconds(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.replace("/dashboard");
+          router.replace("/dashboard?tab=History");
           return 0;
         }
         return prev - 1;
@@ -1358,8 +1358,8 @@ export default function PyHuntPage() {
       <div className={styles.nebula1} /><div className={styles.nebula2} />
 
       <AntiCheat 
-        sessionId="pyhunt"
-        authToken=""
+        sessionId={sessionStorage.getItem("exam_student") ? JSON.parse(sessionStorage.getItem("exam_student")!).id : "pyhunt"}
+        authToken={sessionStorage.getItem("exam_token") || ""}
         isSubmitted={finished} 
         onAutoSubmit={() => {
           setTerminated(true);

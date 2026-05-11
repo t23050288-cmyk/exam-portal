@@ -218,20 +218,24 @@ export default function DashboardPage() {
           if (resultsData) {
             resultsData.forEach((r: any) => {
               if (r.exam_title) {
-                if (!submittedMap[r.exam_title]) {
-                  submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
+                const title = r.exam_title.trim().toLowerCase();
+                if (!submittedMap[title]) {
+                  submittedMap[title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
                 }
-                submittedMap[r.exam_title].attempt_count++;
-                submittedMap[r.exam_title].score = r.score;
-                submittedMap[r.exam_title].total_marks = r.total_marks;
+                submittedMap[title].attempt_count++;
+                submittedMap[title].score = r.score;
+                submittedMap[title].total_marks = r.total_marks;
               }
             });
           }
           if (statusData) {
             statusData.forEach((s: any) => {
               if (s.status === "submitted" && s.exam_title) {
-                if (!submittedMap[s.exam_title]) {
-                  submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
+                const title = s.exam_title.trim().toLowerCase();
+                if (!submittedMap[title]) {
+                  submittedMap[title] = { score: 0, total_marks: 0, attempt_count: 1 };
+                } else {
+                  submittedMap[title].attempt_count = Math.max(submittedMap[title].attempt_count, 1);
                 }
               }
             });
@@ -274,7 +278,7 @@ export default function DashboardPage() {
 
           const nid = cfg.exam_title;
           if (!seen.has(nid)) {
-            const sub = submittedMap[cfg.exam_title];
+            const sub = submittedMap[cfg.exam_title.trim().toLowerCase()];
             nodes.push({ id: nid, exam_name: cfg.exam_title, branch: studentBranch || "ALL", is_active: cfg.is_active,
               duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
               question_count: finalMatchCount, category: cat,
