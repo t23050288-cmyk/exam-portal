@@ -1258,28 +1258,9 @@ export default function PyHuntPage() {
     }
   }, []);
 
-  // ── Auto-Fullscreen Enforcement ──
-  // Force fullscreen on mount and whenever it's exited
-  useEffect(() => {
-    if (finished) return;
-    
-    // Try fullscreen immediately
-    enterFullscreen();
-    
-    // Retry after 500ms in case first was blocked
-    const retry = setTimeout(enterFullscreen, 500);
-    
-    return () => clearTimeout(retry);
-  }, [finished, enterFullscreen]);
-
-  // Re-enter fullscreen whenever user exits it
-  useEffect(() => {
-    if (finished) return;
-    if (!isFullscreen) {
-      const timer = setTimeout(enterFullscreen, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isFullscreen, finished, enterFullscreen]);
+  // Fullscreen is requested by the gate button click (user gesture required).
+  // Do not attempt requestFullscreen() in useEffect — browser blocks it.
+  // The isFullscreen gate handles re-entry when fullscreen is lost.
 
   // ── Auto-Redirect Timer ──
   useEffect(() => {
@@ -1308,38 +1289,8 @@ export default function PyHuntPage() {
     return () => clearTimeout(graceTimer);
   }, []);
 
-  // ── Active fullscreen re-enforcement for PyHunt ──
-  // When student switches tab and returns, force fullscreen immediately
-  useEffect(() => {
-    if (finished) return;
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && !finished) {
-        setTimeout(() => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          }
-        }, 100);
-      }
-    };
-
-    const onFsChange = () => {
-      if (!document.fullscreenElement && !finished) {
-        setTimeout(() => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          }
-        }, 300);
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      document.removeEventListener("fullscreenchange", onFsChange);
-    };
-  }, [finished]);
+    // Active fullscreen enforcement is handled by AntiCheat component.
+  // PyHunt does not independently re-enter fullscreen to avoid browser errors.
 
   const handleRoundComplete = (dataUrl?: string) => {
     if (dataUrl) {
@@ -1466,6 +1417,7 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
 
 
 
