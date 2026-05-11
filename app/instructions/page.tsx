@@ -110,6 +110,12 @@ export default function InstructionsPage() {
 
   const handleStartExam = () => {
     if (starting) return;
+    // Ensure fullscreen before proceeding — also re-enter if lost
+    if (!document.fullscreenElement) {
+      const el = document.documentElement as any;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+      if (req) req.call(el).catch(() => {});
+    }
     setStarting(true);
 
     startExam(studentInfo?.examTitle || "Initial Assessment").then((res: any) => {
@@ -120,7 +126,12 @@ export default function InstructionsPage() {
         return;
       }
 
-      sessionStorage.setItem("exam_selected_title", studentInfo?.examTitle || "Online Assessment");
+      // IMPORTANT: Do NOT overwrite exam_selected_title here.
+      // It was already set correctly by the dashboard when student clicked the exam card.
+      // Overwriting it with studentInfo.examTitle (from login) causes title mismatch.
+      if (!sessionStorage.getItem("exam_selected_title")) {
+        sessionStorage.setItem("exam_selected_title", studentInfo?.examTitle || "Online Assessment");
+      }
       const studentData = sessionStorage.getItem("exam_student");
       if (studentData) {
         const parsed = JSON.parse(studentData);
@@ -318,5 +329,6 @@ export default function InstructionsPage() {
     </div>
   );
 }
+
 
 
