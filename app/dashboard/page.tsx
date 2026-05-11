@@ -130,8 +130,8 @@ export default function DashboardPage() {
 
       // 2. Fetch from Supabase
       const { data } = await supabase.from("exam_results")
-        .select("exam_title, score, total_marks, category, submitted_at")
-        .eq("student_id", s.id)
+        .select("score, total_marks, submitted_at")
+        .eq("student_id", s.id) // Use actual UUID
         .order("submitted_at", { ascending: false });
 
       if (data && data.length > 0) {
@@ -173,8 +173,8 @@ export default function DashboardPage() {
       const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       if (studentId) {
-        const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
-        const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
+        const { data: statusData } = await supabase.from("exam_status").select("status").eq("student_id", studentId);
+        const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks").eq("student_id", studentId);
         
         // Build submittedMap from exam_results
         if (resultsData) {
@@ -226,14 +226,16 @@ export default function DashboardPage() {
           });
 
           // Only show exam if there are questions for this student's branch
-          if (matchCount === 0 && studentBranch) continue;
+          // If no questions match the branch specifically, we still show the exam if it has any questions
+          // and the API will handle the fallback.
+          const finalMatchCount = matchCount === 0 ? qs.length : matchCount;
 
           const nid = cfg.exam_title;
           if (!seen.has(nid)) {
             const sub = submittedMap[cfg.exam_title];
             nodes.push({ id: nid, exam_name: cfg.exam_title, branch: studentBranch || "ALL", is_active: cfg.is_active,
               duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
-              question_count: matchCount || qs.length, category: cat,
+              question_count: finalMatchCount, category: cat,
               submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
               max_attempts: cfg.max_attempts || 1, attempt_count: sub?.attempt_count || 0,
             });

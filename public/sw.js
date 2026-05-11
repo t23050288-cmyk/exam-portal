@@ -4,7 +4,7 @@
  * Provides offline fallback for exam page
  */
 
-const CACHE_VERSION   = "v2";
+const CACHE_VERSION   = "v3";
 const STATIC_CACHE    = `exam-static-${CACHE_VERSION}`;
 const PYODIDE_CACHE   = `exam-pyodide-${CACHE_VERSION}`;
 

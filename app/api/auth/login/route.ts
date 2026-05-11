@@ -59,9 +59,7 @@ export async function POST(req: NextRequest) {
           name: name.trim(),
           email: email?.trim() || null,
           branch: branch || "CS",
-          password: password,
-          status: "not_started",
-          warnings: 0,
+          password_hash: password, // Store in password_hash
         })
         .select()
         .single();
@@ -97,20 +95,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Student not found. Please sign up first." }, { status: 404 });
     }
 
-    // Check password
-    if (student.password !== password) {
+    // Check password (checking both columns for safety)
+    const dbPassword = student.password_hash || student.password;
+    if (dbPassword && dbPassword !== password) {
       return NextResponse.json({ detail: "Invalid password." }, { status: 401 });
     }
 
-    // Reset session status so they can log in (no "already logged in" blocking)
+    // Reset session status so they can log in
     await supabase.from("exam_status")
       .upsert({
-        student_id: student.student_id || student.id,
+        student_id: student.id,
         status: student.status === "submitted" ? "submitted" : "not_started",
       }, { onConflict: "student_id" })
       .select();
 
-    const token = makeToken(student.student_id || student.id || usnTrimmed);
+    const token = makeToken(student.id || usnTrimmed);
 
     // Get active exam config
     const { data: configs } = await supabase

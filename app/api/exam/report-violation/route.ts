@@ -22,22 +22,24 @@ export async function POST(req: NextRequest) {
     const { error: insertErr } = await supabaseAdmin
       .from("violations")
       .insert({
-        student_id: student.studentId,
-        violation_type: type,
-        warning_count: warningCount,
-        metadata: metadata || {},
-        created_at: new Date().toISOString(),
+        student_id: student.id, // Use actual UUID
+        type: type,             // Matches DB column 'type'
+        metadata: {
+          ...metadata,
+          warning_count: warningCount
+        },
+        timestamp: new Date().toISOString(), // Matches DB column 'timestamp'
       });
 
     if (insertErr) {
       console.error("[VIOLATION] Insert error:", insertErr);
     }
 
-    // Update student warnings count
+    // Update student warnings count in exam_status
     await supabaseAdmin
       .from("exam_status")
       .upsert({
-        student_id: student.studentId,
+        student_id: student.id, // Use actual UUID
         warnings: warningCount,
         status: isAutoSubmit ? "submitted" : "active",
       }, { onConflict: "student_id" });

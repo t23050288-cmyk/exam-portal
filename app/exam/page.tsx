@@ -109,11 +109,11 @@ export default function ExamPage() {
         import("@/lib/supabase").then(({ supabase }) => {
           supabase.from("exam_status")
             .select("status")
-            .eq("student_id", studentId)
-            .single()
+            .eq("student_id", studentId) // Uses UUID
+            .maybeSingle()
             .then(({ data }: { data: any }) => {
               if (data?.status === "submitted") {
-                router.replace("/dashboard?tab=Insights");
+                router.replace("/dashboard?tab=History");
               }
             });
         });
@@ -137,18 +137,16 @@ export default function ExamPage() {
     
     setStudent(info);
 
-    // Fetch initial warning count from Supabase
-    const sessId = sessionStorage.getItem("exam_session_id");
-    if (sessId && sessId !== "PREVIEW") {
+    // Fetch initial warning count from exam_status
+    if (student?.id && student.id !== "PREVIEW") {
       import("@/lib/supabase").then(({ supabase }) => {
-        supabase.from("student_telemetry")
-          .select("warning_count")
-          .eq("session_id", sessId)
-          .order("ts", { ascending: false })
-          .limit(1)
+        supabase.from("exam_status")
+          .select("warnings")
+          .eq("student_id", student.id)
+          .maybeSingle()
           .then(({ data }: { data: any }) => {
-            if (data && data.length > 0) {
-              setWarningCount(data[0].warning_count || 0);
+            if (data) {
+              setWarningCount(data.warnings || 0);
             }
           });
       });
@@ -168,6 +166,7 @@ export default function ExamPage() {
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
     // ── Cache-first question loading + staggered start ──────────
+    /*
     const cached = loadQuestionsFromCache(quizTitle);
     if (cached && cached.length > 0) {
       console.log(`[EXAM] Loaded ${cached.length} questions from local cache.`);
@@ -177,6 +176,7 @@ export default function ExamPage() {
       enterFullscreen();
       return () => window.removeEventListener("popstate", handlePopState);
     }
+    */
 
     const jitterMs = Math.floor(Math.random() * 2000);
     const timeoutId = setTimeout(() => {
@@ -188,7 +188,7 @@ export default function ExamPage() {
             console.warn(`[EXAM] WARNING: Zero questions returned for title "${quizTitle}". Branch or Title mismatch?`);
           }
           setQuestions(qs);
-          saveQuestionsToCache(quizTitle, qs);
+          // saveQuestionsToCache(quizTitle, qs);
           setLoadSource("network");
           setLoading(false);
           enterFullscreen();

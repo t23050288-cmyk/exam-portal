@@ -77,14 +77,13 @@ export async function POST(req: NextRequest) {
     // Save to exam_results
     const { error: resultErr } = await supabaseAdmin
       .from("exam_results")
-      .insert({
-        student_id: student.studentId,
-        exam_title: examTitle,
+      .upsert({
+        student_id: student.id, // Use actual UUID
         score,
         total_marks: totalMarks,
         answers: answers,
         submitted_at: new Date().toISOString(),
-      });
+      }, { onConflict: "student_id" }); // Use student_id as unique constraint
 
     if (resultErr) {
       console.error("[SUBMIT] Result insert error:", resultErr);
@@ -94,12 +93,12 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("exam_status")
       .upsert({
-        student_id: student.studentId,
-        exam_title: examTitle,
+        student_id: student.id, // Use actual UUID
         status: "submitted",
+        submitted_at: new Date().toISOString(),
       }, { onConflict: "student_id" });
 
-    console.log(`[SUBMIT] Student ${student.studentId} submitted '${examTitle}': ${score}/${totalMarks}`);
+    console.log(`[SUBMIT] Student ${student.id} submitted '${examTitle}': ${score}/${totalMarks}`);
 
     return NextResponse.json({
       ok: true,

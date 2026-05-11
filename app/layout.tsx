@@ -22,6 +22,7 @@ export default function RootLayout({
       <script
         dangerouslySetInnerHTML={{
           __html: `
+            /*
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js')
@@ -29,6 +30,7 @@ export default function RootLayout({
                   .catch(function(err) { console.warn('[SW] Registration failed:', err); });
               });
             }
+            */
           `,
         }}
       />

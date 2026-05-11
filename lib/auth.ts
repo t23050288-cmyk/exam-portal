@@ -38,12 +38,12 @@ export function verifyToken(token: string): string | null {
 
 /**
  * Extract and verify student from Authorization header.
- * Returns { studentId, branch } or null.
+ * Returns { id, studentId, branch } or null.
  * Tries multiple column lookups since the students table schema varies.
  */
 export async function getStudentFromRequest(
   authHeader: string | null
-): Promise<{ studentId: string; branch: string } | null> {
+): Promise<{ id: string; studentId: string; branch: string } | null> {
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
 
   const token = authHeader.replace("Bearer ", "");
@@ -54,36 +54,36 @@ export async function getStudentFromRequest(
   // Try 1: by id (Supabase auto-generated UUID)
   const { data: d1 } = await supabaseAdmin
     .from("students")
-    .select("branch, usn")
+    .select("id, branch, usn")
     .eq("id", studentId)
     .maybeSingle();
-  if (d1) return { studentId, branch: d1.branch || "CS" };
+  if (d1) return { id: d1.id, studentId: d1.usn, branch: d1.branch || "CS" };
 
   // Try 2: by student_id (if column exists)
   const { data: d2 } = await supabaseAdmin
     .from("students")
-    .select("branch, usn")
+    .select("id, branch, usn")
     .eq("student_id", studentId)
     .maybeSingle();
-  if (d2) return { studentId, branch: d2.branch || "CS" };
+  if (d2) return { id: d2.id, studentId: d2.usn, branch: d2.branch || "CS" };
 
   // Try 3: by USN (the token sub might be the USN itself)
   const { data: d3 } = await supabaseAdmin
     .from("students")
-    .select("branch, usn")
+    .select("id, branch, usn")
     .eq("usn", studentId)
     .maybeSingle();
-  if (d3) return { studentId, branch: d3.branch || "CS" };
+  if (d3) return { id: d3.id, studentId: d3.usn, branch: d3.branch || "CS" };
 
   // Try 4: by USN uppercase
   const { data: d4 } = await supabaseAdmin
     .from("students")
-    .select("branch, usn")
+    .select("id, branch, usn")
     .eq("usn", studentId.toUpperCase())
     .maybeSingle();
-  if (d4) return { studentId, branch: d4.branch || "CS" };
+  if (d4) return { id: d4.id, studentId: d4.usn, branch: d4.branch || "CS" };
 
   // If all lookups fail, still return with default branch so questions load
-  console.warn(`[AUTH] Could not find student '${studentId}' in DB, using default branch CS`);
-  return { studentId, branch: "CS" };
+  console.warn(`[AUTH] Could not find student '${studentId}' in DB, using fallback info`);
+  return { id: studentId, studentId: studentId, branch: "CS" };
 }

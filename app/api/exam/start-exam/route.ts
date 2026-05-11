@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const { data: statusData } = await supabaseAdmin
       .from("exam_status")
       .select("status")
-      .eq("student_id", student.studentId)
+      .eq("student_id", student.id) // Use actual UUID
       .maybeSingle();
 
     if (statusData?.status === "submitted") {
@@ -57,16 +57,15 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("exam_status")
       .upsert({
-        student_id: student.studentId,
+        student_id: student.id, // Use actual UUID
         status: "active",
-        exam_title: title,
         started_at: now,
       }, { onConflict: "student_id" });
 
     // Store session
     const sessionId = `${student.studentId}_${Date.now()}`;
     
-    console.log(`[START-EXAM] Student ${student.studentId} started '${title}'`);
+    console.log(`[START-EXAM] Student ${student.id} started '${title}'`);
 
     return NextResponse.json({
       ok: true,

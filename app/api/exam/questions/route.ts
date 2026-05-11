@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     // Fetch ALL questions from the database
     const { data: allQuestions, error } = await supabaseAdmin
       .from("questions")
-      .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category, correct_answer, starter_code, test_cases")
+      .select("id, text, options, branch, order_index, marks, exam_name, image_url, question_type, category, correct_answer")
       .order("order_index")
       .limit(500);
 
@@ -81,10 +81,8 @@ export async function GET(req: NextRequest) {
       order_index: q.order_index,
       marks: q.marks || 1,
       image_url: q.image_url || null,
-      audio_url: q.audio_url || null,
       question_type: q.question_type || "mcq",
-      starter_code: q.starter_code || null,
-      test_cases: q.test_cases || null,
+      category: q.category || "Others",
     }));
 
     console.log(`[QUESTIONS] Returning ${questions.length} questions for '${title}'`);

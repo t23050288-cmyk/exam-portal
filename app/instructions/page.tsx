@@ -108,9 +108,16 @@ export default function InstructionsPage() {
     // setShowSecureGate(false) will happen via fullscreenchange listener
   };
 
-  const handleStartExam = () => {
+  const handleStartExam = async () => {
     if (starting) return;
     setStarting(true);
+
+    // ── CRITICAL: Request fullscreen SYNCHRONOUSLY within the click handler ──
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {}
 
     startExam(studentInfo?.examTitle || "Initial Assessment").then((res: any) => {
       

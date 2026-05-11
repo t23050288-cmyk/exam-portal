@@ -365,7 +365,7 @@ export async function reportViolation(
 }
 
 export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  const data = await fetch(`${API_BASE}/admin/exam/config/public`);
+  const data = await fetch(`${API_BASE}/admin/exam/config/public`, { cache: "no-store" });
   if (!data.ok) return [];
   const json = await data.json();
   return Array.isArray(json) ? json : (json.configs || []);
