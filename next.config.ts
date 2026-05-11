@@ -5,68 +5,28 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "",
   },
 
-  // ── HTTP Cache Headers ────────────────────────────────────────
-  // Push caching to student browsers instead of our server.
-  // Static assets (JS/CSS/images) → 1 year immutable (Vercel handles hash-busting)
-  // API routes → short TTL or no-store depending on sensitivity
   async headers() {
     return [
-      // Cloudinary & external media: tell browser to cache aggressively
       {
         source: "/(.*)",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-        ],
+        headers: [{ key: "X-Content-Type-Options", value: "nosniff" }],
       },
-      // NOTE: COEP/COOP removed — breaks Supabase realtime WS + face-api CDN models.
-      // If Pyodide SharedArrayBuffer is needed, scope COEP only to /exam route via middleware.
-      // Next.js static files already get hashed names, so 1yr is safe
+      // Static assets — safe to cache (hashed filenames)
       {
         source: "/_next/static/(.*)",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
-      // Public folder assets (logos, icons)
+      // ALL API routes — never cache anything
       {
-        source: "/(.*)\\.(png|jpg|jpeg|webp|svg|ico|woff|woff2|ttf|otf)",
+        source: "/api/(.*)",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=3600",
-          },
-        ],
-      },
-      // Public exam config (non-sensitive, can be cached briefly)
-      {
-        source: "/api/admin/exam/config/public",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=10, stale-while-revalidate=30",
-          },
-        ],
-      },
-      // Exam questions: NO cache — auth-gated, per-student, must always be fresh
-      {
-        source: "/api/exam/questions",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-store, no-cache, must-revalidate",
-          },
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
         ],
       },
     ];
   },
 
-  // ── Image optimization ────────────────────────────────────────
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
@@ -75,16 +35,13 @@ const nextConfig: NextConfig = {
     formats: ["image/webp", "image/avif"],
     minimumCacheTTL: 3600,
   },
-  // ── Proxy /api to Python Backend (Local Dev) ──────────────────
+
   async rewrites() {
-    if (process.env.NODE_ENV === "production") {
-      return [];
-    }
+    // In production: all /api/* handled by Next.js route handlers — no proxy
+    if (process.env.NODE_ENV === "production") return [];
+    // In dev: proxy to Python backend
     return [
-      {
-        source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
-      },
+      { source: "/api/:path*", destination: "http://127.0.0.1:8000/api/:path*" },
     ];
   },
 };
