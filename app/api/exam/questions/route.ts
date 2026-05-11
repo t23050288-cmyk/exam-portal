@@ -69,7 +69,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401, headers: NO_CACHE });
     }
 
-    // ── Title param ───────────────────────────────────────────
     const title = (req.nextUrl.searchParams.get("title") || "").trim();
     if (!title) {
       return NextResponse.json({ questions: [], total: 0 }, { headers: NO_CACHE });
@@ -77,13 +76,15 @@ export async function GET(req: NextRequest) {
     const titleLower = title.toLowerCase();
     console.log(`[QUESTIONS] title="${title}" branch="${studentBranch}"`);
 
-    // ── Fetch ALL questions from DB ───────────────────────────
+    // ── Fetch questions from DB with direct filter ────────────────
     const sb = getSupabase();
+    
+    // We fetch with a loose filter first to ensure we get everything relevant
     const { data: rows, error } = await sb
       .from("questions")
       .select("id, text, options, branch, order_index, marks, exam_name, image_url, question_type, category")
-      .order("order_index")
-      .limit(1000);
+      .or(`exam_name.ilike.%${title}%,exam_name.ilike.%${title.replace(/\s+/g,"")}%`)
+      .order("order_index");
 
     if (error) {
       console.error("[QUESTIONS] DB error:", error.message);
@@ -91,24 +92,31 @@ export async function GET(req: NextRequest) {
     }
 
     const all = rows || [];
-    console.log(`[QUESTIONS] DB returned ${all.length} total rows`);
+    console.log(`[QUESTIONS] DB returned ${all.length} rows for title query "${title}"`);
 
-    // ── Filter by exam name ──────────────────────────────────
+    // ── Refine filter in JS for precision ───────────────────────
     const examRows = all.filter((q: any) => {
       const qExam = (q.exam_name || "").trim().toLowerCase();
-      return qExam === titleLower || qExam.replace(/\s+/g,"") === titleLower.replace(/\s+/g,"");
+      const t = titleLower;
+      // Precise match OR slugified match
+      return qExam === t || 
+             qExam.replace(/\s+/g,"") === t.replace(/\s+/g,"") ||
+             t.includes(qExam) || 
+             qExam.includes(t);
     });
 
-    console.log(`[QUESTIONS] Exam filter: ${examRows.length} rows match "${title}"`);
+    console.log(`[QUESTIONS] After refinement: ${examRows.length} rows match "${title}"`);
 
     // ── Filter by branch with Fallback ────────────────────────
     let filtered = examRows.filter((q: any) => {
       const qb = (q.branch || "").trim().toUpperCase();
+      const sb = studentBranch.toUpperCase();
+      
       if (!qb || qb === "GLOBAL" || qb === "ALL") return true;
       
-      // Support comma-separated branches
-      const branches = qb.split(",").map((b: string) => b.trim());
-      return branches.includes(studentBranch);
+      // Support comma-separated branches and substring matches (e.g. "CS" matches in "CSE,ISE")
+      const branches = qb.split(",").map((b: string) => b.trim().toUpperCase());
+      return branches.some(b => b === sb || b.includes(sb) || sb.includes(b));
     });
 
     // Fallback: if branch filter kills everything, return all exam rows
