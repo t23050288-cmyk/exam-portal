@@ -12,37 +12,30 @@
   position: relative; overflow-x: hidden;
 }
 
-/* ── Starfield ── */
+/* ── Starfield / Mesh ── */
 .stars {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    radial-gradient(1px 1px at 8%  12%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1px 1px at 20% 35%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1px 1px at 34% 65%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 48% 20%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 58% 80%, rgba(255,255,255,0.35),transparent),
-    radial-gradient(1px 1px at 72% 42%, rgba(255,255,255,0.55),transparent),
-    radial-gradient(1px 1px at 85% 15%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1px 1px at 92% 72%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 15% 88%, rgba(255,255,255,0.45),transparent),
-    radial-gradient(1px 1px at 63% 55%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(1px 1px at 40% 90%, rgba(255,255,255,0.35),transparent),
-    radial-gradient(1px 1px at 78% 28%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 25%  5%, rgba(255,255,255,0.45),transparent),
-    radial-gradient(1px 1px at 55% 48%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(1px 1px at 90% 95%, rgba(255,255,255,0.5), transparent);
+  background-color: #020617;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%), 
+    radial-gradient(at 0% 100%, hsla(339,49%,30%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 100%, hsla(225,39%,30%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 100%, hsla(253,16%,7%,1) 0, transparent 50%);
+  filter: blur(40px);
+  opacity: 0.8;
 }
-.nebula1 {
-  position: fixed; top: -10%; left: 5%; width: 60vw; height: 60vh; z-index: 0;
-  background: radial-gradient(ellipse, rgba(20,60,160,0.18) 0%, transparent 65%);
-  border-radius: 50%; pointer-events: none; animation: nd 18s ease-in-out infinite;
+
+.nebula1, .nebula2 {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+  opacity: 0.5;
 }
-.nebula2 {
-  position: fixed; bottom: -10%; right: 0; width: 50vw; height: 50vh; z-index: 0;
-  background: radial-gradient(ellipse, rgba(80,30,150,0.14) 0%, transparent 65%);
-  border-radius: 50%; pointer-events: none; animation: nd 22s ease-in-out infinite reverse;
-}
-@keyframes nd { 0%,100%{transform:scale(1) translate(0,0)} 50%{transform:scale(1.1) translate(15px,-10px)} }
 
 /* ── Header ── */
 .header {
