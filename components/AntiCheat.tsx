@@ -65,33 +65,51 @@ export default function AntiCheat({
     setTimeout(() => onAutoSubmit(), 2000);
   }, [authToken, onAutoSubmit]);
 
-  // 2. VIOLATION TRACKER
-  const recordViolation = useCallback((type: string) => {
-    if (isSubmitted || terminatedRef.current || cooldownRef.current) return;
-
-    cooldownRef.current = true;
-    setTimeout(() => { cooldownRef.current = false; }, COOLDOWN_MS);
-
-    strikesRef.current += 1;
-    const currentStrikes = strikesRef.current;
-    setStrikeCount(currentStrikes);
-    setLastReason(type.replace(/_/g, " "));
-    setOverlayVisible(true);
-
-    // Sync with parent state if needed
-    onViolation?.(type, { strike: currentStrikes });
-
-    fetch("/api/exam/report-violation", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ sessionId, type, metadata: { warning_count: currentStrikes, is_auto_submit: currentStrikes >= MAX_STRIKES } }),
-    });
-
-    if (currentStrikes >= MAX_STRIKES) terminate();
-  }, [authToken, sessionId, terminate, onViolation]);
+    // 2. VIOLATION TRACKER
+    const recordViolation = useCallback(async (type: string) => {
+      if (isSubmitted || terminatedRef.current || cooldownRef.current) return;
+  
+      // Optimistic Locking: Trigger UI immediately before network request
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, COOLDOWN_MS);
+  
+      strikesRef.current += 1;
+      const currentStrikes = strikesRef.current;
+      
+      setStrikeCount(currentStrikes);
+      setLastReason(type.replace(/_/g, " "));
+      setOverlayVisible(true); // LOCK NOW
+  
+      // Sync with parent state
+      onViolation?.(type, { strike: currentStrikes });
+  
+      // Background Reporting: fire and forget, don't block the UI
+      try {
+        await fetch("/api/exam/report-violation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ 
+            sessionId, 
+            type, 
+            metadata: { 
+              studentId,
+              studentName,
+              warning_count: currentStrikes, 
+              is_auto_submit: currentStrikes >= MAX_STRIKES,
+              url: window.location.href,
+              userAgent: navigator.userAgent
+            } 
+          }),
+        });
+      } catch (err) {
+        console.error("[AntiCheat] Silent failure reporting violation:", err);
+      }
+  
+      if (currentStrikes >= MAX_STRIKES) terminate();
+    }, [authToken, sessionId, studentId, studentName, terminate, onViolation, isSubmitted]);
 
   // 3. FULLSCREEN FORCE
   const handleUnderstand = useCallback(() => {
