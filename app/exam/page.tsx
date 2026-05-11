@@ -419,7 +419,7 @@ export default function ExamPage() {
         <div className={styles.errorBox}>
           <p className="text-danger">{error}</p>
           <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '8px', color: 'var(--text-secondary)' }}>
-            Exam Node: {examTitle} | Branch: {student?.id ? "Syncing..." : "Offline"}
+            Exam Node: {examTitle} | Branch: {student?.branch || (student?.id ? "Syncing..." : "Offline")}
           </div>
           <button 
             className="btn btn-primary" 

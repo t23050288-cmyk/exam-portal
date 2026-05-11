@@ -85,6 +85,17 @@ async def get_current_student(
             detail="Invalid token payload: student_id or usn missing",
         )
 
+    # ── SELF-HEAL: Resolve 'Syncing...' branch if it leaked into JWT ──
+    if branch == "Syncing..." or not branch:
+        try:
+            db = get_supabase()
+            res = db.table("students").select("branch").eq("id", student_id).maybe_single().execute()
+            if res.data and res.data.get("branch"):
+                branch = res.data["branch"]
+                print(f"[SECURITY] Resolved 'Syncing...' branch to '{branch}' for student {usn}")
+        except:
+            branch = "CS" # Fallback to CS if DB check fails
+
     return {
         "student_id": student_id,
         "usn": usn,
