@@ -995,7 +995,7 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
           <div className={styles.statLabel}>Wrong Attempts</div>
         </div>
         <div className={styles.statItem}>
-          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/3</div>
+          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/4</div>
           <div className={styles.statLabel}>Warnings</div>
         </div>
       </div>
@@ -1148,7 +1148,7 @@ export default function PyHuntPage() {
         supabase.from("pyhunt_progress")
           .select("warnings, turtle_image, current_round")
           .eq("student_id", effectiveId)
-          .single()
+          .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {
               setWarningCount(data.warnings || 0);
@@ -1216,8 +1216,8 @@ export default function PyHuntPage() {
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
-            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 3 ? 'auto_submitted' : 'finished')) : 'active',
-            warnings: Math.min(warningCount, 3),
+            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 4 ? 'auto_submitted' : 'finished')) : 'active',
+            warnings: Math.min(warningCount, 4),
             last_violation: lastViolation,
             turtle_image: imgToSend
           }, { onConflict: 'student_id' });
@@ -1412,6 +1412,7 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
 
 
 
