@@ -7,12 +7,29 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import os, httpx, json, re, logging
 
-router = APIRouter()
+router = APIRouter(prefix="/ai", tags=["ai"])
 logger = logging.getLogger("examguard.nvidia_ai")
 
 NVIDIA_API_KEY  = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MODEL           = "deepseek-ai/deepseek-v4-flash"   # confirmed available on NIM
+
+SYSTEM_PROMPT = """You are the 'ExamPortal Intelligence', a high-performance AI proctor and study assistant for the ExamPortal project.
+
+Your Mission:
+- Provide strictly helpful, concise, and academic guidance.
+- Act as a supportive proctor or study guide.
+- Programmable Restriction: NEVER leak direct answers if the user is in an active exam session. Instead, provide hints, concepts, or logic-based explanations to guide them.
+- Use your deep reasoning capabilities to ensure technical accuracy in programming (Python) and aptitude.
+
+Response Style:
+- Professional, encouraging, and highly structured.
+- Use bullet points or numbered lists for clarity.
+- When explaining code, focus on the "why" and "how" rather than just the "what"."""
+
+class ProctorRequest(BaseModel):
+    messages: list[dict]
+    stream: bool = False
 
 class CodeCheckRequest(BaseModel):
     problem_title: str
@@ -113,4 +130,36 @@ Give ONE short encouraging hint (max 2 sentences) nudging them toward the soluti
         return {"hint": hint[:300]}
     except Exception as e:
         logger.error(f"AI hint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/proctor")
+async def proctor_chat(req: ProctorRequest):
+    """
+    General AI proctor/assistant chat endpoint.
+    Bypasses Vercel timeouts if used with streaming (optional).
+    """
+    if not NVIDIA_API_KEY:
+        raise HTTPException(status_code=500, detail="NVIDIA_API_KEY not configured")
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + req.messages
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            # We don't implement full streaming here yet for simplicity, 
+            # but we could return a StreamingResponse if needed.
+            resp = await client.post(
+                f"{NVIDIA_BASE_URL}/chat/completions",
+                headers={"Authorization": f"Bearer {NVIDIA_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": MODEL,
+                    "messages": messages,
+                    "temperature": 1.0,
+                    "top_p": 0.95,
+                    "max_tokens": 4096,
+                }
+            )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        logger.error(f"AI proctor error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

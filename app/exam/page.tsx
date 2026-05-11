@@ -532,16 +532,44 @@ export default function ExamPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--panel-glass)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", padding: "16px 28px", borderRadius: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", border: "1px solid var(--rim-metal)" }}>
              <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>{examTitle || "Online Assessment"}</h1>
-             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-               {!isSubmitted && (
-                 <div style={{ display: "flex", alignItems: "center", gap: 6, background: warningCount >= 2 ? "rgba(239,68,68,0.18)" : warningCount === 1 ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)", border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.6)" : warningCount === 1 ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.12)"}`, borderRadius: 10, padding: "4px 12px", color: warningCount >= 2 ? "#ef4444" : warningCount === 1 ? "#f59e0b" : "rgba(148,163,184,0.7)", fontWeight: 700, fontSize: 13, transition: "all 0.4s ease" }}>
-                   ⚠️ {warningCount}/3 Warnings
-                 </div>
-               )}
-               {student && (
-                 <ExamTimer startTime={student.examStartTime || new Date().toISOString()} durationMinutes={student.examDurationMinutes || 20} onExpire={handleAutoSubmit} />
-               )}
-             </div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: "rgba(16, 185, 129, 0.08)",
+                  border: "1px solid rgba(16, 185, 129, 0.25)",
+                  borderRadius: 12, padding: "6px 14px",
+                  color: "#10b981", fontSize: 11, fontWeight: 800,
+                  boxShadow: "0 0 20px rgba(16, 185, 129, 0.15)",
+                  letterSpacing: "0.05em",
+                  textShadow: "0 0 10px rgba(16, 185, 129, 0.3)"
+                }}>
+                  <span style={{
+                    display: "inline-block", width: 8, height: 8,
+                    borderRadius: "50%", background: "#10b981",
+                    marginRight: 6, animation: "pulseGlow 2s infinite cubic-bezier(0.4, 0, 0.6, 1)",
+                    boxShadow: "0 0 12px #10b981"
+                  }} />
+                  SECURE SESSION ACTIVE
+                </div>
+                {!isSubmitted && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: warningCount >= 2 ? "rgba(239,68,68,0.12)" : warningCount === 1 ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.4)" : warningCount === 1 ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: 12, padding: "6px 16px",
+                    color: warningCount >= 2 ? "#f87171" : warningCount === 1 ? "#fbbf24" : "rgba(148,163,184,0.6)",
+                    fontWeight: 800, fontSize: 13, transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                    backdropFilter: "blur(4px)",
+                    boxShadow: warningCount > 0 ? `0 0 15px ${warningCount >= 2 ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.15)"}` : "none"
+                  }}>
+                    <span style={{ fontSize: 14 }}>{warningCount >= 2 ? "🔴" : warningCount === 1 ? "🟠" : "🛡️"}</span>
+                    {warningCount}/3 PROCTOR WARNINGS
+                  </div>
+                )}
+                {student && (
+                  <ExamTimer startTime={student.examStartTime || new Date().toISOString()} durationMinutes={student.examDurationMinutes || 20} onExpire={handleAutoSubmit} />
+                )}
+              </div>
           </div>
 
           <div className={styles.questionList}>
@@ -550,8 +578,10 @@ export default function ExamPage() {
                 key={activeQuestion.id} question={activeQuestion} questionNumber={activeQuestionIndex + 1} totalQuestions={questions.length} selectedAnswer={answers[activeQuestion.id]} savedCode={codeAnswers[activeQuestion.id]?.code} onSelect={handleSelect} onCodeSubmit={handleCodeSubmit} isSubmitted={isSubmitted}
               >
                 <div style={{ display: "flex", gap: 16, alignItems: "center", justifyContent: "flex-end", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--rim-metal)" }}>
-                  {activeQuestionIndex < questions.length - 1 && (
+                  {activeQuestionIndex < questions.length - 1 ? (
                     <button type="button" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}>NEXT QUESTION →</button>
+                  ) : (
+                    <button type="button" style={{ background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", border: "none", padding: "16px 48px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(16, 185, 129, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setConfirmSubmit(true)}>FINISH & SUBMIT 🚀</button>
                   )}
                   <button type="button" style={{ background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)", border: flagged.has(activeQuestionIndex) ? "2px solid #eab308" : "1px solid rgba(255,255,255,0.15)", color: flagged.has(activeQuestionIndex) ? "#eab308" : "var(--text-primary)", padding: "16px 28px", borderRadius: "16px", fontWeight: 800, fontSize: "14px", cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", alignItems: "center", gap: 10, letterSpacing: "0.05em", textTransform: "uppercase" }} onClick={toggleFlag}>
                     <span>{flagged.has(activeQuestionIndex) ? "🚩" : "🏳️"}</span>
@@ -578,22 +608,119 @@ export default function ExamPage() {
                 );
               })}
             </div>
+
+            {questions.length > 0 && (
+              <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+                <button
+                  className={styles.reviewBtn}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "12px",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "var(--text-primary)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    letterSpacing: "0.05em",
+                    transition: "all 0.2s ease"
+                  }}
+                  onClick={() => setActiveQuestionIndex(0)}
+                >
+                  🔍 REVIEW ALL
+                </button>
+                <button
+                  className={styles.submitBtnSidebar}
+                  style={{
+                    width: "100%",
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "linear-gradient(135deg, #10b981, #059669)",
+                    border: "none",
+                    color: "#fff",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    letterSpacing: "0.08em",
+                    boxShadow: "0 8px 20px rgba(16, 185, 129, 0.25)",
+                    transition: "all 0.2s ease"
+                  }}
+                  onClick={() => setConfirmSubmit(true)}
+                >
+                  🚀 SUBMIT EXAM
+                </button>
+              </div>
+            )}
           </div>
         </aside>
       </main>
       
       {/* ── Confirm Submit Modal ── */}
       {confirmSubmit && (
-        <div className={styles.confirmOverlay}>
-          <div className={styles.confirmModal}>
-            <h2>Finish Assessment?</h2>
-            <p>You have answered {answeredCount} out of {questions.length} questions. Once submitted, you cannot modify your answers.</p>
-            <div className={styles.modalActions} style={{ display: "flex", gap: 16, marginTop: 32, justifyContent: "center" }}>
-              <button className={styles.confirmBtn} style={{ background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff", border: "none", padding: "12px 28px", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }} onClick={() => handleSubmit()} disabled={submitting}>
-                {submitting ? "SUBMITTING..." : "CONFIRM SUBMISSION"}
+        <div className={styles.confirmOverlay} style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(5, 5, 10, 0.75)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn 0.3s ease-out"
+        }}>
+          <div className={styles.confirmModal} style={{
+            background: "linear-gradient(165deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRadius: 32, padding: 48, maxWidth: 500, width: "90%",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(139, 92, 246, 0.1)",
+            textAlign: "center", position: "relative", overflow: "hidden"
+          }}>
+            <div style={{
+              position: "absolute", top: -50, right: -50, width: 150, height: 150,
+              background: "radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)",
+              filter: "blur(20px)"
+            }} />
+            <div style={{ fontSize: 64, marginBottom: 24, filter: "drop-shadow(0 0 15px rgba(16, 185, 129, 0.4))" }}>🚀</div>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 12, background: "linear-gradient(135deg, #fff, rgba(255,255,255,0.6))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Final Submission
+            </h2>
+            <p style={{ color: "rgba(148, 163, 184, 0.8)", fontSize: 17, lineHeight: 1.6, marginBottom: 40 }}>
+              You have answered <strong>{answeredCount}</strong> out of <strong>{questions.length}</strong> questions.<br/>
+              Ready to submit your assessment?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <button
+                style={{
+                  background: "linear-gradient(135deg, #10b981, #059669)",
+                  color: "#fff", border: "none", padding: "18px", borderRadius: "20px",
+                  fontWeight: 900, fontSize: "16px", cursor: "pointer",
+                  boxShadow: "0 10px 30px rgba(16, 185, 129, 0.3)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  letterSpacing: "0.1em", textTransform: "uppercase"
+                }}
+                onClick={() => handleSubmit()}
+                disabled={submitting}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 15px 40px rgba(16, 185, 129, 0.4)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 10px 30px rgba(16, 185, 129, 0.3)";
+                }}
+              >
+                {submitting ? "Processing..." : "YES, SUBMIT MY EXAM"}
               </button>
-              <button className={styles.cancelBtn} style={{ background: "rgba(255,255,255,0.05)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)", padding: "12px 28px", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }} onClick={() => setConfirmSubmit(false)} disabled={submitting}>
-                CANCEL
+              <button
+                style={{
+                  background: "rgba(255, 255, 255, 0.03)",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  padding: "16px", borderRadius: "20px",
+                  fontWeight: 700, fontSize: "14px", cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+                onClick={() => setConfirmSubmit(false)}
+                disabled={submitting}
+              >
+                NO, GO BACK
               </button>
             </div>
           </div>

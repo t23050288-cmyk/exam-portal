@@ -51,12 +51,11 @@ def _get_aggregate(exam_id: str) -> dict:
             # Or just assume we want the global status for now if exam_id is a title
             # In legacy, student status is what we have.
             # We'll try to find students where status is 'active' or 'submitted'
-            status_resp = sb.table("exam_status").select("status").execute()
+            status_resp = sb.table("exam_status").select("status, warnings").execute()
             data = status_resp.data or []
-            active_count    = sum(1 for s in data if s["status"] == "active")
-            submitted_count = sum(1 for s in data if s["status"] == "submitted")
-            # Flagged in legacy might be based on warnings > threshold
-            # But let's keep it simple for now.
+            active_count    = sum(1 for s in data if s.get("status") == "active")
+            submitted_count = sum(1 for s in data if s.get("status") == "submitted")
+            flagged_count   = sum(1 for s in data if (s.get("warnings") or 0) > 0)
         except Exception:
             pass
 

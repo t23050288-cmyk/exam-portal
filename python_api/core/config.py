@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # AI — Inception Spectral Parser
     inception_api_key: str = ""  # Set INCEPTION_API_KEY in .env to enable AI parsing
+    nvidia_api_key: str = ""     # Set NVIDIA_API_KEY in .env as fallback
 
     ai_model: str = "mercury-2"
     ai_base_url: str = "https://api.inceptionlabs.ai/v1"

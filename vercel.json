@@ -15,6 +15,22 @@
   ],
   "routes": [
     {
+      "src": "/api/exam/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/admin/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/ai/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/auth/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
       "src": "/api/py/(.*)",
       "dest": "python_api/index.py"
     },

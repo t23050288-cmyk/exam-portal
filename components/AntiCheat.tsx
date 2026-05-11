@@ -207,6 +207,15 @@ export default function AntiCheat({
       }
     };
 
+    const handleFocus = () => {
+      if (!isMobile && !document.fullscreenElement && !isSubmitted && !autoSubmitted && stabilizedRef.current) {
+        // Only trigger if we aren't already reporting a violation (to avoid double warnings)
+        if (!isReportingRef.current && !overlayVisible) {
+          triggerViolation("fullscreen_exit");
+        }
+      }
+    };
+
     // Window blur — only when in fullscreen
     const handleBlur = () => {
       // If we're already in a tab switch or re-entry, ignore blur
@@ -313,9 +322,11 @@ export default function AntiCheat({
     document.addEventListener("cut", handleClipboard);
     window.addEventListener("keydown", handleKeyDown, true);
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
+      window.addEventListener("focus", handleFocus);
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        window.removeEventListener("blur", handleBlur);
+        window.removeEventListener("focus", handleFocus);
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
       document.removeEventListener("mozfullscreenchange", handleFsChange);
@@ -349,6 +360,13 @@ export default function AntiCheat({
         backdropFilter: "blur(24px) saturate(180%)",
         WebkitBackdropFilter: "blur(24px) saturate(180%)",
         fontFamily: "Inter, sans-serif",
+        cursor: "pointer",
+      }}
+      onClick={(e) => {
+        // If they click the background, try to re-enter FS
+        if (e.target === e.currentTarget && !autoSubmitted) {
+          handleUnderstand();
+        }
       }}
     >
       <div

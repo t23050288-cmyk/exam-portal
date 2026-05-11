@@ -1023,7 +1023,7 @@ async def csv_template(_=Depends(verify_admin)):
     """Download blank CSV template for bulk upload."""
     tpl = "usn,name,email,branch,password\n1RV21CS001,John Doe,john@college.edu,CS,\n1RV21IS002,Jane Smith,jane@college.edu,IS,\n"
     return StreamingResponse(
-        _io.StringIO(tpl),
+        io.StringIO(tpl),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=students_template.csv"},
     )
