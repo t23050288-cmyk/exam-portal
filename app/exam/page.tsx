@@ -111,7 +111,11 @@ export default function ExamPage() {
             .select("status")
             .eq("student_id", studentId)
             .single()
-            .then(({ data }: { data: any }) => {
+            .then(({ data, error }: { data: any; error: any }) => {
+              if (error) {
+                console.log("[EXAM] exam_status check skipped (RLS or network):", error.message);
+                return; // Non-fatal — don't block page load
+              }
               if (data?.status === "submitted") {
                 router.replace("/dashboard?tab=History");
               }
@@ -120,11 +124,9 @@ export default function ExamPage() {
       }
     }
 
-    // Request fullscreen immediately on mount (browser allows this right
-    // after navigating from the instructions page which was already fullscreen)
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
+    // Note: fullscreen is already active from instructions page.
+    // If it dropped during navigation, the secure gate overlay handles re-entry.
+    // Do NOT call requestFullscreen() here — browsers block it outside user gestures.
 
     // Wire token into sync engine
     setExamToken(token || "");
@@ -349,37 +351,9 @@ export default function ExamPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ── Active Fullscreen Enforcement (re-enters on tab switch) ──────────
-  useEffect(() => {
-    if (isSubmitted || loading) return;
-
-    const forceFullscreen = () => {
-      if (!document.fullscreenElement && !isSubmitted) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
-    };
-
-    // When tab becomes visible again after switch — force fullscreen
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && !isSubmitted) {
-        forceFullscreen();
-      }
-    };
-
-    // When fullscreen lost — immediately re-enter
-    const onFsChange = () => {
-      if (!document.fullscreenElement && !isSubmitted) {
-        setTimeout(forceFullscreen, 300);
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      document.removeEventListener("fullscreenchange", onFsChange);
-    };
-  }, [isSubmitted, loading]);
+  // ── Fullscreen enforcement is handled by AntiCheat component ──
+  // The inline secure gate overlay also re-prompts fullscreen via button click.
+  // Browser blocks programmatic requestFullscreen() outside user gestures.
 
   // ── Derived State (must be before early returns) ──────────
   const answeredCount = getAnsweredCount(questions.length);
@@ -925,6 +899,7 @@ export default function ExamPage() {
     </div>
   );
 }
+
 
 
 
