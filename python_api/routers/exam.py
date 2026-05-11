@@ -92,14 +92,16 @@ def get_questions(
         
         for q in all_questions:
             q_branch = (q.get("branch") or "").strip()
-            q_exam = q.get("exam_name")
+            q_exam = q.get("exam_name") or ""
             
-            # Handle legacy virtual folders if exam_name column is empty
+            # ALWAYS parse spectral tag from text — it is the authoritative source
+            # exam_name column may say "Initial Assessment" even for folder-tagged questions
             text = q.get("text", "")
-            if not q_exam and text.startswith("⟦EXAM:"):
+            if text.startswith("⟦EXAM:"):
                 end_idx = text.find("⟧")
                 if end_idx != -1:
-                    q_exam = text[6:end_idx]
+                    spectral_exam = text[6:end_idx].strip()
+                    q_exam = spectral_exam  # spectral tag overrides exam_name column
 
             # Normalize both for comparison (strip whitespace, case-insensitive)
             title_norm = title.strip().lower()
