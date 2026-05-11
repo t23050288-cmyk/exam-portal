@@ -122,6 +122,22 @@ export default function DashboardPage() {
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
 
+    // ── Auto-switch to History tab if redirected from exam submit ──
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab");
+    if (tabParam === "History") {
+      setActiveNav("History");
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      // Also auto-switch if they already have history (completed an exam)
+      const savedHistory = localStorage.getItem("nexus_exam_results");
+      if (savedHistory) {
+        const h = JSON.parse(savedHistory);
+        if (h.length > 0) setActiveNav("History");
+      }
+    }
+
     // Load exam history — merge Supabase DB + localStorage backup
     const loadHistory = async () => {
       // 1. Always load localStorage first (instant, no network)
@@ -153,14 +169,34 @@ export default function DashboardPage() {
     };
     loadHistory();
 
-    // Check for direct tab deep-linking (e.g. ?tab=Insights)
+    // Check for direct tab deep-linking (e.g. ?tab=History)
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
       if (tab && NAV_ITEMS.find(n => n.id === tab)) {
         setActiveNav(tab);
+        window.history.replaceState({}, "", window.location.pathname);
       }
     }
+
+    // Reload history when student returns from exam (window focus)
+    const onFocus = () => {
+      const lsRaw = localStorage.getItem("nexus_exam_results");
+      if (lsRaw) {
+        const h = JSON.parse(lsRaw);
+        if (h.length > 0) {
+          setLocalHistory(prev => {
+            // Merge without duplicates
+            const names = new Set(prev.map((x: any) => x.examName));
+            const newItems = h.filter((x: any) => !names.has(x.examName));
+            return [...prev, ...newItems];
+          });
+          setActiveNav("History");
+        }
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -711,6 +747,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
 
