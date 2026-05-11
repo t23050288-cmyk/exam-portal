@@ -39,7 +39,8 @@ export default function AntiCheat({
   }, [initialWarningCount]);
 
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 2000);
+    // 800ms grace period then start monitoring (browser needs time to set up fullscreen)
+    const t = setTimeout(() => setReady(true), 800);
     return () => clearTimeout(t);
   }, []);
 
@@ -120,24 +121,34 @@ export default function AntiCheat({
   // ── Listeners ──
   useEffect(() => {
     if (isMobile) return;
-    // Tab switch: fires when tab becomes hidden
-    const vh = () => { 
+    // Tab switch: fires when tab becomes hidden → trigger violation
+    // When tab becomes visible again → immediately re-enter fullscreen
+    const vh = () => {
       if (document.visibilityState === "hidden") {
-        triggerViolation("tab_switch"); 
+        triggerViolation("tab_switch");
+      } else if (document.visibilityState === "visible") {
+        // Student returned to tab — force fullscreen immediately
+        setTimeout(() => {
+          if (!document.fullscreenElement && !isSubmitted) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        }, 100);
       }
     };
-    // Window blur: fires when window loses focus (alt-tab, clicking outside, etc.)
+    // Window blur: fires when window loses focus (alt-tab, clicking outside)
     const bh = () => {
-      triggerViolation("window_blur");
+      if (!document.visibilityState || document.visibilityState === "visible") {
+        triggerViolation("window_blur");
+      }
     };
     document.addEventListener("visibilitychange", vh);
     window.addEventListener("blur", bh);
-    
+
     return () => {
       document.removeEventListener("visibilitychange", vh);
       window.removeEventListener("blur", bh);
     };
-  }, [triggerViolation, isMobile]);
+  }, [triggerViolation, isMobile, isSubmitted]);
 
   useEffect(() => {
     const fsh = () => {
@@ -206,17 +217,25 @@ export default function AntiCheat({
   return (
     <>
       {showModal && (
-        <WarningModal
-          message={modalMessage}
-          warningCount={warningCount}
-          onDismiss={() => {
-            setShowModal(false);
-            if (warningCount < 3) localReenter();
-          }}
-          onReenterFullscreen={localReenter}
-        />
+        <>
+          {/* Hard backdrop — covers entire screen including exam content */}
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 999998,
+            background: "rgba(0,0,0,0.92)", backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }} />
+          <WarningModal
+            message={modalMessage}
+            warningCount={warningCount}
+            onDismiss={() => {
+              setShowModal(false);
+              if (warningCount < 3) localReenter();
+            }}
+            onReenterFullscreen={localReenter}
+          />
+        </>
       )}
-      {/* <FaceMonitor onViolation={triggerViolation} isSubmitted={isSubmitted} /> */}
     </>
   );
 }
+
