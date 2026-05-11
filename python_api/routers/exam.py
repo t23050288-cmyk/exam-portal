@@ -92,16 +92,26 @@ def get_questions(
         
         for q in all_questions:
             q_branch = (q.get("branch") or "").strip()
-            q_exam = q.get("exam_name")
+            q_exam = q.get("exam_name") or ""
             
-            # Handle legacy virtual folders if exam_name column is empty
+            # ALWAYS parse spectral tag from text — it is the authoritative source
+            # exam_name column may say "Initial Assessment" even for folder-tagged questions
             text = q.get("text", "")
-            if not q_exam and text.startswith("⟦EXAM:"):
+            if text.startswith("⟦EXAM:"):
                 end_idx = text.find("⟧")
                 if end_idx != -1:
-                    q_exam = text[6:end_idx]
+                    spectral_exam = text[6:end_idx].strip()
+                    q_exam = spectral_exam  # spectral tag overrides exam_name column
 
-            exam_match = (q_exam and q_exam.strip().lower() == title.strip().lower())
+            # Normalize both for comparison (strip whitespace, case-insensitive)
+            title_norm = title.strip().lower()
+            q_exam_norm = q_exam.strip().lower() if q_exam else ""
+            exam_match = (
+                q_exam_norm == title_norm
+                or q_exam_norm.replace(" ", "") == title_norm.replace(" ", "")
+                or title_norm in q_exam_norm
+                or q_exam_norm in title_norm
+            )
             if not exam_match:
                 continue  # skip questions from other exams entirely
 
@@ -132,9 +142,14 @@ def get_questions(
                     if end_idx != -1:
                         q_exam = text[6:end_idx]
                 
-                if q_exam and q_exam.strip().lower() == title.strip().lower():
+                qe = (q_exam or "").strip().lower()
+                tn = title.strip().lower()
+                if qe == tn or qe.replace(" ", "") == tn.replace(" ", "") or tn in qe or qe in tn:
                     filtered_data.append(q)
         
+        # Debug: log unique exam_names found in DB to help diagnose mismatches
+        unique_exam_names = list(set(q.get("exam_name", "NULL") for q in all_questions))
+        print(f"[EXAM] DB has {len(all_questions)} total questions. exam_names: {unique_exam_names[:10]}")
         print(f"[EXAM] Final filtered count for '{title}' (branch: {branch}): {len(filtered_data)}")
                 
     except Exception as e:
@@ -558,5 +573,6 @@ def submit_code(
         passed_count=request.passed_count,
         total_count=request.total_count,
     )
+
 
 

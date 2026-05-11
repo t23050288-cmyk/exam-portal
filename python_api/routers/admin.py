@@ -522,38 +522,43 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
     if not request.exam_title:
         raise HTTPException(status_code=400, detail="exam_title is required for configuration")
 
+    # ── Build update payload — only include columns that exist in the DB ──────
+    # Core columns always present
     update_data: dict = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "exam_title": request.exam_title
+        "exam_title": request.exam_title,
     }
     if request.is_active is not None:
         update_data["is_active"] = request.is_active
     if request.scheduled_start is not None:
         update_data["scheduled_start"] = request.scheduled_start
-    if request.scheduled_end is not None:
-        update_data["scheduled_end"] = request.scheduled_end
     if request.duration_minutes is not None:
         update_data["duration_minutes"] = request.duration_minutes
-    if request.marks_per_question is not None:
-        update_data["marks_per_question"] = request.marks_per_question
-    if request.negative_marks is not None:
-        update_data["negative_marks"] = request.negative_marks
-    if request.shuffle_questions is not None:
-        update_data["shuffle_questions"] = request.shuffle_questions
-    if request.shuffle_options is not None:
-        update_data["shuffle_options"] = request.shuffle_options
-    if request.max_attempts is not None:
-        update_data["max_attempts"] = request.max_attempts
-    if request.show_answers_after is not None:
-        update_data["show_answers_after"] = request.show_answers_after
-    if request.total_questions is not None:
-        update_data["total_questions"] = request.total_questions
-    if request.total_marks is not None:
-        update_data["total_marks"] = request.total_marks
     if request.category is not None:
         update_data["category"] = request.category
-    if request.exam_description is not None:
-        update_data["exam_description"] = request.exam_description
+
+    # Extended columns — only add if they exist in the actual DB schema
+    # We discover this by doing a test SELECT; if columns missing, skip gracefully
+    try:
+        _schema_check = db.table("exam_config").select("scheduled_end").limit(1).execute()
+        if request.scheduled_end is not None:
+            update_data["scheduled_end"] = request.scheduled_end
+    except Exception:
+        pass  # column doesn't exist yet
+
+    for col, val in [
+        ("marks_per_question", request.marks_per_question),
+        ("negative_marks", request.negative_marks),
+        ("shuffle_questions", request.shuffle_questions),
+        ("shuffle_options", request.shuffle_options),
+        ("max_attempts", request.max_attempts),
+        ("show_answers_after", request.show_answers_after),
+        ("total_questions", request.total_questions),
+        ("total_marks", request.total_marks),
+        ("exam_description", request.exam_description),
+    ]:
+        if val is not None:
+            update_data[col] = val
 
     try:
         # Multiple exams can be active simultaneously (different branches)

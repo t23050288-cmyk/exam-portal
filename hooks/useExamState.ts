@@ -48,20 +48,9 @@ export function saveQuestionsToCache(title: string, questions: unknown[]) {
   } catch {}
 }
 
-export function loadQuestionsFromCache(title: string): unknown[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const meta = localStorage.getItem(QUESTIONS_CACHE_META);
-    if (!meta) return null;
-    const { title: cachedTitle, ts } = JSON.parse(meta);
-    // Cache hit only if same exam AND still fresh
-    if (cachedTitle !== title) return null;
-    if (Date.now() - ts > CACHE_TTL_MS) return null;
-    const raw = localStorage.getItem(QUESTIONS_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+export function loadQuestionsFromCache(_title: string): unknown[] | null {
+  // DISABLED: always fetch fresh — admin changes must reflect immediately
+  return null;
 }
 
 // ── useExamState hook ─────────────────────────────────────────

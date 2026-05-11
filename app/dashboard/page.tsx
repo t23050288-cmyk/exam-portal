@@ -122,6 +122,22 @@ export default function DashboardPage() {
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
 
+    // ── Auto-switch to History tab if redirected from exam submit ──
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab");
+    if (tabParam === "History") {
+      setActiveNav("History");
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      // Also auto-switch if they already have history (completed an exam)
+      const savedHistory = localStorage.getItem("nexus_exam_results");
+      if (savedHistory) {
+        const h = JSON.parse(savedHistory);
+        if (h.length > 0) setActiveNav("History");
+      }
+    }
+
     // Load exam history — merge Supabase DB + localStorage backup
     const loadHistory = async () => {
       // 1. Always load localStorage first (instant, no network)
@@ -130,7 +146,7 @@ export default function DashboardPage() {
 
       // 2. Fetch from Supabase
       const { data } = await supabase.from("exam_results")
-        .select("score, total_marks, submitted_at")
+        .select("score, total_marks, submitted_at, exam_title, category")
         .eq("student_id", s.id) // Use actual UUID
         .order("submitted_at", { ascending: false });
 
@@ -153,14 +169,34 @@ export default function DashboardPage() {
     };
     loadHistory();
 
-    // Check for direct tab deep-linking (e.g. ?tab=Insights)
+    // Check for direct tab deep-linking (e.g. ?tab=History)
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
       if (tab && NAV_ITEMS.find(n => n.id === tab)) {
         setActiveNav(tab);
+        window.history.replaceState({}, "", window.location.pathname);
       }
     }
+
+    // Reload history when student returns from exam (window focus)
+    const onFocus = () => {
+      const lsRaw = localStorage.getItem("nexus_exam_results");
+      if (lsRaw) {
+        const h = JSON.parse(lsRaw);
+        if (h.length > 0) {
+          setLocalHistory(prev => {
+            // Merge without duplicates
+            const names = new Set(prev.map((x: any) => x.examName));
+            const newItems = h.filter((x: any) => !names.has(x.examName));
+            return [...prev, ...newItems];
+          });
+          setActiveNav("History");
+        }
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [router]);
 
   const loadExams = useCallback(async () => {
@@ -173,8 +209,8 @@ export default function DashboardPage() {
       const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       if (studentId) {
-        const { data: statusData } = await supabase.from("exam_status").select("status").eq("student_id", studentId);
-        const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks").eq("student_id", studentId);
+        const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
+        const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
         
         // Build submittedMap from exam_results
         if (resultsData) {
@@ -211,8 +247,6 @@ export default function DashboardPage() {
           if (qs.length === 0) continue;
 
           // ── Branch-aware counting ──
-          // Branches are stored as comma-separated, e.g. ",CS,AIML,ISE,"
-          // Count questions whose branch field contains the student's branch
           let matchCount = 0;
           let cat = "Others";
           qs.forEach((q: any) => {
@@ -225,9 +259,8 @@ export default function DashboardPage() {
             }
           });
 
-          // Only show exam if there are questions for this student's branch
-          // If no questions match the branch specifically, we still show the exam if it has any questions
-          // and the API will handle the fallback.
+          // Show exam if there are ANY matching questions, or if exam has questions at all
+          // Don't hide exam just because branch doesn't match — show all active exams
           const finalMatchCount = matchCount === 0 ? qs.length : matchCount;
 
           const nid = cfg.exam_title;
@@ -256,12 +289,9 @@ export default function DashboardPage() {
 
   const filteredExams = useMemo(() => allExams.filter(e => {
     // ── Branch Filter ──
-    // Branches may be comma-separated (e.g. ",CS,AIML,ISE,")
-    // Match if the student's branch appears anywhere in the branch string
     if (student) {
       const sb = student.branch.trim().toUpperCase();
       const eb = e.branch.trim().toUpperCase();
-      // Check if eb contains sb (handles ",CS,AIML," format)
       const branchMatch = eb === sb || eb === "GLOBAL" || eb === "" || eb === "ALL" || eb.includes(sb);
       if (!branchMatch) return false;
     }
@@ -280,7 +310,6 @@ export default function DashboardPage() {
 
     if (activeNav === "Home") return true;
     if (["Profile", "History", "Insights", "PyHunt"].includes(activeNav)) return false;
-    // "Others" tab: show everything that isn't Aptitude or Programming
     if (activeNav === "Others") return e.category !== "Aptitude" && e.category !== "Programming";
     return e.category === activeNav;
   }), [allExams, activeNav, localHistory, student]);
@@ -316,18 +345,15 @@ export default function DashboardPage() {
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
-    // Block re-entry if already completed (check attempt limits)
     if ((exam.attempt_count || 0) >= (exam.max_attempts || 1)) {
       setActiveNav("History");
       return;
     }
 
-    // ── CRITICAL: Request fullscreen SYNCHRONOUSLY within the click handler ──
-    // Browsers require requestFullscreen() to be called directly from user interaction.
-    // If placed after an await or setTimeout, the browser will block it.
     try {
-      await document.documentElement.requestFullscreen();
-      console.log("[Dashboard] Fullscreen entered on exam launch");
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
     } catch (err: any) {
       console.warn("[Dashboard] Fullscreen blocked:", err.message);
     }
@@ -713,6 +739,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
-

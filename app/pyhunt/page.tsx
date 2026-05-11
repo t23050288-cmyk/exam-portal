@@ -118,13 +118,8 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
     console.warn("[PyHunt] Backend config fetch failed, trying localStorage:", e);
   }
 
-  // Fallback to localStorage only if network completely unavailable
-  if (typeof window === "undefined") return DEFAULT_CONFIG;
-  try {
-    const s = localStorage.getItem("nexus_pyhunt_config_v2");
-    if (!s) return DEFAULT_CONFIG;
-    return parseCfg(JSON.parse(s));
-  } catch { return DEFAULT_CONFIG; }
+  // Network failed — return DEFAULT_CONFIG (don't use stale localStorage)
+  return DEFAULT_CONFIG;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1258,28 +1253,9 @@ export default function PyHuntPage() {
     }
   }, []);
 
-  // ── Auto-Fullscreen Enforcement ──
-  // Force fullscreen on mount and whenever it's exited
-  useEffect(() => {
-    if (finished) return;
-    
-    // Try fullscreen immediately
-    enterFullscreen();
-    
-    // Retry after 500ms in case first was blocked
-    const retry = setTimeout(enterFullscreen, 500);
-    
-    return () => clearTimeout(retry);
-  }, [finished, enterFullscreen]);
-
-  // Re-enter fullscreen whenever user exits it
-  useEffect(() => {
-    if (finished) return;
-    if (!isFullscreen) {
-      const timer = setTimeout(enterFullscreen, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isFullscreen, finished, enterFullscreen]);
+  // Fullscreen is requested by the gate button click (user gesture required).
+  // Do not attempt requestFullscreen() in useEffect — browser blocks it.
+  // The isFullscreen gate handles re-entry when fullscreen is lost.
 
   // ── Auto-Redirect Timer ──
   useEffect(() => {
@@ -1303,12 +1279,13 @@ export default function PyHuntPage() {
   // Grace period ref: violations ignored for 8 seconds after mount (fullscreen dialog causes blur)
   const gracePeriodRef = useRef(true);
   useEffect(() => {
-    // Give 8 seconds before proctoring starts — fullscreen dialog + page load causes false positives
-    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 8000);
+    // Give 1.5 seconds before proctoring starts (fullscreen dialog grace)
+    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 1500);
     return () => clearTimeout(graceTimer);
   }, []);
 
-  // (Removed redundant manual listeners – now handled by AntiCheat component)
+    // Active fullscreen enforcement is handled by AntiCheat component.
+  // PyHunt does not independently re-enter fullscreen to avoid browser errors.
 
   const handleRoundComplete = (dataUrl?: string) => {
     if (dataUrl) {
@@ -1435,6 +1412,8 @@ export default function PyHuntPage() {
     </div>
   );
 }
+
+
 
 
 

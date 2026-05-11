@@ -132,17 +132,26 @@ export default function ExamPage() {
       examTitle: "Online Assessment"
     };
     
-    // STRICT OVERRIDE: Always force 20 minutes for production
-    info.examDurationMinutes = 20;
+    info.examDurationMinutes = info.examDurationMinutes || 20;
+    if (!info.examStartTime) {
+      const storedStart = sessionStorage.getItem("exam_start_time");
+      if (storedStart) {
+        info.examStartTime = storedStart;
+      } else {
+        const nowIso = new Date().toISOString();
+        sessionStorage.setItem("exam_start_time", nowIso);
+        info.examStartTime = nowIso;
+      }
+    }
     
     setStudent(info);
 
     // Fetch initial warning count from exam_status
-    if (student?.id && student.id !== "PREVIEW") {
+    if (info.id && info.id !== "PREVIEW") {
       import("@/lib/supabase").then(({ supabase }) => {
         supabase.from("exam_status")
           .select("warnings")
-          .eq("student_id", student.id)
+          .eq("student_id", info.id)
           .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {
@@ -155,17 +164,15 @@ export default function ExamPage() {
     const quizTitle = sessionStorage.getItem("exam_selected_title") || info.examTitle || "Online Assessment";
     setExamTitle(quizTitle);
     
-    // ── Prevent Back Navigation ──
     window.history.pushState(null, "", window.location.href);
     const handlePopState = () => {
       window.history.pushState(null, "", window.location.href);
     };
     window.addEventListener("popstate", handlePopState);
 
-    // Pick random final theme on mount
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
-    // ── Cache-first question loading + staggered start ──────────
+    // ── Cache DISABLED (as per user request) ──────────────────
     /*
     const cached = loadQuestionsFromCache(quizTitle);
     if (cached && cached.length > 0) {
@@ -181,11 +188,14 @@ export default function ExamPage() {
     const jitterMs = Math.floor(Math.random() * 2000);
     const timeoutId = setTimeout(() => {
       console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
-      fetchQuestions(quizTitle)
-        .then((qs: any) => {
+      fetchQuestions(quizTitle, Date.now())
+        .then(async (qs: any) => {
           console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
           if (qs.length === 0) {
-            console.warn(`[EXAM] WARNING: Zero questions returned for title "${quizTitle}". Branch or Title mismatch?`);
+            console.warn(`[EXAM] WARNING: Zero questions for title="${quizTitle}".`);
+            setError(`No questions found for exam "${quizTitle}". Please contact your invigilator or refresh the page.`);
+            setLoading(false);
+            return;
           }
           setQuestions(qs);
           // saveQuestionsToCache(quizTitle, qs);
@@ -195,7 +205,7 @@ export default function ExamPage() {
         })
         .catch((err) => {
           console.error("[EXAM] Question fetch failed:", err);
-          setError("Failed to load exam questions. Please check your connection.");
+          setError("Failed to load exam questions. Please check your connection and refresh.");
           setLoading(false);
         });
     }, jitterMs);
@@ -206,13 +216,11 @@ export default function ExamPage() {
     };
   }, [router, enterFullscreen]);
 
-  // ── Exam config polling (inactive guard) ──────────────────
   useEffect(() => {
     const checkConfig = async () => {
       if (!examTitle) return;
       try {
         const configs = await fetchPublicExamConfig();
-        // Fallback to find by case-insensitive name if needed
         const cfg = configs.find(c => c.exam_title === examTitle) || 
                     configs.find(c => c.exam_title?.toLowerCase() === examTitle.toLowerCase());
         
@@ -229,12 +237,11 @@ export default function ExamPage() {
             setExamScheduled(null);
           }
         } else {
-          // No config found or active, allow entry
           setExamInactive(false);
           setExamScheduled(null);
         }
       } catch {
-        // Silently ignore — default to last known state
+        // Silently ignore
       }
     };
     checkConfig();
@@ -242,12 +249,10 @@ export default function ExamPage() {
     return () => clearInterval(id);
   }, [examTitle]);
 
-  // ── Handle answer select (with save indicator) ────────────
   const handleSelect = useCallback(
     (qId: string, option: string) => {
       selectAnswer(qId, option);
       setSaveIndicator("saving");
-      // Save to IndexedDB + trigger debounced batch flush
       saveAnswer(qId, { selected_option: option }).catch(() => {});
       clearTimeout(saveIndicatorTimer.current);
       saveIndicatorTimer.current = setTimeout(() => {
@@ -255,7 +260,7 @@ export default function ExamPage() {
         setTimeout(() => setSaveIndicator("idle"), 2000);
       }, 500);
     },
-    [selectAnswer]
+    [selectAnswer, saveAnswer]
   );
 
   const toggleFlag = () => {
@@ -265,7 +270,6 @@ export default function ExamPage() {
     setFlagged(newFlags);
   };
 
-  // ── Submit handler ────────────────────────────────────────
   const handleSubmit = useCallback(
     async (auto = false) => {
       if (isSubmitted || submitting) return;
@@ -274,10 +278,9 @@ export default function ExamPage() {
       setError("");
 
       try {
-        await flush(); // Save any dirty answers first
+        await flush();
         const res = await submitExam(answers, examTitle);
         
-        // Save to History (local storage for student)
         const history = JSON.parse(localStorage.getItem("nexus_exam_results") || "[]");
         history.push({
           examName: examTitle,
@@ -287,7 +290,7 @@ export default function ExamPage() {
           id: Math.random().toString(36).substr(2, 9)
         });
         localStorage.setItem("nexus_exam_results", JSON.stringify(history));
-        // Mark exam as completed so dashboard redirects to History
+        
         const completedExams = JSON.parse(localStorage.getItem("nexus_completed_exams") || "[]");
         if (!completedExams.includes(examTitle)) {
           completedExams.push(examTitle);
@@ -311,40 +314,28 @@ export default function ExamPage() {
     handleSubmit(true);
   }, [handleSubmit]);
 
-  // ── Result Countdown Timer ──────────────────────────────
   useEffect(() => {
     if (!isSubmitted) return;
-    
     if (resultTimerSeconds === 0) {
-       router.replace("/dashboard?tab=Insights");
+       router.replace("/dashboard?tab=History");
        return;
     }
-
     const interval = setInterval(() => {
       setResultTimerSeconds(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.replace("/dashboard?tab=Insights");
+          router.replace("/dashboard?tab=History");
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [isSubmitted, resultTimerSeconds, router]);
 
-  const formatResultTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // ── Derived State (must be before early returns) ──────────
   const answeredCount = getAnsweredCount(questions.length);
   const progressPercentage = questions.length > 0 ? (activeQuestionIndex + 1) / questions.length : 0;
 
-  // Calculate dynamic theme based on chunks of 20%
   const activeTheme = useMemo(() => {
     if (progressPercentage < 0.2) return "phase-1";
     if (progressPercentage < 0.4) return "ocean";
@@ -355,7 +346,6 @@ export default function ExamPage() {
 
   const activeQuestion = questions[activeQuestionIndex];
 
-  // ── Loading state ─────────────────────────────────────────
   if (loading) {
     return (
       <div className={styles.wrapper} style={{ padding: 28 }}>
@@ -409,16 +399,12 @@ export default function ExamPage() {
     );
   }
 
-  // ── Results screen (Capsule Mockup) ──────────────────────
   if (isSubmitted && submitResult) {
     return (
       <div className={styles.submittedWrapper}>
-        {/* Decorative Nebula Orbs */}
         <div style={{ position: "fixed", top: "10%", left: "15%", width: 400, height: 400, background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
         <div style={{ position: "fixed", bottom: "10%", right: "15%", width: 400, height: 400, background: "radial-gradient(circle, rgba(13,148,136,0.15) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
-
         <div className={styles.successCapsule}>
-          {/* Hourglass Background Graphic */}
           <div className={styles.hourglassBg}>
             <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
               <path d="M5 2h14" />
@@ -429,22 +415,17 @@ export default function ExamPage() {
               <path d="M9 2v1c0 5 6 5 6 10s-6 5-6 10v1" />
             </svg>
           </div>
-
           <div style={{ position: "relative", zIndex: 1 }}>
             <h1 className={styles.thankYouTitle}>THANK YOU!</h1>
-            
             <div className={styles.resultMetaRow}>
               <div className={styles.subStatus}>
                 Exam Submitted <span style={{ background: "#22c55e", borderRadius: "4px", padding: "1px 5px", fontSize: "14px", marginLeft: "2px" }}>✓</span>
               </div>
-
               <div className={styles.answeredCount}>
                 Answered: {getAnsweredCount(questions.length)}/{questions.length}
               </div>
-
             </div>
-
-            {showResultDetails && submitResult && (
+            {showResultDetails && (
               <div className={styles.resultCard}>
                 <div className={styles.resultDetail}>
                   <div className={styles.detailValue} style={{ color: "#34d399" }}>{submitResult.correct_count}</div>
@@ -460,7 +441,6 @@ export default function ExamPage() {
                   </div>
                   <div className={styles.detailLabel}>Skipped</div>
                 </div>
-                
                 <div style={{ gridColumn: "1 / -1", marginTop: 12, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                    <div style={{ fontSize: 13, opacity: 0.6 }}>Total Score</div>
                    <div style={{ fontSize: 24, fontWeight: 800, color: "var(--accent-light)" }}>
@@ -469,12 +449,8 @@ export default function ExamPage() {
                 </div>
               </div>
             )}
-
             <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
-              <button 
-                className={styles.backToDashboardBtn}
-                onClick={() => router.replace("/dashboard?tab=Insights")}
-              >
+              <button className={styles.backToDashboardBtn} onClick={() => router.replace("/dashboard?tab=History")}>
                 GO TO SKILLS INSIGHTS →
               </button>
               <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>
@@ -483,37 +459,6 @@ export default function ExamPage() {
             </div>
           </div>
         </div>
-
-        {/* Floating Sparkles */}
-        <div style={{ position: "fixed", bottom: 40, right: 40, opacity: 0.4 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M12 0L14 10L24 12L14 14L12 24L10 14L0 12L10 10L12 0Z" fill="white" />
-          </svg>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Secure Mode Gate ──────────────────────────────
-  if (!isFullscreen && !isSubmitted && !loading && !error) {
-    return (
-      <div className={styles.secureGate}>
-        <div className={styles.gateCard}>
-          <div className={styles.gateIcon}>🔒</div>
-          <h2 className={styles.gateTitle}>SECURE MODE REQUIRED</h2>
-          <p className={styles.gateText}>
-            To protect assessment integrity, this exam must be taken in <b>Fullscreen Mode</b>. 
-            Exiting fullscreen or switching tabs will be recorded as a violation.
-          </p>
-          <div className={styles.gateRules}>
-            <div className={styles.rule}>• 3 Warnings = Auto-Submission</div>
-            <div className={styles.rule}>• Tab Switching Prohibited</div>
-            <div className={styles.rule}>• Keyboard Shortcuts Blocked</div>
-          </div>
-          <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
-            ENTER SECURE MODE
-          </button>
-        </div>
       </div>
     );
   }
@@ -521,43 +466,17 @@ export default function ExamPage() {
   return (
     <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
       <Background />
-      {/* ── Weightless Exam Overlay (inactive / scheduled) ── */}
       {(examInactive || examScheduled) && (
         <div style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9999,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          background: "rgba(10, 10, 20, 0.85)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          animation: "fadeIn 0.5s ease forwards",
-          gap: 16,
-          padding: 24,
-          textAlign: "center",
+          position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column",
+          background: "rgba(10, 10, 20, 0.85)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", animation: "fadeIn 0.5s ease forwards", gap: 16, padding: 24, textAlign: "center",
         }}>
-          <div style={{ fontSize: 64, marginBottom: 8, filter: "drop-shadow(0 0 20px rgba(139,92,246,0.6))" }}>
-            {examInactive ? "🛸" : "⏳"}
-          </div>
-          <h2 style={{
-            fontSize: 26,
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            background: "linear-gradient(135deg, #8b5cf6, #3b82f6)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}>
+          <div style={{ fontSize: 64, marginBottom: 8, filter: "drop-shadow(0 0 20px rgba(139,92,246,0.6))" }}>{examInactive ? "🛸" : "⏳"}</div>
+          <h2 style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", background: "linear-gradient(135deg, #8b5cf6, #3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
             {examInactive ? "Exam Unavailable" : "Exam Not Started Yet"}
           </h2>
           <p style={{ color: "rgba(148,163,184,0.8)", fontSize: 15, maxWidth: 360 }}>
-            {examInactive
-              ? "The exam has been temporarily deactivated by your administrator. Please wait for further instructions."
-              : `Your exam is scheduled to begin at ${examScheduled ? new Date(examScheduled).toLocaleString() : "—"}. Please stand by.`
-            }
+            {examInactive ? "The exam has been temporarily deactivated by your administrator." : `Your exam is scheduled to begin at ${examScheduled ? new Date(examScheduled).toLocaleString() : "—"}.`}
           </p>
         </div>
       )}
@@ -567,77 +486,39 @@ export default function ExamPage() {
         onAutoSubmit={() => handleSubmit(true)}
         onViolation={(type, meta) => {
           recordEvent(type as any);
-          if (meta && typeof meta.warning_count === 'number') {
-            setWarningCount(meta.warning_count);
-          }
+          if (meta && typeof meta.warning_count === 'number') setWarningCount(meta.warning_count);
         }}
         initialWarningCount={warningCount}
         forceReenterFullscreen={enterFullscreen}
       />
 
-      {/* ── Welcome Banner (always visible, matching mockup) ── */}
       <div style={{ padding: "16px 28px 0", zIndex: 2, position: "relative" }}>
-        <div style={{
-          background: "var(--panel-glass)",
-          backdropFilter: "blur(40px)",
-          WebkitBackdropFilter: "blur(40px)",
-          padding: "16px 28px",
-          borderRadius: "20px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          border: "1px solid var(--rim-metal)",
-        }}>
+        <div style={{ background: "var(--panel-glass)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", padding: "16px 28px", borderRadius: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid var(--rim-metal)" }}>
           <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "var(--text-primary)" }}>
             Welcome, {student?.name || "Student"}!{" "}
             {loadSource === "cache" && (
               <span style={{ fontSize: 10, background: "rgba(40, 215, 214, 0.15)", color: "var(--accent-cool)", borderRadius: 6, padding: "2px 7px", marginLeft: 6, fontWeight: 700, verticalAlign: "middle" }}>⚡ Cache</span>
             )}
-            <span style={{ fontWeight: 400, opacity: 0.7, color: "var(--text-secondary)" }}>
-              Deep breaths and stay focused. You&apos;ve got this.
-            </span>
+            <span style={{ fontWeight: 400, opacity: 0.7, color: "var(--text-secondary)" }}> Deep breaths and stay focused. You&apos;ve got this.</span>
           </h2>
-          {/* Avatar circle */}
-          <div style={{
-            width: 42, height: 42, borderRadius: "50%",
-            background: "var(--accent-cool-grad)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontWeight: 700, fontSize: "16px",
-            boxShadow: "0 4px 12px rgba(40, 215, 214, 0.3)",
-            flexShrink: 0
-          }}>
+          <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--accent-cool-grad)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "16px", boxShadow: "0 4px 12px rgba(40, 215, 214, 0.3)", flexShrink: 0 }}>
             {(student?.name || "S").charAt(0).toUpperCase()}
           </div>
         </div>
       </div>
 
-      {/* ── Main layout ───────────────────────────────────── */}
       <main className={styles.main}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, overflow: "visible" }}>
-          {/* Exam Title & Timer Row */}
-          <div style={{
-             display: "flex",
-             alignItems: "center",
-             justifyContent: "space-between",
-             background: "var(--panel-glass)",
-             backdropFilter: "blur(40px)",
-             WebkitBackdropFilter: "blur(40px)",
-             padding: "16px 28px",
-             borderRadius: "20px",
-             boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-             border: "1px solid var(--rim-metal)",
-          }}>
-             <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>
-               {examTitle || "Online Assessment"}
-             </h1>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--panel-glass)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", padding: "16px 28px", borderRadius: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", border: "1px solid var(--rim-metal)" }}>
+             <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>{examTitle || "Online Assessment"}</h1>
              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+               {!isSubmitted && (
+                 <div style={{ display: "flex", alignItems: "center", gap: 6, background: warningCount >= 2 ? "rgba(239,68,68,0.18)" : warningCount === 1 ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)", border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.6)" : warningCount === 1 ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.12)"}`, borderRadius: 10, padding: "4px 12px", color: warningCount >= 2 ? "#ef4444" : warningCount === 1 ? "#f59e0b" : "rgba(148,163,184,0.7)", fontWeight: 700, fontSize: 13, transition: "all 0.4s ease" }}>
+                   ⚠️ {warningCount}/3 Warnings
+                 </div>
+               )}
                {student && (
-                 <ExamTimer
-                   startTime={student.examStartTime || new Date().toISOString()}
-                   durationMinutes={student.examDurationMinutes}
-                   onExpire={handleAutoSubmit}
-                 />
+                 <ExamTimer startTime={student.examStartTime || new Date().toISOString()} durationMinutes={student.examDurationMinutes || 20} onExpire={handleAutoSubmit} />
                )}
              </div>
           </div>
@@ -645,106 +526,23 @@ export default function ExamPage() {
           <div className={styles.questionList}>
             {activeQuestion && (
               <QuestionCard
-                key={activeQuestion.id}
-                question={activeQuestion}
-                questionNumber={activeQuestionIndex + 1}
-                totalQuestions={questions.length}
-                selectedAnswer={answers[activeQuestion.id]}
-                savedCode={codeAnswers[activeQuestion.id]?.code}
-                onSelect={handleSelect}
-                onCodeSubmit={handleCodeSubmit}
-                isSubmitted={isSubmitted}
+                key={activeQuestion.id} question={activeQuestion} questionNumber={activeQuestionIndex + 1} totalQuestions={questions.length} selectedAnswer={answers[activeQuestion.id]} savedCode={codeAnswers[activeQuestion.id]?.code} onSelect={handleSelect} onCodeSubmit={handleCodeSubmit} isSubmitted={isSubmitted}
               >
-                <div style={{ 
-                  display: "flex", 
-                  gap: 16, 
-                  alignItems: "center", 
-                  justifyContent: "flex-end",
-                  marginTop: 20,
-                  paddingTop: 20,
-                  borderTop: "1px solid var(--rim-metal)"
-                }}>
-                  {/* Next */}
+                <div style={{ display: "flex", gap: 16, alignItems: "center", justifyContent: "flex-end", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--rim-metal)" }}>
                   {activeQuestionIndex < questions.length - 1 && (
-                    <button
-                      type="button"
-                      style={{
-                        background: "linear-gradient(135deg, #06b6d4, #3b82f6)",
-                        color: "#fff",
-                        border: "none",
-                        padding: "16px 36px",
-                        borderRadius: "16px",
-                        fontWeight: 900,
-                        fontSize: "14px",
-                        cursor: "pointer",
-                        boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)",
-                        transition: "all 0.3s ease",
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase"
-                      }}
-                      onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                    >
-                      NEXT QUESTION →
-                    </button>
+                    <button type="button" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}>NEXT QUESTION →</button>
                   )}
-
-                  {/* Mark as Flag */}
-                  <button
-                    type="button"
-                    style={{
-                      background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)",
-                      border: flagged.has(activeQuestionIndex) ? "2px solid #eab308" : "1px solid rgba(255,255,255,0.15)",
-                      color: flagged.has(activeQuestionIndex) ? "#eab308" : "var(--text-primary)",
-                      padding: "16px 28px",
-                      borderRadius: "16px",
-                      fontWeight: 800,
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase"
-                    }}
-                    onClick={toggleFlag}
-                  >
+                  <button type="button" style={{ background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)", border: flagged.has(activeQuestionIndex) ? "2px solid #eab308" : "1px solid rgba(255,255,255,0.15)", color: flagged.has(activeQuestionIndex) ? "#eab308" : "var(--text-primary)", padding: "16px 28px", borderRadius: "16px", fontWeight: 800, fontSize: "14px", cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", alignItems: "center", gap: 10, letterSpacing: "0.05em", textTransform: "uppercase" }} onClick={toggleFlag}>
                     <span>{flagged.has(activeQuestionIndex) ? "🚩" : "🏳️"}</span>
                     {flagged.has(activeQuestionIndex) ? "FLAG" : "MARK AS FLAG"}
                   </button>
-
-                  {/* Submit */}
-                  <button
-                    id="submit-exam-btn"
-                    type="button"
-                    style={{
-                      background: "linear-gradient(135deg, #ff4d4d, #cc0000)",
-                      color: "#fff",
-                      border: "none",
-                      padding: "16px 36px",
-                      borderRadius: "16px",
-                      fontWeight: 900,
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      boxShadow: "0 10px 30px rgba(255, 77, 77, 0.4)",
-                      transition: "all 0.3s ease",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                    }}
-                    onClick={() => setConfirmSubmit(true)}
-                    disabled={submitting}
-                  >
-                    {submitting ? "..." : "SUBMIT EXAM"}
-                  </button>
+                  <button id="submit-exam-btn" type="button" style={{ background: "linear-gradient(135deg, #ff4d4d, #cc0000)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 10px 30px rgba(255, 77, 77, 0.4)", transition: "all 0.3s ease", letterSpacing: "0.1em", textTransform: "uppercase" }} onClick={() => setConfirmSubmit(true)} disabled={submitting}>{submitting ? "..." : "SUBMIT EXAM"}</button>
                 </div>
               </QuestionCard>
             )}
           </div>
         </div>
-
-        {/* ── Sidebar ── */}
         <aside className={styles.sidebar}>
-          {/* Progress Card */}
           <div className={styles.sideCard}>
             <h3 className={styles.sideTitle}>Progress</h3>
             <div className={styles.navGrid}>
@@ -752,131 +550,27 @@ export default function ExamPage() {
                 const isAnswered = !!answers[q.id];
                 const isActive = i === activeQuestionIndex;
                 const isFlagged = flagged.has(i);
-
                 return (
-                  <button
-                    key={q.id}
-                    onClick={() => setActiveQuestionIndex(i)}
-                    className={`${styles.navBtn} ${isAnswered ? styles.navAnswered : ""} ${isActive ? styles.navActive : ""} ${isFlagged ? styles.navFlagged : ""}`}
-                    aria-label={`Question ${i + 1}`}
-                  >
-                    {isAnswered ? (
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    ) : (
-                      i + 1
-                    )}
-                    {isFlagged && (
-                       <span style={{ position: "absolute", top: -3, right: -3, width: 10, height: 10, background: "#eab308", borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 6px rgba(234,179,8,0.6)" }} />
-                    )}
+                  <button key={q.id} onClick={() => setActiveQuestionIndex(i)} className={`${styles.navBtn} ${isAnswered ? styles.navAnswered : ""} ${isActive ? styles.navActive : ""} ${isFlagged ? styles.navFlagged : ""}`}>
+                    {isAnswered ? <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg> : i + 1}
+                    {isFlagged && <span style={{ position: "absolute", top: -3, right: -3, width: 10, height: 10, background: "#eab308", borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 6px rgba(234,179,8,0.6)" }} />}
                   </button>
                 );
               })}
             </div>
-
-            {/* Legend */}
-            <div className={styles.legend}>
-              <div className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: "#0d9488" }} />
-                <span>Current</span>
-              </div>
-              <div className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: "#0d9488", opacity: 0.4 }} />
-                <span>Answered</span>
-              </div>
-              <div className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: "#eab308" }} />
-                <span>Flagged</span>
-              </div>
-              <div className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: "rgba(0,0,0,0.08)" }} />
-                <span>Not Visited</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Moon / Cloud Decorative Card (matching mockup) */}
-          <div style={{
-            background: "var(--panel-glass)",
-            backdropFilter: "blur(40px)",
-            WebkitBackdropFilter: "blur(40px)",
-            borderRadius: "20px",
-            border: "1px solid var(--rim-metal)",
-            padding: "24px",
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-            position: "relative",
-            overflow: "hidden",
-            flexShrink: 0,
-          }}>
-             {/* Moon */}
-             <div style={{
-               width: 60, height: 60, borderRadius: "50%",
-               background: "radial-gradient(circle at 30% 30%, #f0fdfa, #ccfbf1)",
-               boxShadow: "0 0 30px rgba(13,148,136,0.2)",
-               marginBottom: 12,
-             }} />
-             {/* Clouds */}
-             <div style={{ position: "absolute", bottom: -5, left: "-5%", opacity: 0.15, filter: "blur(8px)", fontSize: "36px" }}>☁️</div>
-             <div style={{ position: "absolute", bottom: 15, right: "8%", opacity: 0.2, filter: "blur(4px)", fontSize: "18px" }}>☁️</div>
-             {/* Sparkle stars */}
-             <div style={{ position: "absolute", top: 14, right: 20, fontSize: "14px", opacity: 0.5 }}>✦</div>
-             <div style={{ position: "absolute", top: 30, right: 35, fontSize: "10px", opacity: 0.3 }}>✦</div>
           </div>
         </aside>
       </main>
-
-      {/* ── Secure Mode Gate ── */}
-      {!isFullscreen && !isSubmitted && !loading && (
-        <div className={styles.secureGate}>
-          <div className={styles.gateCard}>
-            <div className={styles.gateIcon}>🛡️</div>
-            <h2 className={styles.gateTitle}>Secure Mode Required</h2>
-            <p className={styles.gateText}>
-              To proceed with your assessment, please enter secure full-screen mode.
-              This ensures a fair testing environment for all students.
-            </p>
-            
-            <div className={styles.gateRules}>
-              <div className={styles.rule}>• Tab switching is strictly prohibited</div>
-              <div className={styles.rule}>• External applications must be closed</div>
-              <div className={styles.rule}>• Your face must remain visible to the proctor</div>
-            </div>
-
-            <button className={styles.gateBtn} onClick={() => enterFullscreen()}>
-              Enter Secure Mode →
-            </button>
-            <p style={{ marginTop: 24, fontSize: 12, color: "#475569", fontWeight: 600 }}>
-              Exiting full-screen will record a violation. (Limit: 3)
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Submit confirmation dialog ──────────────────────── */}
+      
+      {/* ── Confirm Submit Modal ── */}
       {confirmSubmit && (
-        <div className={styles.confirmOverlay}>
-          <div className={styles.confirmModal}>
-            <h2 style={{color: "var(--text-primary)"}}>Submit Exam?</h2>
-            <p style={{color: "var(--text-secondary)"}}>
-              You have answered <strong style={{color:"var(--accent)"}}>{answeredCount}</strong> out of{" "}
-              <strong>{questions.length}</strong> questions.
-            </p>
-            {answeredCount < questions.length && (
-              <p className={styles.confirmWarn}>
-                ⚠️ {questions.length - answeredCount} question(s) still unanswered.
-              </p>
-            )}
-            <p style={{color: "var(--text-secondary)"}}>This action cannot be undone.</p>
-            <div className={styles.confirmActions} style={{ justifyContent: "center" }}>
-              <button
-                id="confirm-submit-btn"
-                className="btn btn-danger btn-lg"
-                style={{ width: "100%", padding: "16px", borderRadius: "12px", fontWeight: 800 }}
-                onClick={() => handleSubmit(false)}
-              >
-                CONFIRM SUBMISSION
-              </button>
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <h2>Submit Assessment?</h2>
+            <p>You have answered {answeredCount} out of {questions.length} questions. You cannot undo this action.</p>
+            <div className={styles.modalActions}>
+              <button className={styles.confirmBtn} onClick={() => handleSubmit()} disabled={submitting}>YES, SUBMIT</button>
+              <button className={styles.cancelBtn} onClick={() => setConfirmSubmit(false)} disabled={submitting}>CANCEL</button>
             </div>
           </div>
         </div>
@@ -884,7 +578,3 @@ export default function ExamPage() {
     </div>
   );
 }
-
-
-
-
