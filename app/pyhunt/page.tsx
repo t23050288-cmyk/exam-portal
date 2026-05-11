@@ -1358,6 +1358,8 @@ export default function PyHuntPage() {
       <div className={styles.nebula1} /><div className={styles.nebula2} />
 
       <AntiCheat 
+        sessionId="pyhunt"
+        authToken=""
         isSubmitted={finished} 
         onAutoSubmit={() => {
           setTerminated(true);

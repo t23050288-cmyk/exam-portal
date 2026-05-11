@@ -157,6 +157,7 @@ export default function ExamPage() {
             if (data) {
               setWarningCount(data.warnings || 0);
             }
+          });
       });
     }
 
@@ -213,6 +214,7 @@ export default function ExamPage() {
           console.error("[EXAM] Question fetch failed:", err);
           setError("Failed to load exam questions. Please check your connection and refresh.");
           setLoading(false);
+        });
     }, jitterMs);
 
     return () => {
