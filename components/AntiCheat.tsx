@@ -39,8 +39,8 @@ export default function AntiCheat({
   }, [initialWarningCount]);
 
   useEffect(() => {
-    // 800ms grace period then start monitoring (browser needs time to set up fullscreen)
-    const t = setTimeout(() => setReady(true), 800);
+    // 2000ms grace period — gives time for fullscreen to settle and page to load
+    const t = setTimeout(() => setReady(true), 2000);
     return () => clearTimeout(t);
   }, []);
 
@@ -65,8 +65,8 @@ export default function AntiCheat({
       if (isSubmitted || !ready || processingViolationRef.current) return;
 
       const now = Date.now();
-      // Enforce 1.5-second mandatory cooling period between ANY violations to prevent accidental double-fire
-      if (now - lastViolationRef.current < 1500) return;
+      // 3-second cooldown between violations to prevent accidental rapid-fire
+      if (now - lastViolationRef.current < 3000) return;
       
       processingViolationRef.current = true;
       lastViolationRef.current = now;
@@ -121,26 +121,34 @@ export default function AntiCheat({
   // ── Listeners ──
   useEffect(() => {
     if (isMobile) return;
-    // Tab switch: fires when tab becomes hidden → trigger violation
-    // When tab becomes visible again → immediately re-enter fullscreen
+    
+    let tabHidden = false; // Flag: true when tab is actually hidden (prevents double-counting blur)
+    let fsExitedByTabSwitch = false; // Flag: fullscreen exit caused by tab switch (don't double-count)
+
     const vh = () => {
       if (document.visibilityState === "hidden") {
+        tabHidden = true;
+        fsExitedByTabSwitch = true; // tab switch always exits fullscreen — don't count as separate violation
         triggerViolation("tab_switch");
       } else if (document.visibilityState === "visible") {
-        // Student returned to tab — force fullscreen immediately
+        tabHidden = false;
+        // Try to re-enter fullscreen when student returns
         setTimeout(() => {
           if (!document.fullscreenElement && !isSubmitted) {
             document.documentElement.requestFullscreen().catch(() => {});
           }
-        }, 100);
+          fsExitedByTabSwitch = false;
+        }, 200);
       }
     };
-    // Window blur: fires when window loses focus (alt-tab, clicking outside)
+
+    // Window blur: ONLY fire if tab is still visible (alt-tab within same window, not tab switch)
     const bh = () => {
-      if (!document.visibilityState || document.visibilityState === "visible") {
+      if (!tabHidden && document.visibilityState === "visible") {
         triggerViolation("window_blur");
       }
     };
+
     document.addEventListener("visibilitychange", vh);
     window.addEventListener("blur", bh);
 
@@ -151,8 +159,17 @@ export default function AntiCheat({
   }, [triggerViolation, isMobile, isSubmitted]);
 
   useEffect(() => {
+    let tabSwitchPending = false;
+    const trackVisibility = () => {
+      if (document.visibilityState === "hidden") tabSwitchPending = true;
+      else setTimeout(() => { tabSwitchPending = false; }, 500);
+    };
+    document.addEventListener("visibilitychange", trackVisibility);
+    
     const fsh = () => {
-      if (!document.fullscreenElement && !isSubmitted && ready) {
+      // Only count fullscreen exit as a violation if it wasn't caused by a tab switch
+      // (tab switch always exits fullscreen — that's already counted as tab_switch violation)
+      if (!document.fullscreenElement && !isSubmitted && ready && !tabSwitchPending) {
         triggerViolation("fullscreen_exit");
       }
     };
@@ -161,6 +178,7 @@ export default function AntiCheat({
     return () => {
       document.removeEventListener("fullscreenchange", fsh);
       document.removeEventListener("webkitfullscreenchange", fsh);
+      document.removeEventListener("visibilitychange", trackVisibility);
     };
   }, [triggerViolation, isSubmitted, ready]);
 
@@ -238,4 +256,5 @@ export default function AntiCheat({
     </>
   );
 }
+
 
