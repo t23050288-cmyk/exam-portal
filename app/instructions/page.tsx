@@ -67,7 +67,7 @@ export default function InstructionsPage() {
     // ── Realtime Status Sync ──
     const channel = supabase
       .channel("exam_instructions_sync")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "exam_config" }, (payload) => {
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "exam_config" }, (payload: any) => {
         const examTitle = sessionStorage.getItem("exam_selected_title");
         if (payload.new && payload.new.exam_title === examTitle) {
           setExamActive(payload.new.is_active);
