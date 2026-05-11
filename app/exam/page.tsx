@@ -115,6 +115,8 @@ export default function ExamPage() {
               if (data?.status === "submitted") {
                 router.replace("/dashboard?tab=History");
               }
+            });
+        });
       }
     }
 
@@ -341,6 +343,8 @@ export default function ExamPage() {
     <div className={`${styles.wrapper} no-select`} data-theme={activeTheme} style={{ paddingBottom: "120px" }}>
       <Background />
       <AntiCheat 
+        sessionId={examSessionId || "init"}
+        authToken={examToken}
         isSubmitted={isSubmitted} 
         onAutoSubmit={() => handleSubmit(true)}
         onViolation={(type, meta) => {
