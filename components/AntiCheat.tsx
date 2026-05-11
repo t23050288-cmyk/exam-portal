@@ -74,10 +74,36 @@ export default function AntiCheat({
     return () => clearTimeout(t);
   }, []);
 
-  // ── Core violation reporter ──
-  const triggerViolation = useCallback(
-    (type: string) => {
+    // ── 🛡️ THE DEBUGGER BOMB (Freezes browser if DevTools is open) ──
+    useEffect(() => {
       if (isSubmitted || autoSubmitted) return;
+      const trap = setInterval(() => {
+        const start = Date.now();
+        // This ONLY pauses execution if DevTools is open.
+        // It makes the "Inspect" panel completely unusable.
+        debugger; 
+        if (Date.now() - start > 100) {
+          triggerViolation("devtools_active");
+        }
+      }, 1000);
+
+      // ── 🛡️ CONSOLE WIPE (Hides logs from cheaters) ──
+      const cleaner = setInterval(() => {
+        console.clear();
+        console.log("%c⚠️ SECURITY ACTIVE", "color: red; font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000;");
+        console.log("%cViolations are recorded in real-time. Closing this panel is your only option.", "color: white; font-size: 16px;");
+      }, 2000);
+
+      return () => {
+        clearInterval(trap);
+        clearInterval(cleaner);
+      };
+    }, [isSubmitted, autoSubmitted, triggerViolation]);
+
+    // ── 🛡️ CORE VIOLATION REPORTER ──
+    const triggerViolation = useCallback(
+      (type: string) => {
+        if (isSubmitted || autoSubmitted) return;
       if (!stabilizedRef.current) return; // still in grace period
       if (cooldownRef.current) return;    // cooldown active
 
@@ -142,26 +168,53 @@ export default function AntiCheat({
     [isSubmitted, autoSubmitted, authToken, onAutoSubmit, onViolation]
   );
 
-  // ── Dismiss: user clicks "I Understood" → re-enter fullscreen synchronously ──
-  const handleUnderstand = useCallback(() => {
-    if (autoSubmitted) return; // locked — don't dismiss
-    setOverlayVisible(false);
-    fsReentryRef.current = true;
-    // MUST be synchronous inside click handler (user gesture)
-    if (forceReenterFullscreen) {
-      forceReenterFullscreen();
-    } else if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {
-        setOverlayMessage("⚠️ Press F11 to re-enter fullscreen manually.");
-        setOverlayVisible(true);
-      });
-    }
-    setTimeout(() => { fsReentryRef.current = false; }, 1500);
-  }, [autoSubmitted, forceReenterFullscreen]);
+    // ── 🛡️ CURSOR ESCAPE DETECTION (Mouse leaving viewport) ──
+    useEffect(() => {
+      if (isSubmitted || autoSubmitted) return;
+      const handleMouseLeave = () => {
+        if (!!document.fullscreenElement) {
+          triggerViolation("cursor_escaped");
+        }
+      };
+      document.addEventListener("mouseleave", handleMouseLeave);
+      return () => document.removeEventListener("mouseleave", handleMouseLeave);
+    }, [isSubmitted, autoSubmitted, triggerViolation]);
+
+    // ── 🛡️ CLEAN-ROOM CSS (Inject directly for maximum priority) ──
+    useEffect(() => {
+      const style = document.createElement("style");
+      style.innerHTML = `
+        * { -webkit-user-select: none !important; -moz-user-select: none !important; -ms-user-select: none !important; user-select: none !important; }
+        body { cursor: crosshair !important; overflow: hidden !important; }
+        ::-webkit-scrollbar { display: none !important; }
+      `;
+      document.head.appendChild(style);
+      return () => { document.head.removeChild(style); };
+    }, []);
+
+    // ── Dismiss: user clicks "I Understood" → re-enter fullscreen synchronously ──
+    const handleUnderstand = useCallback(() => {
+      if (autoSubmitted) return; // locked — don't dismiss
+      
+      // Force Fullscreen first
+      fsReentryRef.current = true;
+      const docElm = document.documentElement as any;
+      const requestFs = docElm.requestFullscreen || docElm.webkitRequestFullscreen || docElm.mozRequestFullScreen;
+      
+      if (requestFs) {
+        requestFs.call(docElm).then(() => {
+          setOverlayVisible(false);
+          setTimeout(() => { fsReentryRef.current = false; }, 1500);
+        }).catch(() => {
+          setOverlayMessage("🔴 CRITICAL: Fullscreen required to continue.\nMove your cursor and try again.");
+        });
+      }
+    }, [autoSubmitted]);
 
   // ── All event listeners ──
   useEffect(() => {
     if (isMobile) return;
+    // ... existing listeners ...
 
     // ── 1. visibilitychange — catches ANY tab switch / minimize / Alt+Tab ──
     const handleVisibility = () => {
@@ -325,9 +378,9 @@ export default function AntiCheat({
         position: "fixed",
         inset: 0,
         zIndex: 2147483647, // maximum z-index
-        backgroundColor: autoSubmitted ? "rgba(10,0,0,0.97)" : "rgba(0,5,20,0.93)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        backgroundColor: autoSubmitted ? "rgba(10,0,0,0.98)" : "rgba(2, 6, 23, 0.96)",
+        backdropFilter: "blur(35px) saturate(180%)",
+        WebkitBackdropFilter: "blur(35px) saturate(180%)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
