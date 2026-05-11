@@ -354,16 +354,20 @@ export default function ExamPage() {
       <AntiCheat 
         sessionId={examSessionId || "init"}
         authToken={examToken}
+        studentId={student?.id || "ID_PENDING"}
+        studentName={student?.name || "STUDENT_NAME"}
         isSubmitted={isSubmitted} 
         onAutoSubmit={() => handleSubmit(true)}
         onViolation={(type, meta) => {
           recordEvent(type as any);
-          if (meta && typeof meta.warning_count === 'number') setWarningCount(meta.warning_count);
+          if (meta && typeof (meta as any).strike === 'number') {
+            setWarningCount((meta as any).strike);
+          }
         }}
         initialWarningCount={warningCount}
-        forceReenterFullscreen={enterFullscreen}
-      />
-      {content}
+      >
+        {content}
+      </AntiCheat>
     </div>
   );
 

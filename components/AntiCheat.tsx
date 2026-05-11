@@ -1,460 +1,224 @@
 "use client";
-/**
- * AntiCheat v3 — Bulletproof exam proctoring
- * Catches: Escape key, tab switch, window blur, fullscreen exit, 
- *          PrintScreen, DevTools shortcuts, context menu, clipboard
- */
-import { useEffect, useRef, useState, useCallback } from "react";
 
-interface AntiCheatProps {
+/**
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║           ANTI-CHEAT ENGINE — SecureExam Pro v6.0 Lite       ║
+ * ║     Fullscreen Force | Escape Trap | DevTools Freeze         ║
+ * ╠══════════════════════════════════════════════════════════════╣
+ */
+
+import { useEffect, useRef, useState, useCallback, ReactNode } from "react";
+
+export interface AntiCheatProps {
   sessionId: string;
   authToken: string;
+  studentId: string;   
+  studentName: string;
   isSubmitted: boolean;
   onAutoSubmit: () => void;
-  onViolation?: (type: string, metadata?: Record<string, unknown>) => void;
-  forceReenterFullscreen?: () => void;
+  onViolation?: (type: string, meta?: any) => void;
+  children: ReactNode;
   initialWarningCount?: number;
-  isMobile?: boolean;
 }
 
-const MAX_WARNINGS = 3;
-const COOLDOWN_MS = 4000; // min ms between two separate violations
+const MAX_STRIKES = 3;
+const COOLDOWN_MS = 4000;
 
 export default function AntiCheat({
   sessionId,
   authToken,
+  studentId,
+  studentName,
   isSubmitted,
   onAutoSubmit,
   onViolation,
-  forceReenterFullscreen,
+  children,
   initialWarningCount = 0,
-  isMobile = false,
 }: AntiCheatProps) {
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const [overlayMessage, setOverlayMessage] = useState("");
-  const [warningCount, setWarningCount] = useState(initialWarningCount);
-  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [strikeCount, setStrikeCount] = useState(initialWarningCount);
+  const [terminated, setTerminated] = useState(false);
+  const [lastReason, setLastReason] = useState("");
 
-  const warningRef = useRef(initialWarningCount);
-  const lastViolationRef = useRef<number>(0);
+  const strikesRef = useRef(initialWarningCount);
+  const terminatedRef = useRef(false);
   const cooldownRef = useRef(false);
-  // True during the ~2s window after a tab switch event fires
-  const tabSwitchWindowRef = useRef(false);
-  // True while we are programmatically re-entering fullscreen
   const fsReentryRef = useRef(false);
-  // True for 2s after page mounts (fullscreen dialog itself blurs window)
-  const stabilizedRef = useRef(false);
-  const mountTimeRef = useRef(Date.now());
+  const overlayVisibleRef = useRef(false);
 
-  // ── Load server-side warning count on mount ──
-  useEffect(() => {
-    if (!authToken || authToken === "" || sessionId === "init") return;
-    fetch("/api/exam/status", {
-      headers: { Authorization: `Bearer ${authToken}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!j) return;
-        const wc = j.warnings || j.warning_count || 0;
-        warningRef.current = wc;
-        setWarningCount(wc);
-        if (j.auto_submitted || j.status === "submitted") {
-          setAutoSubmitted(true);
-          onAutoSubmit();
-        }
-      })
-      .catch(() => {});
-  }, [authToken, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sync state to ref for listeners
+  useEffect(() => { overlayVisibleRef.current = overlayVisible; }, [overlayVisible]);
 
-  // ── Grace period: 2s so fullscreen dialog/blur on mount doesn't fire ──
-  useEffect(() => {
-    const t = setTimeout(() => {
-      stabilizedRef.current = true;
-    }, 2000);
-    return () => clearTimeout(t);
+  // 1. TERMINATION LOGIC
+  const terminate = useCallback(() => {
+    if (terminatedRef.current) return;
+    terminatedRef.current = true;
+    setTerminated(true);
+    setOverlayVisible(true);
+
+    fetch("/api/exam/report-violation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ type: "terminal_violation", metadata: { warning_count: MAX_STRIKES, is_auto_submit: true } }),
+    }).catch(() => {});
+
+    setTimeout(() => onAutoSubmit(), 2000);
+  }, [authToken, onAutoSubmit]);
+
+  // 2. VIOLATION TRACKER
+  const recordViolation = useCallback((type: string) => {
+    if (isSubmitted || terminatedRef.current || cooldownRef.current) return;
+
+    cooldownRef.current = true;
+    setTimeout(() => { cooldownRef.current = false; }, COOLDOWN_MS);
+
+    strikesRef.current += 1;
+    const currentStrikes = strikesRef.current;
+    setStrikeCount(currentStrikes);
+    setLastReason(type.replace(/_/g, " "));
+    setOverlayVisible(true);
+
+    // Sync with parent state if needed
+    onViolation?.(type, { strike: currentStrikes });
+
+    fetch("/api/exam/report-violation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ sessionId, type, metadata: { warning_count: currentStrikes, is_auto_submit: currentStrikes >= MAX_STRIKES } }),
+    });
+
+    if (currentStrikes >= MAX_STRIKES) terminate();
+  }, [authToken, sessionId, terminate, onViolation]);
+
+  // 3. FULLSCREEN FORCE
+  const handleUnderstand = useCallback(() => {
+    if (terminatedRef.current) return;
+    fsReentryRef.current = true;
+    const el = document.documentElement as any;
+    const reqFs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+    
+    if (reqFs) {
+        reqFs.call(el).then(() => {
+            setOverlayVisible(false);
+            setTimeout(() => { fsReentryRef.current = false; }, 1500);
+        }).catch(() => { 
+            fsReentryRef.current = false; 
+        });
+    }
   }, []);
 
-    // ── 🛡️ THE DEBUGGER BOMB (Freezes browser if DevTools is open) ──
-    useEffect(() => {
-      if (isSubmitted || autoSubmitted) return;
-      const trap = setInterval(() => {
-        const start = Date.now();
-        // This ONLY pauses execution if DevTools is open.
-        // It makes the "Inspect" panel completely unusable.
-        debugger; 
-        if (Date.now() - start > 100) {
-          triggerViolation("devtools_active");
-        }
-      }, 1000);
-
-      // ── 🛡️ CONSOLE WIPE (Hides logs from cheaters) ──
-      const cleaner = setInterval(() => {
-        console.clear();
-        console.log("%c⚠️ SECURITY ACTIVE", "color: red; font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000;");
-        console.log("%cViolations are recorded in real-time. Closing this panel is your only option.", "color: white; font-size: 16px;");
-      }, 2000);
-
-      return () => {
-        clearInterval(trap);
-        clearInterval(cleaner);
-      };
-    }, [isSubmitted, autoSubmitted, triggerViolation]);
-
-    // ── 🛡️ CORE VIOLATION REPORTER ──
-    const triggerViolation = useCallback(
-      (type: string) => {
-        if (isSubmitted || autoSubmitted) return;
-      if (!stabilizedRef.current) return; // still in grace period
-      if (cooldownRef.current) return;    // cooldown active
-
-      const now = Date.now();
-      if (now - lastViolationRef.current < COOLDOWN_MS) return;
-
-      // Lock cooldown
-      cooldownRef.current = true;
-      lastViolationRef.current = now;
-      setTimeout(() => { cooldownRef.current = false; }, COOLDOWN_MS);
-
-      const newCount = warningRef.current + 1;
-      warningRef.current = newCount;
-      setWarningCount(newCount);
-
-      if (onViolation) onViolation(type, { warning_count: newCount });
-
-      const isAutoSubmit = newCount >= MAX_WARNINGS;
-      const label = type.replace(/_/g, " ");
-
-      let msg: string;
-      if (isAutoSubmit) {
-        msg = `🔴 VIOLATION 3/3 (${label}): Exam auto-submitted for security review.`;
-      } else if (newCount === 2) {
-        msg = `🚨 Warning 2 of 3 (${label}): ONE more violation = auto-submit!`;
-      } else {
-        msg = `⚠️ Warning 1 of 3 (${label}): Stay in fullscreen and don't switch tabs.`;
-      }
-
-      setOverlayMessage(msg);
-      setOverlayVisible(true);
-
-      // Report to server
-      fetch("/api/exam/report-violation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ type, metadata: { warning_count: newCount, is_auto_submit: isAutoSubmit } }),
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => {
-          if (!j) return;
-          // Use server count as authoritative
-          const serverCount = j.warning_count || newCount;
-          warningRef.current = serverCount;
-          setWarningCount(serverCount);
-          if (j.auto_submitted || serverCount >= MAX_WARNINGS) {
-            setAutoSubmitted(true);
-            setOverlayMessage(`🔴 Exam auto-submitted: ${serverCount} violations recorded.`);
-            setTimeout(() => onAutoSubmit(), 2500);
-          }
-        })
-        .catch(() => {});
-
-      if (isAutoSubmit) {
-        setAutoSubmitted(true);
-        setTimeout(() => onAutoSubmit(), 2500);
-      }
-    },
-    [isSubmitted, autoSubmitted, authToken, onAutoSubmit, onViolation]
-  );
-
-    // ── 🛡️ CURSOR ESCAPE DETECTION (Mouse leaving viewport) ──
-    useEffect(() => {
-      if (isSubmitted || autoSubmitted) return;
-      const handleMouseLeave = () => {
-        if (!!document.fullscreenElement) {
-          triggerViolation("cursor_escaped");
-        }
-      };
-      document.addEventListener("mouseleave", handleMouseLeave);
-      return () => document.removeEventListener("mouseleave", handleMouseLeave);
-    }, [isSubmitted, autoSubmitted, triggerViolation]);
-
-    // ── 🛡️ CLEAN-ROOM CSS (Inject directly for maximum priority) ──
-    useEffect(() => {
-      const style = document.createElement("style");
-      style.innerHTML = `
-        * { -webkit-user-select: none !important; -moz-user-select: none !important; -ms-user-select: none !important; user-select: none !important; }
-        body { cursor: crosshair !important; overflow: hidden !important; }
-        ::-webkit-scrollbar { display: none !important; }
-      `;
-      document.head.appendChild(style);
-      return () => { document.head.removeChild(style); };
-    }, []);
-
-    // ── Dismiss: user clicks "I Understood" → re-enter fullscreen synchronously ──
-    const handleUnderstand = useCallback(() => {
-      if (autoSubmitted) return; // locked — don't dismiss
-      
-      // Force Fullscreen first
-      fsReentryRef.current = true;
-      const docElm = document.documentElement as any;
-      const requestFs = docElm.requestFullscreen || docElm.webkitRequestFullscreen || docElm.mozRequestFullScreen;
-      
-      if (requestFs) {
-        requestFs.call(docElm).then(() => {
-          setOverlayVisible(false);
-          setTimeout(() => { fsReentryRef.current = false; }, 1500);
-        }).catch(() => {
-          setOverlayMessage("🔴 CRITICAL: Fullscreen required to continue.\nMove your cursor and try again.");
-        });
-      }
-    }, [autoSubmitted]);
-
-  // ── All event listeners ──
+  // 4. SECURITY LISTENERS
   useEffect(() => {
-    if (isMobile) return;
-    // ... existing listeners ...
-
-    // ── 1. visibilitychange — catches ANY tab switch / minimize / Alt+Tab ──
-    const handleVisibility = () => {
-      if (document.hidden) {
-        tabSwitchWindowRef.current = true;
-        triggerViolation("tab_switch");
-        setTimeout(() => { tabSwitchWindowRef.current = false; }, 3000);
+    const onFsChange = () => {
+      if (!document.fullscreenElement && !terminatedRef.current && !fsReentryRef.current) {
+        recordViolation("Exited Fullscreen (Escape/Button)");
       }
     };
 
-    // ── 2. blur — catches window focus loss WHILE in fullscreen ──
-    //    (screenshot tools, Alt+Tab on some systems, Windows key)
-    const handleBlur = () => {
-      if (
-        !tabSwitchWindowRef.current &&
-        !fsReentryRef.current &&
-        document.visibilityState === "visible" &&
-        !!document.fullscreenElement
-      ) {
-        triggerViolation("window_blur");
+    const onVisibility = () => { if (document.hidden) recordViolation("Tab Switch / Minimized"); };
+    const onBlur = () => { if (document.fullscreenElement && !fsReentryRef.current) recordViolation("Window Focus Lost"); };
+    
+    const onKeydown = (e: KeyboardEvent) => {
+      // If overlay is up, block everything except Enter to dismiss
+      if (overlayVisibleRef.current) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleUnderstand();
+        } else {
+          e.preventDefault();
+        }
+        return;
       }
-    };
 
-    // ── 3. fullscreenchange — catches Escape key and any other exit ──
-    //    This is the PRIMARY Escape detection path.
-    //    We do NOT catch Escape in keydown because preventDefault is ignored for Escape+fullscreen.
-    //    fullscreenchange is the ONLY reliable way to detect Escape-to-exit.
-    const handleFsChange = () => {
-      const inFs = !!document.fullscreenElement;
-      if (!inFs && !isSubmitted && !autoSubmitted) {
-        // If this was caused by a tab switch, that already reported a violation — skip
-        if (tabSwitchWindowRef.current) return;
-        // If WE triggered the exit for re-entry, skip
-        if (fsReentryRef.current) return;
-        triggerViolation("fullscreen_exit");
-      }
-    };
-
-    // ── 4. keydown — catches PrintScreen, F11, Ctrl+T/W/R/P, DevTools ──
-    const handleKeyDown = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
-      const shift = e.shiftKey;
-      const key = e.key;
-
-      // PrintScreen / screenshot
-      if (key === "PrintScreen" || key === "Printscr") {
+      const key = e.key.toLowerCase();
+      // Block common cheating shortcuts
+      if (key === "f12" || key === "printscreen" || (ctrl && ["c", "v", "u", "p", "s", "i", "j"].includes(key))) {
         e.preventDefault();
-        triggerViolation("screenshot_attempt");
-        return;
-      }
-
-      // Escape: browser ignores preventDefault for Escape during fullscreen.
-      // fullscreenchange handles this. But we log it early for redundancy.
-      if (key === "Escape") {
-        // Don't call triggerViolation here — fullscreenchange will fire and handle it.
-        // If we call both, it double-counts. Just return.
-        return;
-      }
-
-      // F11 (toggle fullscreen) — treat as exit attempt
-      if (key === "F11") {
-        e.preventDefault();
-        triggerViolation("fullscreen_exit");
-        return;
-      }
-
-      // F12 (DevTools)
-      if (key === "F12") {
-        e.preventDefault();
-        triggerViolation("devtools_open");
-        return;
-      }
-
-      // Ctrl+Shift+I/J (DevTools)
-      if (ctrl && shift && ["i", "j", "c"].includes(key.toLowerCase())) {
-        e.preventDefault();
-        triggerViolation("devtools_open");
-        return;
-      }
-
-      // Ctrl+T (new tab), Ctrl+W (close), Ctrl+R (reload), Ctrl+P (print), Ctrl+U (source)
-      if (ctrl && ["t", "w", "r", "p", "l", "u"].includes(key.toLowerCase())) {
-        e.preventDefault();
-        triggerViolation("keyboard_shortcut");
-        return;
-      }
-
-      // Alt+Tab / Windows key: can't fully block, but log blur/visibility
-      // These are handled by blur/visibilitychange above
-    };
-
-    // ── 4b. resize — catches DevTools opening (which changes window dimensions) ──
-    const handleResize = () => {
-      if (isSubmitted || autoSubmitted || !stabilizedRef.current) return;
-      
-      const threshold = 160;
-      const widthDiff = window.outerWidth - window.innerWidth;
-      const heightDiff = window.outerHeight - window.innerHeight;
-      
-      if (widthDiff > threshold || heightDiff > threshold) {
-        triggerViolation("devtools_detected");
+        recordViolation("Prohibited Shortcut: " + e.key);
       }
     };
 
-    // ── 5. context menu ──
-    const handleContextMenu = (e: Event) => {
-      e.preventDefault();
-      triggerViolation("context_menu");
-    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("keydown", onKeydown, true);
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-    // ── 6. clipboard ──
-    const handleClipboard = (e: Event) => {
-      e.preventDefault();
-      triggerViolation("clipboard_action");
-    };
-
-    // ── 7. beforeunload — warn on page close/refresh ──
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isSubmitted && !autoSubmitted && stabilizedRef.current) {
-        e.preventDefault();
-        e.returnValue = "Your exam is in progress. Are you sure you want to leave?";
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
-    document.addEventListener("fullscreenchange", handleFsChange);
-    document.addEventListener("webkitfullscreenchange", handleFsChange);
-    document.addEventListener("mozfullscreenchange", handleFsChange);
-    document.addEventListener("MSFullscreenChange", handleFsChange);
-    window.addEventListener("keydown", handleKeyDown, true);
-    window.addEventListener("resize", handleResize);
-    document.addEventListener("contextmenu", handleContextMenu);
-    document.addEventListener("copy", handleClipboard);
-    document.addEventListener("paste", handleClipboard);
-    document.addEventListener("cut", handleClipboard);
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    // DevTools Debugger Bomb (Nuclear Option)
+    const trap = setInterval(() => {
+      if (terminatedRef.current) return;
+      const t0 = performance.now();
+      debugger;
+      if (performance.now() - t0 > 100) recordViolation("DevTools Detected");
+    }, 2000);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("fullscreenchange", handleFsChange);
-      document.removeEventListener("webkitfullscreenchange", handleFsChange);
-      document.removeEventListener("mozfullscreenchange", handleFsChange);
-      document.removeEventListener("MSFullscreenChange", handleFsChange);
-      window.removeEventListener("keydown", handleKeyDown, true);
-      document.removeEventListener("contextmenu", handleContextMenu);
-      document.removeEventListener("copy", handleClipboard);
-      document.removeEventListener("paste", handleClipboard);
-      document.removeEventListener("cut", handleClipboard);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("keydown", onKeydown, true);
+      clearInterval(trap);
     };
-  }, [triggerViolation, isMobile, isSubmitted, autoSubmitted]);
-
-  // ── Render: blocking overlay ──
-  if (!overlayVisible) return null;
+  }, [recordViolation]);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 2147483647, // maximum z-index
-        backgroundColor: autoSubmitted ? "rgba(10,0,0,0.98)" : "rgba(2, 6, 23, 0.96)",
-        backdropFilter: "blur(35px) saturate(180%)",
-        WebkitBackdropFilter: "blur(35px) saturate(180%)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#fff",
-        padding: "40px 24px",
-        pointerEvents: "all",
-        userSelect: "none",
-      }}
-      // Prevent any click from passing through
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Icon */}
-      <div style={{ fontSize: 64, marginBottom: 16 }}>
-        {autoSubmitted ? "🔴" : "⚠️"}
-      </div>
-
-      {/* Warning count badge */}
-      <div style={{
-        background: autoSubmitted ? "#ef4444" : "#f59e0b",
-        color: "#000",
-        fontWeight: 900,
-        fontSize: 13,
-        padding: "4px 14px",
-        borderRadius: 20,
-        marginBottom: 20,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
+    <>
+      {/* ── DYNAMIC WATERMARK (Prevents phone photography) ── */}
+      <div style={{ 
+        position: "fixed", inset: 0, zIndex: 10, pointerEvents: "none", 
+        opacity: 0.04, display: "flex", flexWrap: "wrap", overflow: "hidden", 
+        transform: "rotate(-15deg) scale(1.5)", userSelect: "none" 
       }}>
-        {autoSubmitted ? "EXAM TERMINATED" : `WARNING ${warningCount} / ${MAX_WARNINGS}`}
+        {Array.from({ length: 40 }).map((_, i) => (
+          <div key={i} style={{ padding: "60px", fontSize: "16px", fontWeight: "bold", color: "#fff" }}>
+            {studentId} - {studentName}
+          </div>
+        ))}
       </div>
 
-      {/* Message */}
-      <div style={{
-        fontSize: 18,
-        fontWeight: 700,
-        textAlign: "center",
-        maxWidth: 480,
-        lineHeight: 1.6,
-        marginBottom: 32,
-        color: autoSubmitted ? "#fca5a5" : "#f8fafc",
-        whiteSpace: "pre-line",
-      }}>
-        {overlayMessage}
+      {/* EXAM CONTENT (BLURRED ON VIOLATION) */}
+      <div style={{ filter: overlayVisible ? "blur(35px) brightness(0.4)" : "none", transition: "filter 0.4s ease" }}>
+        {children}
       </div>
 
-      {/* Button */}
-      {!autoSubmitted && (
-        <button
-          onClick={handleUnderstand}
-          style={{
-            background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-            color: "#fff",
-            border: "none",
-            padding: "16px 40px",
-            borderRadius: 12,
-            fontWeight: 900,
-            fontSize: 16,
-            cursor: "pointer",
-            boxShadow: "0 8px 30px rgba(59,130,246,0.4)",
-            letterSpacing: "0.05em",
-          }}
-        >
-          I UNDERSTOOD — RETURN TO EXAM
-        </button>
+      {/* SECURITY OVERLAY */}
+      {overlayVisible && (
+        <div style={{ 
+            position: "fixed", inset: 0, zIndex: 99999, 
+            backgroundColor: "rgba(2, 6, 23, 0.98)", backdropFilter: "blur(20px)",
+            display: "flex", flexDirection: "column", alignItems: "center", 
+            justifyContent: "center", color: "white", textAlign: "center",
+            fontFamily: "system-ui, sans-serif"
+        }}>
+          <div style={{ fontSize: "64px", marginBottom: "10px" }}>{terminated ? "🔴" : "⚠️"}</div>
+          <h1 style={{ color: terminated ? "#ef4444" : "#f59e0b", fontWeight: 900, letterSpacing: "-0.02em" }}>
+            {terminated ? "EXAM TERMINATED" : "SECURITY VIOLATION"}
+          </h1>
+          <p style={{ color: "#94a3b8", marginBottom: "20px" }}>Reason: <span style={{ color: "#fff" }}>{lastReason}</span></p>
+          <div style={{ fontSize: "24px", fontWeight: 800, marginBottom: "30px" }}>Strike {strikeCount} / {MAX_STRIKES}</div>
+          
+          {!terminated && (
+            <button 
+                onClick={handleUnderstand} 
+                style={{ 
+                    padding: "16px 40px", background: "#2563eb", color: "#fff", 
+                    border: "none", borderRadius: "12px", fontWeight: 900, 
+                    cursor: "pointer", boxShadow: "0 10px 25px rgba(37,99,235,0.4)" 
+                }}
+            >
+                RE-ENTER SECURE MODE
+            </button>
+          )}
+          
+          <p style={{ marginTop: "30px", fontSize: "12px", color: "#475569" }}>
+            Session ID: {sessionId}
+          </p>
+        </div>
       )}
-
-      {/* Fine print */}
-      <p style={{ marginTop: 24, fontSize: 12, color: "#64748b", textAlign: "center" }}>
-        {autoSubmitted
-          ? "Your responses have been saved. Please contact your invigilator."
-          : `This system monitors fullscreen, tab switches, and key combinations.`}
-      </p>
-    </div>
+    </>
   );
 }

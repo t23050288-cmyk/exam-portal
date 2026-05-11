@@ -4,7 +4,7 @@ import { getStudentFromRequest, supabaseAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_WARNINGS = 4;
+const MAX_WARNINGS = 3;
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,13 +60,11 @@ export async function POST(req: NextRequest) {
 
     let message: string;
     if (autoSubmit) {
-      message = `🔴 4th violation: Your exam has been auto-submitted.`;
-    } else if (newWarnings === 3) {
-      message = `🚨 Warning 3 of 4: ONE more violation = auto-submit!`;
+      message = `🔴 3rd violation: Your exam has been auto-submitted.`;
     } else if (newWarnings === 2) {
-      message = `⚠️ Warning 2 of 4: Stay in fullscreen.`;
+      message = `🚨 Warning 2 of 3: ONE more violation = auto-submit!`;
     } else {
-      message = `⚠️ Warning 1 of 4: Stay in fullscreen.`;
+      message = `⚠️ Warning 1 of 3: Stay in fullscreen.`;
     }
 
     return NextResponse.json({

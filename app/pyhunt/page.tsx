@@ -1360,6 +1360,8 @@ export default function PyHuntPage() {
       <AntiCheat 
         sessionId={sessionStorage.getItem("exam_student") ? JSON.parse(sessionStorage.getItem("exam_student")!).id : "pyhunt"}
         authToken={sessionStorage.getItem("exam_token") || ""}
+        studentId={studentId || "PYHUNT_GUEST"}
+        studentName={studentName || "PyHunter"}
         isSubmitted={finished} 
         onAutoSubmit={() => {
           setTerminated(true);
@@ -1367,52 +1369,52 @@ export default function PyHuntPage() {
           const duration = Math.floor((Date.now() - startTime) / 60000);
           setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
         }}
-        onViolation={(type) => {
+        onViolation={(type, meta) => {
           setLastViolation(type);
-          setWarningCount(prev => Math.min(prev + 1, 3));
+          if (meta && typeof meta.strike === 'number') {
+            setWarningCount(meta.strike);
+          } else {
+            setWarningCount(prev => Math.min(prev + 1, 3));
+          }
         }}
         initialWarningCount={warningCount}
-        forceReenterFullscreen={enterFullscreen}
-      />
-
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.logo}>
-          <span className={styles.logoIcon}>🐍</span>
-          <div>
-            <div className={styles.logoTitle}>PYHUNT</div>
-            <div className={styles.logoSub}>Python Treasure Hunt</div>
+      >
+        {/* Header */}
+        <header className={styles.header}>
+          <div className={styles.logo}>
+            <span className={styles.logoIcon}>🐍</span>
+            <div>
+              <div className={styles.logoTitle}>PYHUNT</div>
+              <div className={styles.logoSub}>Python Treasure Hunt</div>
+            </div>
           </div>
-        </div>
-      <ProgressBar round={round} showingClue={showingClue} />
-      
+          <ProgressBar round={round} showingClue={showingClue} />
+        
 
-        <div className={styles.headerRight}>
-          <div className={styles.statsBadge}>
-            <span className={styles.statLabel}>Tries:</span>
-            <span className={styles.statValue}>{totalWrongs}</span>
+          <div className={styles.headerRight}>
+            <div className={styles.statsBadge}>
+              <span className={styles.statLabel}>Tries:</span>
+              <span className={styles.statValue}>{totalWrongs}</span>
+            </div>
+            <span className={styles.studentBadge}>👤 {studentName}</span>
           </div>
-          <span className={styles.studentBadge}>👤 {studentName}</span>
-        </div>
-      </header>
+        </header>
 
-      {/* ── WARNING OVERLAY — blocks ALL interaction, centered ── */}
-      {/* (Warning overlay now handled by AntiCheat component for consistency) */}
+        {/* Content */}
+        <main className={styles.content}>
+          {/* CLUE SCREEN */}
+          {showingClue && cfg.clues[round] && (
+            <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
+          )}
 
-      {/* Content */}
-      <main className={styles.content}>
-        {/* CLUE SCREEN */}
-        {showingClue && cfg.clues[round] && (
-          <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
-        )}
-
-        {/* ROUNDS */}
-        {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-        {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
-      </main>
+          {/* ROUNDS */}
+          {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+          {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+          {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+          {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+          {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
+        </main>
+      </AntiCheat>
     </div>
   );
 }
