@@ -101,7 +101,15 @@ def get_questions(
                 if end_idx != -1:
                     q_exam = text[6:end_idx]
 
-            exam_match = (q_exam and q_exam.strip().lower() == title.strip().lower())
+            # Normalize both for comparison (strip whitespace, case-insensitive)
+            title_norm = title.strip().lower()
+            q_exam_norm = q_exam.strip().lower() if q_exam else ""
+            exam_match = (
+                q_exam_norm == title_norm
+                or q_exam_norm.replace(" ", "") == title_norm.replace(" ", "")
+                or title_norm in q_exam_norm
+                or q_exam_norm in title_norm
+            )
             if not exam_match:
                 continue  # skip questions from other exams entirely
 
@@ -132,9 +140,14 @@ def get_questions(
                     if end_idx != -1:
                         q_exam = text[6:end_idx]
                 
-                if q_exam and q_exam.strip().lower() == title.strip().lower():
+                qe = (q_exam or "").strip().lower()
+                tn = title.strip().lower()
+                if qe == tn or qe.replace(" ", "") == tn.replace(" ", "") or tn in qe or qe in tn:
                     filtered_data.append(q)
         
+        # Debug: log unique exam_names found in DB to help diagnose mismatches
+        unique_exam_names = list(set(q.get("exam_name", "NULL") for q in all_questions))
+        print(f"[EXAM] DB has {len(all_questions)} total questions. exam_names: {unique_exam_names[:10]}")
         print(f"[EXAM] Final filtered count for '{title}' (branch: {branch}): {len(filtered_data)}")
                 
     except Exception as e:
@@ -558,5 +571,6 @@ def submit_code(
         passed_count=request.passed_count,
         total_count=request.total_count,
     )
+
 
 
