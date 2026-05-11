@@ -378,6 +378,12 @@ class BulkImportRequest(BaseModel):
     branch: str = "CS"
     marks_per_question: int = 1
     category: Optional[str] = "Others"
+    duration_minutes: Optional[int] = 20
+    enable_schedule: Optional[bool] = False
+    schedule_start_date: Optional[str] = None
+    schedule_start_time: Optional[str] = None
+    schedule_end_date: Optional[str] = None
+    schedule_end_time: Optional[str] = None
 
 # ── Support / SOS ─────────────────────────────────────────────
 class SupportRequestCreate(BaseModel):

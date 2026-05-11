@@ -995,7 +995,7 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
           <div className={styles.statLabel}>Wrong Attempts</div>
         </div>
         <div className={styles.statItem}>
-          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/4</div>
+          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/3</div>
           <div className={styles.statLabel}>Warnings</div>
         </div>
       </div>

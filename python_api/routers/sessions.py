@@ -54,33 +54,57 @@ async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
     expires_at = now + timedelta(minutes=exam.get("duration_minutes", 20))
 
     # Check for existing session
-    existing = (
-        sb.table("exam_sessions")
-        .select("*")
-        .eq("exam_config_id", exam["id"])
-        .eq("user_id", str(user_id))
-        .maybe_single()
-        .execute()
-    )
+    session_id = None
+    question_order = None
+    try:
+        existing = (
+            sb.table("exam_sessions")
+            .select("*")
+            .eq("exam_config_id", exam["id"])
+            .eq("user_id", str(user_id))
+            .maybe_single()
+            .execute()
+        )
 
-    if existing.data and existing.data.get("status") == "submitted":
-        raise HTTPException(status_code=409, detail="Exam already submitted")
+        if existing.data and existing.data.get("status") == "submitted":
+            raise HTTPException(status_code=409, detail="Exam already submitted")
 
-    if existing.data:
-        session_id = existing.data["id"]
-        sb.table("exam_sessions").update({
-            "last_activity_at": now.isoformat()
-        }).eq("id", session_id).execute()
-    else:
-        ins = sb.table("exam_sessions").insert({
-            "exam_config_id":  exam["id"],
-            "exam_name":       exam.get("exam_title", req.exam_name),
-            "user_id":         str(user_id),
-            "branch":          user.get("branch", ""),
-            "status":          "running",
-            "client_ts_start": req.client_ts,
-        }).execute()
-        session_id = ins.data[0]["id"]
+        if existing.data:
+            session_id = existing.data["id"]
+            question_order = existing.data.get("question_order")
+            sb.table("exam_sessions").update({
+                "last_activity_at": now.isoformat()
+            }).eq("id", session_id).execute()
+        else:
+            ins = sb.table("exam_sessions").insert({
+                "exam_config_id":  exam["id"],
+                "exam_name":       exam.get("exam_title", req.exam_name),
+                "user_id":         str(user_id),
+                "branch":          user.get("branch", ""),
+                "status":          "running",
+                "client_ts_start": req.client_ts,
+            }).execute()
+            session_id = ins.data[0]["id"]
+    except Exception as e:
+        # Fallback for legacy schema (no exam_sessions)
+        print(f"[SESSIONS] Falling back from exam_sessions: {e}")
+        # Check exam_status for submission
+        status_check = sb.table("exam_status").select("status").eq("student_id", str(user_id)).maybe_single().execute()
+        if status_check.data and status_check.data.get("status") == "submitted":
+             raise HTTPException(status_code=409, detail="Exam already submitted")
+        
+        # Use a pseudo-session-id (hashed student_id + exam_id)
+        session_id = hashlib.md5(f"{user_id}_{exam['id']}".encode()).hexdigest()
+        
+        # Update/Insert into exam_status for tracking
+        try:
+            sb.table("exam_status").upsert({
+                "student_id": str(user_id),
+                "status": "active",
+                "started_at": now.isoformat(),
+                "last_active": now.isoformat()
+            }).execute()
+        except Exception: pass
 
     # Fetch minimal question list for this exam
     q_resp = (
@@ -93,22 +117,16 @@ async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
     questions = q_resp.data or []
 
     # Reproducible shuffle — use seeded RNG (seed from session_id+user_id)
-    question_order = None
-    if existing.data and existing.data.get("question_order"):
-        # Resume: restore saved order
-        saved_order = existing.data["question_order"]
-        q_map = {q["id"]: q for q in questions}
-        questions = [q_map[qid] for qid in saved_order if qid in q_map]
-        question_order = saved_order
-    elif exam.get("shuffle_questions"):
-        seed = int(hashlib.md5((str(session_id)+str(user_id)).encode()).hexdigest(), 16) % (2**31)
-        rng  = random.Random(seed)
-        rng.shuffle(questions)
-        question_order = [q["id"] for q in questions]
-        try:
-            sb.table("exam_sessions").update({"question_order": question_order}).eq("id", session_id).execute()
-        except Exception:
-            pass
+    if not question_order:
+        if exam.get("shuffle_questions"):
+            seed = int(hashlib.md5((str(session_id)+str(user_id)).encode()).hexdigest(), 16) % (2**31)
+            rng  = random.Random(seed)
+            rng.shuffle(questions)
+            question_order = [q["id"] for q in questions]
+            try:
+                sb.table("exam_sessions").update({"question_order": question_order}).eq("id", session_id).execute()
+            except Exception:
+                pass
 
     return {
         "session_id":  session_id,
@@ -140,43 +158,79 @@ class FinalSubmitRequest(BaseModel):
 async def final_submit(req: FinalSubmitRequest, user=Depends(get_current_student)):
     sb = get_supabase()
     user_id = user.get("id") or user.get("usn") or user.get("student_id", "")
-
-    session = (
-        sb.table("exam_sessions")
-        .select("*")
-        .eq("id", req.session_id)
-        .eq("user_id", str(user_id))
-        .maybe_single()
-        .execute()
-    )
-    if not session.data:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session.data.get("status") == "submitted":
-        return {"status": "ok", "message": "Already submitted", "score_estimate": None}
+    session_data = {}
+    try:
+        session = (
+            sb.table("exam_sessions")
+            .select("*")
+            .eq("id", req.session_id)
+            .eq("user_id", str(user_id))
+            .maybe_single()
+            .execute()
+        )
+        session_data = session.data or {}
+        if session_data.get("status") == "submitted":
+            return {"status": "ok", "message": "Already submitted", "score_estimate": None}
+    except Exception:
+        print("[SESSIONS] exam_sessions missing during submit")
 
     now = datetime.now(timezone.utc)
+    
+    # Legacy answer consolidation
+    consolidated_answers = {}
+    for r in req.final_responses:
+        # Some systems expect a string value for simple MCQs
+        val = r.answer_json.get("value") or r.answer_json.get("option_id") or r.answer_json
+        consolidated_answers[r.question_id] = val
 
     # Upsert final responses
     if req.final_responses:
-        rows = [
-            {
-                "session_id":  req.session_id,
-                "question_id": r.question_id,
-                "user_id":     str(user_id),
-                "answer_json": r.answer_json,
-                "updated_at":  r.updated_at or now.isoformat(),
-                "is_final":    True,
-            }
-            for r in req.final_responses
-        ]
-        sb.table("responses").upsert(rows, on_conflict="session_id,question_id").execute()
+        try:
+            rows = [
+                {
+                    "session_id":  req.session_id,
+                    "question_id": r.question_id,
+                    "user_id":     str(user_id),
+                    "answer_json": r.answer_json,
+                    "updated_at":  r.updated_at or now.isoformat(),
+                    "is_final":    True,
+                }
+                for r in req.final_responses
+            ]
+            sb.table("responses").upsert(rows, on_conflict="session_id,question_id").execute()
+        except Exception as e:
+            print(f"[SESSIONS] responses table missing, skipping individual row insert: {e}")
 
-    # Mark session ended
-    sb.table("exam_sessions").update({
-        "status":           "submitted",
-        "ended_at":         now.isoformat(),
-        "last_activity_at": now.isoformat(),
-    }).eq("id", req.session_id).execute()
+    # Mark session ended (modern)
+    try:
+        sb.table("exam_sessions").update({
+            "status":           "submitted",
+            "ended_at":         now.isoformat(),
+            "last_activity_at": now.isoformat(),
+        }).eq("id", req.session_id).execute()
+    except Exception: pass
+
+    # Mark session ended (legacy exam_status)
+    try:
+        sb.table("exam_status").update({
+            "status": "submitted",
+            "submitted_at": now.isoformat(),
+            "last_active": now.isoformat()
+        }).eq("student_id", str(user_id)).execute()
+    except Exception: pass
+
+    # Store in exam_results (LEGACY COMPATIBILITY)
+    try:
+        sb.table("exam_results").upsert({
+            "student_id": str(user_id),
+            "exam_title": session_data.get("exam_name", "Unknown Exam"),
+            "answers": consolidated_answers,
+            "submitted_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "category": session_data.get("category", "Others")
+        }, on_conflict="student_id,exam_title").execute()
+    except Exception as er_err:
+        print(f"[SESSIONS] Failed to write to exam_results: {er_err}")
 
     # Enqueue async grading job — return immediately
     grading_id = None

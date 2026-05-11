@@ -13,7 +13,7 @@ interface AntiCheatProps {
 }
 
 const DEBOUNCE_MS = 3000;   // client-side debounce between violations
-const STABILIZE_MS = 2500;  // grace period after mount before violations count
+const STABILIZE_MS = 5000;  // grace period after mount before violations count
 const MAX_WARNINGS = 3;     // auto-submit after this many warnings (server is authoritative)
 
 export default function AntiCheat({
@@ -38,6 +38,7 @@ export default function AntiCheat({
   const fsReentryRef = useRef(false);
   const screenshotRef = useRef(false);
   const warningRef = useRef(initialWarningCount);
+  const lastVisibilityChangeRef = useRef(Date.now());
 
   // ── On mount: fetch session state (handles page refresh) ──────────────
   useEffect(() => {
@@ -85,6 +86,9 @@ export default function AntiCheat({
       if (!stabilizedRef.current) return;
 
       const now = Date.now();
+      
+      // Ignore if visibility changed in the last 1.5 seconds (lag protection)
+      if (now - lastVisibilityChangeRef.current < 1500) return;
       // Add a 500ms hard lock to suppress rapid subsequent triggers
       if (now - lastViolationRef.current < 500) return;
       if (now - lastViolationRef.current < DEBOUNCE_MS) return;
@@ -126,9 +130,11 @@ export default function AntiCheat({
             setOverlayMessage(
               `🔴 Exam automatically submitted due to ${serverCount} violations.`
             );
+            // Block all interactions
+            setOverlayVisible(true);
             setTimeout(() => {
               onAutoSubmit();
-            }, 2500);
+            }, 3000);
           } else {
             setOverlayMessage(
               `⚠️ Warning ${serverCount} of ${MAX_WARNINGS}: ${friendlyType} detected.\n` +
@@ -190,6 +196,7 @@ export default function AntiCheat({
 
     // Visibility / tab switch
     const handleVisibility = () => {
+      lastVisibilityChangeRef.current = Date.now();
       if (document.hidden) {
         tabSwitchRef.current = true;
         triggerViolation("tab_switch");

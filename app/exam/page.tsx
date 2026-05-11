@@ -467,11 +467,15 @@ export default function ExamPage() {
 
           <div className={styles.resultCard}>
             <div className={styles.resultDetail}>
-              <span className={styles.detailValue}>{submitResult.score}%</span>
+              <span className={styles.detailValue}>
+                {submitResult.total_marks > 0 
+                  ? Math.round((submitResult.score / submitResult.total_marks) * 100) 
+                  : 0}%
+              </span>
               <span className={styles.detailLabel}>Final Score</span>
             </div>
             <div className={styles.resultDetail}>
-              <span className={styles.detailValue}>{submitResult.correct_count}</span>
+              <span className={styles.detailValue}>{submitResult.correct_count ?? 0}</span>
               <span className={styles.detailLabel}>Correct</span>
             </div>
             <div className={styles.resultDetail}>

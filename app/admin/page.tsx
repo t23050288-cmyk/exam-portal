@@ -2098,11 +2098,37 @@ function StudentsTab() {
             + Add Student
           </button>
 
+          <label className="btn btn-outline" style={{ height: 38, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            📁 Bulk Upload
+            <input type="file" accept=".csv" style={{ display: "none" }} onChange={handleCsvUpload} disabled={csvUploading} />
+          </label>
+          
           <button onClick={handleExportStudents} style={{ padding:"0 16px", height: 38, borderRadius:10, border:"1px solid #10b981", background:"transparent", color:"#34d399", fontSize:13, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:6 }}>
             📥 Export CSV
           </button>
         </div>
       </div>
+
+      {csvResult && (
+        <div style={{ margin: "20px 0", padding: "16px 24px", background: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 24 }}>
+              <div><span style={{ color: "#10b981", fontWeight: 700 }}>{csvResult.created ?? 0}</span> <span style={{ opacity: 0.7, fontSize: 13 }}>Created</span></div>
+              <div><span style={{ color: "#f59e0b", fontWeight: 700 }}>{csvResult.skipped ?? 0}</span> <span style={{ opacity: 0.7, fontSize: 13 }}>Skipped</span></div>
+              {csvResult.errors?.length > 0 && <div><span style={{ color: "#ef4444", fontWeight: 700 }}>{csvResult.errors.length}</span> <span style={{ opacity: 0.7, fontSize: 13 }}>Errors</span></div>}
+            </div>
+            <button onClick={() => setCsvResult(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>✕</button>
+          </div>
+          {csvResult.errors?.length > 0 && (
+            <div style={{ marginTop: 12, fontSize: 12, color: "#fca5a5", maxHeight: 100, overflowY: "auto" }}>
+              {csvResult.errors.slice(0, 5).map((e: any, i: number) => (
+                <div key={i}>• {e.usn || e.line}: {e.error}</div>
+              ))}
+              {csvResult.errors.length > 5 && <div>...and {csvResult.errors.length - 5} more errors</div>}
+            </div>
+          )}
+        </div>
+      )}
 
 
       {loading ? (

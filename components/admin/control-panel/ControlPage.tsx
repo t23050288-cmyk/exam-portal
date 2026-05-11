@@ -187,6 +187,31 @@ export default function OrbitalControlPage() {
     fetchStats();
   }, [fetchConfig, fetchStats]);
 
+  // Auto-calculate duration from schedule
+  useEffect(() => {
+    if (config.enable_schedule && config.schedule_start_date && config.schedule_start_time && config.schedule_end_date && config.schedule_end_time) {
+      const start = new Date(`${config.schedule_start_date}T${config.schedule_start_time}`);
+      const end = new Date(`${config.schedule_end_date}T${config.schedule_end_time}`);
+      const diffMs = end.getTime() - start.getTime();
+      if (diffMs > 0) {
+        const totalSecs = Math.floor(diffMs / 1000);
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        const s = totalSecs % 60;
+        
+        // Only update if it actually changed to avoid infinite loop
+        if (h !== config.duration_hours || m !== config.duration_minutes || s !== config.duration_seconds) {
+          setConfig(prev => ({
+            ...prev,
+            duration_hours: h,
+            duration_minutes: m,
+            duration_seconds: s
+          }));
+        }
+      }
+    }
+  }, [config.schedule_start_date, config.schedule_start_time, config.schedule_end_date, config.schedule_end_time, config.enable_schedule]);
+
   const save = async () => {
     setSaving(true);
     try {

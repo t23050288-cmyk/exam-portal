@@ -63,23 +63,51 @@ async def report_violation(
         current_warnings = (exam_status.data[0] if exam_status.data else {}).get("warnings", 0)
         new_warnings = current_warnings + 1
 
-        # Log violation event
-        db.table("violations").insert(
-            {
+        # 1. Log to legacy violations (student_id based)
+        try:
+            db.table("violations").insert({
                 "student_id": student_id,
                 "type": request.type,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "metadata": request.metadata or {},
-            }
-        ).execute()
+            }).execute()
+        except Exception as e:
+            print(f"[VIOLATION] Legacy log failed (maybe using modern schema?): {e}")
 
-        # Increment warnings in exam_status
-        db.table("exam_status").update(
-            {
+        # 2. Try to log to modern violations (session_id based) if available
+        # We check for session_id in the metadata or try to find an active session
+        session_id = (request.metadata or {}).get("session_id")
+        if session_id:
+            try:
+                db.table("violations").insert({
+                    "session_id": session_id,
+                    "violation_type": request.type,
+                    "severity": "medium",
+                    "details": f"Auto-reported: {request.type}",
+                    "count": 1
+                }).execute()
+            except Exception:
+                pass
+
+        # 3. Increment warnings in exam_status (Legacy)
+        try:
+            db.table("exam_status").update({
                 "warnings": new_warnings,
                 "last_active": datetime.now(timezone.utc).isoformat(),
-            }
-        ).eq("student_id", student_id).execute()
+                "last_violation_at": datetime.now(timezone.utc).isoformat()
+            }).eq("student_id", student_id).execute()
+        except Exception:
+            pass
+            
+        # 4. Try modern session update if session_id is known
+        if session_id:
+            try:
+                db.table("exam_sessions").update({
+                    "status": "flagged" if new_warnings >= 3 else "running",
+                    "last_activity_at": datetime.now(timezone.utc).isoformat()
+                }).eq("id", session_id).execute()
+            except Exception:
+                pass
     except Exception as e:
         print(f"[VIOLATION] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

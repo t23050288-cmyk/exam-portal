@@ -172,6 +172,12 @@ export default function IngestPage() {
   const [examName, setExamName] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Aptitude");
   const [maxQuestions, setMaxQuestions] = useState<number | "">("");
+  const [durationMinutes, setDurationMinutes] = useState<number>(60);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [showGatekeeperAlert, setShowGatekeeperAlert] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -208,11 +214,9 @@ export default function IngestPage() {
         method: "POST",
         body: formData,
       });
-      setTimeout(() => {
-        setResult(data);
-        setPhase("previewing");
-        setEvaporating(false);
-      }, 600);
+      setResult(data);
+      setPhase("previewing");
+      setEvaporating(false);
     } catch (e: any) {
       setError(e.message);
       setPhase("idle");
@@ -257,6 +261,12 @@ export default function IngestPage() {
           exam_name: examName,
           category: selectedCategory,
           max_questions: maxQuestions === "" ? null : maxQuestions,
+          duration_minutes: durationMinutes,
+          enable_schedule: scheduleEnabled,
+          schedule_start_date: startDate || null,
+          schedule_start_time: startTime || null,
+          schedule_end_date: endDate || null,
+          schedule_end_time: endTime || null,
         }),
       });
       setCommitted(data.committed);
@@ -354,6 +364,74 @@ export default function IngestPage() {
             <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4, textAlign: "center" }}>
               If specified, we will pick random questions from your file.
             </div>
+          </div>
+
+           {/* Duration Orb */}
+          <div className={styles.orbContainer} style={{ marginTop: 12 }}>
+            <label className={styles.orbLabel}>Exam Duration (Minutes)</label>
+            <input
+              type="number"
+              placeholder="Duration in minutes (e.g. 60)"
+              className={`${styles.orbInput} ${durationMinutes ? styles.orbActive : ""}`}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
+            />
+            <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4, textAlign: "center" }}>
+              Students will have this much time to complete the exam.
+            </div>
+          </div>
+
+          {/* Schedule Settings */}
+          <div className={styles.orbContainer} style={{ marginTop: 12 }}>
+            <label className={styles.orbLabel} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input 
+                type="checkbox" 
+                checked={scheduleEnabled} 
+                onChange={(e) => setScheduleEnabled(e.target.checked)}
+              />
+              Enable Scheduling
+            </label>
+            
+            {scheduleEnabled && (
+              <div className={styles.scheduleGrid} style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className={styles.subOrb}>
+                  <label style={{ fontSize: 10, opacity: 0.6, display: "block", marginBottom: 4 }}>Start Date</label>
+                  <input 
+                    type="date" 
+                    className={styles.orbInput} 
+                    value={startDate} 
+                    onChange={(e) => setStartDate(e.target.value)} 
+                  />
+                </div>
+                <div className={styles.subOrb}>
+                  <label style={{ fontSize: 10, opacity: 0.6, display: "block", marginBottom: 4 }}>Start Time</label>
+                  <input 
+                    type="time" 
+                    className={styles.orbInput} 
+                    value={startTime} 
+                    onChange={(e) => setStartTime(e.target.value)} 
+                  />
+                </div>
+                <div className={styles.subOrb}>
+                  <label style={{ fontSize: 10, opacity: 0.6, display: "block", marginBottom: 4 }}>End Date</label>
+                  <input 
+                    type="date" 
+                    className={styles.orbInput} 
+                    value={endDate} 
+                    onChange={(e) => setEndDate(e.target.value)} 
+                  />
+                </div>
+                <div className={styles.subOrb}>
+                  <label style={{ fontSize: 10, opacity: 0.6, display: "block", marginBottom: 4 }}>End Time</label>
+                  <input 
+                    type="time" 
+                    className={styles.orbInput} 
+                    value={endTime} 
+                    onChange={(e) => setEndTime(e.target.value)} 
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Category Orb */}
@@ -476,6 +554,15 @@ export default function IngestPage() {
               <ul className={styles.warningList}>
                 {result.parse_warnings.map((w, i) => <li key={i}>• {w}</li>)}
               </ul>
+            </div>
+          )}
+
+          {result.questions.length === 0 && (
+            <div className={styles.warningBox} style={{ borderColor: "#ef4444", color: "#f87171", background: "rgba(239,68,68,0.08)", marginBottom: 24 }}>
+              <strong>⚠ No questions found</strong>
+              <p style={{ fontSize: 12, marginTop: 4 }}>
+                The AI was unable to extract any questions from this file. Please check the format or try a different file.
+              </p>
             </div>
           )}
 

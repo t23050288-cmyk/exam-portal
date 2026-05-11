@@ -63,7 +63,7 @@ export default function ExamCard({ exam, isUpcoming, timeUntil, onLaunch }: Exam
         {exam.submitted ? (
           <div className={styles.scoreInfo}>
             <span className={styles.scoreLabel}>Score:</span>
-            <span className={styles.scoreValue}>{exam.score} / {exam.total_marks}</span>
+            <span className={styles.scoreValue}>{exam.score ?? 0} / {exam.total_marks ?? 0}</span>
           </div>
         ) : isUpcoming ? (
           <div className={styles.countdown}>

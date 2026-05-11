@@ -78,12 +78,14 @@ export async function POST(req: NextRequest) {
     const { error: resultErr } = await supabaseAdmin
       .from("exam_results")
       .upsert({
-        student_id: student.id, // Use actual UUID
+        student_id: student.id,
+        exam_title: examTitle,
+        category: body.category || "Others",
         score,
         total_marks: totalMarks,
         answers: answers,
         submitted_at: new Date().toISOString(),
-      }, { onConflict: "student_id" }); // Use student_id as unique constraint
+      }, { onConflict: "student_id,exam_title" });
 
     if (resultErr) {
       console.error("[SUBMIT] Result insert error:", resultErr);
@@ -100,10 +102,15 @@ export async function POST(req: NextRequest) {
 
     console.log(`[SUBMIT] Student ${student.id} submitted '${examTitle}': ${score}/${totalMarks}`);
 
+    const correctCount = results.filter(r => r.is_correct).length;
+    const wrongCount = filtered.length - correctCount;
+
     return NextResponse.json({
       ok: true,
       score,
       total_marks: totalMarks,
+      correct_count: correctCount,
+      wrong_count: wrongCount,
       total_questions: filtered.length,
       answered: Object.keys(answers).length,
       results,

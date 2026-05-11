@@ -740,7 +740,7 @@ async def commit_questions(
                 except Exception as cq_err:
                     logger.warning(f"code_questions insert failed: {cq_err}")
 
-        # ── Step 5: Sync Exam Config ──
+            # ── Step 5: Sync Exam Config ──
         try:
             from datetime import datetime, timezone
             total_marks = sum(r.get("marks", 1) for r in rows_to_insert)
@@ -748,17 +748,37 @@ async def commit_questions(
             # Deactivate ALL other exams first to ensure this one becomes the global active one
             db.table("exam_config").update({"is_active": False}).execute()
             
-            db.table("exam_config").upsert({
+            duration = request.duration_minutes if request.duration_minutes and request.duration_minutes > 0 else 20
+            
+            # Prepare config row - ONLY include columns that exist
+            config_row = {
                 "exam_title": safe_exam_name,
                 "total_questions": inserted_count,
                 "total_marks": total_marks,
-                "duration_minutes": 20,  # Enforced 20 min exam as per user request
+                "duration_minutes": duration,
                 "is_active": True,
                 "category": request.category or "Others",
+                "enable_schedule": request.enable_schedule or False,
+                "schedule_start_date": request.schedule_start_date,
+                "schedule_start_time": request.schedule_start_time,
+                "schedule_end_date": request.schedule_end_date,
+                "schedule_end_time": request.schedule_end_time,
                 "updated_at": datetime.now(timezone.utc).isoformat()
-            }, on_conflict="exam_title").execute()
+            }
             
-            logger.info(f"Exam Config synced for '{safe_exam_name}': {inserted_count} qs, 20 mins, active.")
+            # Schema discovery for exam_config
+            try:
+                cfg_probe = db.table("exam_config").select("*").limit(1).execute()
+                cfg_cols = list(cfg_probe.data[0].keys()) if (cfg_probe.data) else [
+                    "exam_title", "total_questions", "total_marks", "duration_minutes", "is_active"
+                ]
+                safe_config = {k: v for k, v in config_row.items() if k in cfg_cols}
+            except Exception:
+                safe_config = config_row
+            
+            db.table("exam_config").upsert(safe_config, on_conflict="exam_title").execute()
+            
+            logger.info(f"Exam Config synced for '{safe_exam_name}': {inserted_count} qs, {duration} mins, active.")
         except Exception as config_err:
             logger.warning(f"Sync Config failed: {config_err}")
         

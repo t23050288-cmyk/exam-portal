@@ -679,7 +679,7 @@ export default function DashboardPage() {
                           <div className={styles.historyRight}>
                             <div className={styles.historyScore}>
                               <span className={styles.scoreLabel}>Final Score</span>
-                              <div className={styles.scoreValue}>{r.score} / {r.totalMarks}</div>
+                              <div className={styles.scoreValue}>{r.score ?? 0} / {r.totalMarks ?? 0}</div>
                             </div>
                             <div className={styles.historyStatus}>COMPLETED</div>
                           </div>

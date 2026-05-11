@@ -57,9 +57,13 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("exam_status")
       .upsert({
-        student_id: student.id, // Use actual UUID
+        student_id: student.id,
         status: "active",
         started_at: now,
+        warnings: 0,
+        last_violation_at: null,
+        auto_submitted: false,
+        submitted_at: null,
       }, { onConflict: "student_id" });
 
     // Store session

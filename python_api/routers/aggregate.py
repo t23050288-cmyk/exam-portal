@@ -25,7 +25,13 @@ def _get_aggregate(exam_id: str) -> dict:
 
     sb = get_supabase()
 
-    # Active sessions
+    active_count    = 0
+    submitted_count = 0
+    flagged_count   = 0
+    sessions        = []
+    legacy_mode     = False
+
+    # 1. Try modern exam_sessions
     try:
         sess_resp = (
             sb.table("exam_sessions")
@@ -34,17 +40,30 @@ def _get_aggregate(exam_id: str) -> dict:
             .execute()
         )
         sessions = sess_resp.data or []
+        active_count    = sum(1 for s in sessions if s["status"] == "running")
+        submitted_count = sum(1 for s in sessions if s["status"] == "submitted")
+        flagged_count   = sum(1 for s in sessions if s["status"] == "flagged")
     except Exception:
-        sessions = []
+        # 2. Fallback to legacy exam_status
+        legacy_mode = True
+        try:
+            # We don't have exam_id in exam_status usually, so we filter by active exams? 
+            # Or just assume we want the global status for now if exam_id is a title
+            # In legacy, student status is what we have.
+            # We'll try to find students where status is 'active' or 'submitted'
+            status_resp = sb.table("exam_status").select("status").execute()
+            data = status_resp.data or []
+            active_count    = sum(1 for s in data if s["status"] == "active")
+            submitted_count = sum(1 for s in data if s["status"] == "submitted")
+            # Flagged in legacy might be based on warnings > threshold
+            # But let's keep it simple for now.
+        except Exception:
+            pass
 
-    active_count    = sum(1 for s in sessions if s["status"] == "running")
-    submitted_count = sum(1 for s in sessions if s["status"] == "submitted")
-    flagged_count   = sum(1 for s in sessions if s["status"] == "flagged")
-
-    # Violations aggregated
-    session_ids = [s["id"] for s in sessions]
-    violations = []
-    if session_ids:
+    # 3. Violations aggregated
+    by_severity = {"low": 0, "medium": 0, "high": 0}
+    if not legacy_mode and sessions:
+        session_ids = [s["id"] for s in sessions]
         try:
             viol_resp = (
                 sb.table("violations")
@@ -52,14 +71,20 @@ def _get_aggregate(exam_id: str) -> dict:
                 .in_("session_id", session_ids)
                 .execute()
             )
-            violations = viol_resp.data or []
+            for v in (viol_resp.data or []):
+                sev = v.get("severity", "low")
+                by_severity[sev] = by_severity.get(sev, 0) + (v.get("count") or 1)
         except Exception:
             pass
-
-    by_severity = {"low": 0, "medium": 0, "high": 0}
-    for v in violations:
-        sev = v.get("severity", "low")
-        by_severity[sev] = by_severity.get(sev, 0) + (v.get("count") or 1)
+    else:
+        # Legacy violations aggregation (if table exists and uses student_id)
+        try:
+            v_resp = sb.table("violations").select("type").execute()
+            # In legacy, we just count them as medium? Or map them
+            for v in (v_resp.data or []):
+                by_severity["medium"] += 1
+        except Exception:
+            pass
 
     # Throttle mode
     throttle_mode = "normal"
@@ -79,6 +104,7 @@ def _get_aggregate(exam_id: str) -> dict:
         "violations_by_severity": by_severity,
         "throttle_mode":    throttle_mode,
         "last_updated":     datetime.now(timezone.utc).isoformat(),
+        "schema_version":   "legacy" if legacy_mode else "modern"
     }
     _agg_cache[exam_id] = {"ts": now, "data": data}
     return data
