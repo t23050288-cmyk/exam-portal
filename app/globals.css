@@ -72,7 +72,7 @@ body::before {
   background:
     radial-gradient(ellipse 70% 50% at 20% 25%, rgba(31,11,47,0.88) 0%, transparent 70%),
     radial-gradient(ellipse 60% 70% at 80% 75%, rgba(4,8,15,0.92) 0%, transparent 70%),
-    url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=75&fm=webp') center/cover no-repeat fixed;
+    url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=75&fm=webp') center/cover no-repeat scroll;
   z-index: -2;
   pointer-events: none;
 }
@@ -177,4 +177,15 @@ body > div[data-vercel-toolbar] {
   top: -9999px !important;
   left: -9999px !important;
   overflow: hidden !important;
+}
+
+/* ── Mobile fix: prevent black screen ───────────────────────── */
+@media (max-width: 768px) {
+  body::before {
+    background-attachment: scroll !important;
+    position: fixed;
+  }
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
 }
