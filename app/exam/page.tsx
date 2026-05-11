@@ -21,6 +21,8 @@ import styles from "./exam.module.css";
 interface StudentInfo {
   id: string;
   name: string;
+  branch?: string;
+  examTitle?: string;
   examStartTime: string | null;
   examDurationMinutes: number;
 }
