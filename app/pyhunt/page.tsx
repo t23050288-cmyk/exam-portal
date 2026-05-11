@@ -1004,8 +1004,8 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
         {terminated ? "Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator." : message}
       </div>
       <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard")} style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}>
-          ← Back to Dashboard
+        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard?tab=History")} style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}>
+          ← GO TO HISTORY DASHBOARD
         </button>
         <div style={{ fontSize: 12, opacity: 0.5 }}>
           Auto-redirecting in {timerSeconds}s...

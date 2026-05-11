@@ -314,10 +314,7 @@ export default function ExamPage() {
 
   useEffect(() => {
     if (!isSubmitted) return;
-    if (resultTimerSeconds === 0) {
-       router.replace("/dashboard?tab=History");
-       return;
-    }
+    
     const interval = setInterval(() => {
       setResultTimerSeconds(prev => {
         if (prev <= 1) {
@@ -328,8 +325,9 @@ export default function ExamPage() {
         return prev - 1;
       });
     }, 1000);
+    
     return () => clearInterval(interval);
-  }, [isSubmitted, resultTimerSeconds, router]);
+  }, [isSubmitted, router]);
 
   // ── Rendering ───────────────────────────────────────────
   const answeredCount = getAnsweredCount(questions.length);
@@ -448,39 +446,46 @@ export default function ExamPage() {
   if (isSubmitted && submitResult) {
     return (
       <div className={styles.submittedWrapper}>
-        <div style={{ position: "fixed", top: "10%", left: "15%", width: 400, height: 400, background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
-        <div style={{ position: "fixed", bottom: "10%", right: "15%", width: 400, height: 400, background: "radial-gradient(circle, rgba(13,148,136,0.15) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
+        <div className={styles.stars} />
         <div className={styles.successCapsule}>
           <div className={styles.hourglassBg}>
-            <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <path d="M5 2h14" /><path d="M5 22h14" /><path d="M19 2a33 33 0 0 1-14 0" /><path d="M19 22a33 33 0 0 0-14 0" /><path d="M15 2v1c0 5-6 5-6 10s6 5 6 10v1" /><path d="M9 2v1c0 5 6 5 6 10s-6 5-6 10v1" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1">
+              <path d="M12 2v20M5 5l14 14M19 5L5 14" />
             </svg>
           </div>
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <h1 className={styles.thankYouTitle}>THANK YOU!</h1>
-            <div className={styles.resultMetaRow}>
-              <div className={styles.subStatus}>
-                Exam Submitted <span style={{ background: "#22c55e", borderRadius: "4px", padding: "1px 5px", fontSize: "14px", marginLeft: "2px" }}>✓</span>
-              </div>
-              <div className={styles.answeredCount}>
-                Answered: {getAnsweredCount(questions.length)}/{questions.length}
-              </div>
+          
+          <h1 className={styles.thankYouTitle}>THANK YOU</h1>
+          
+          <div className={styles.resultMetaRow}>
+            <div className={styles.subStatus}>
+              <span style={{ color: "#10b981" }}>●</span> Assessment Submitted
             </div>
-            {showResultDetails && (
-              <div className={styles.resultCard}>
-                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#34d399" }}>{submitResult.correct_count}</div><div className={styles.detailLabel}>Correct</div></div>
-                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#f87171" }}>{submitResult.wrong_count}</div><div className={styles.detailLabel}>Wrong</div></div>
-                <div className={styles.resultDetail}><div className={styles.detailValue} style={{ color: "#94a3b8" }}>{questions.length - (submitResult.correct_count + submitResult.wrong_count)}</div><div className={styles.detailLabel}>Skipped</div></div>
-                <div style={{ gridColumn: "1 / -1", marginTop: 12, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                   <div style={{ fontSize: 13, opacity: 0.6 }}>Total Score</div>
-                   <div style={{ fontSize: 24, fontWeight: 800, color: "var(--accent-light)" }}>{submitResult.score}/{submitResult.total_marks}</div>
-                </div>
-              </div>
-            )}
-            <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
-              <button className={styles.backToDashboardBtn} onClick={() => router.replace("/dashboard?tab=History")}>GO TO SKILLS INSIGHTS →</button>
-              <div style={{ fontSize: 12, opacity: 0.5, textAlign: "center" }}>Auto-redirecting in {resultTimerSeconds}s...</div>
+            <div className={styles.answeredCount}>
+              {answeredCount} / {questions.length} Answered
             </div>
+          </div>
+
+          <div className={styles.resultCard}>
+            <div className={styles.resultDetail}>
+              <span className={styles.detailValue}>{submitResult.score}%</span>
+              <span className={styles.detailLabel}>Final Score</span>
+            </div>
+            <div className={styles.resultDetail}>
+              <span className={styles.detailValue}>{submitResult.correct_count}</span>
+              <span className={styles.detailLabel}>Correct</span>
+            </div>
+            <div className={styles.resultDetail}>
+              <span className={styles.detailValue} style={{ color: warningCount >= 2 ? "#ef4444" : "#fff" }}>{warningCount}</span>
+              <span className={styles.detailLabel}>Warnings</span>
+            </div>
+          </div>
+
+          <button className={styles.viewResultBtn} onClick={() => router.replace("/dashboard?tab=History")}>
+            GO TO DASHBOARD
+          </button>
+          
+          <div style={{ marginTop: 20, fontSize: "14px", opacity: 0.6, fontWeight: 500 }}>
+            Auto-redirecting in {resultTimerSeconds}s...
           </div>
         </div>
       </div>
@@ -548,7 +553,6 @@ export default function ExamPage() {
                     <span>{flagged.has(activeQuestionIndex) ? "🚩" : "🏳️"}</span>
                     {flagged.has(activeQuestionIndex) ? "FLAG" : "MARK AS FLAG"}
                   </button>
-                  <button id="submit-exam-btn" type="button" style={{ background: "linear-gradient(135deg, #ff4d4d, #cc0000)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 10px 30px rgba(255, 77, 77, 0.4)", transition: "all 0.3s ease", letterSpacing: "0.1em", textTransform: "uppercase" }} onClick={() => setConfirmSubmit(true)} disabled={submitting}>{submitting ? "..." : "SUBMIT EXAM"}</button>
                 </div>
               </QuestionCard>
             )}

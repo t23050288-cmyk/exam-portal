@@ -63,13 +63,20 @@ export default function AntiCheat({
     })();
   }, [sessionId, authToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Grace period after mount ──────────────────────────────────────────
+  // ── Grace period after mount + Mandatory Fullscreen ──────────────────
   useEffect(() => {
     const t = setTimeout(() => {
       stabilizedRef.current = true;
     }, STABILIZE_MS);
+
+    // Aggressive: try to force fullscreen immediately if not mobile
+    if (!isMobile && !document.fullscreenElement && !isSubmitted && !autoSubmitted) {
+      setOverlayMessage("🛡️ Security Protocol: This exam requires mandatory Fullscreen Mode.\nClick below to enter secure mode and begin.");
+      setOverlayVisible(true);
+    }
+
     return () => clearTimeout(t);
-  }, []);
+  }, [isMobile, isSubmitted, autoSubmitted]);
 
   // ── Core violation reporter ───────────────────────────────────────────
   const triggerViolation = useCallback(
@@ -323,17 +330,17 @@ export default function AntiCheat({
         position: "fixed",
         inset: 0,
         backgroundColor: autoSubmitted
-          ? "rgba(40, 0, 0, 0.9)"
-          : "rgba(10, 20, 40, 0.85)",
-        zIndex: 999999,
+          ? "rgba(10, 0, 0, 0.95)"
+          : "rgba(0, 5, 15, 0.9)",
+        zIndex: 9999999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: "#fff",
         padding: 24,
         flexDirection: "column",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
         fontFamily: "Inter, sans-serif",
       }}
     >
