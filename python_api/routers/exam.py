@@ -10,7 +10,6 @@ from models.schemas import (
     BatchSaveRequest, BatchSaveResponse,
     BatchEventsRequest, BatchEventsResponse,
     CodeSubmitRequest, CodeSubmitResponse,
-    ReportViolationRequest, ReportViolationResponse,
 )
 from core.security import get_current_student
 from db.supabase_client import get_supabase
@@ -440,23 +439,32 @@ async def start_exam(
     if data.get("status") == "active" and data.get("started_at"):
         return StartExamResponse(started_at=data["started_at"], status="active", started=True, exam_title=title)
 
-    # 3. Otherwise, set the start time NOW
+    # 3. Otherwise, set the start time NOW and RESET warnings to 0
     started_at = datetime.now(timezone.utc).isoformat()
     if data:
-        # Row exists — update it
+        # Row exists — update it and reset warnings
         db.table("exam_status").update({
-            "status": "active", "started_at": started_at, "last_active": started_at
+            "status": "active", 
+            "started_at": started_at, 
+            "last_active": started_at,
+            "warnings": 0  # Reset for new session
         }).eq("student_id", student_id).execute()
     else:
         # No row yet — insert one
         try:
             db.table("exam_status").insert({
                 "student_id": student_id,
-                "status": "active", "started_at": started_at, "last_active": started_at
+                "status": "active", 
+                "started_at": started_at, 
+                "last_active": started_at,
+                "warnings": 0
             }).execute()
         except Exception:
             db.table("exam_status").update({
-                "status": "active", "started_at": started_at, "last_active": started_at
+                "status": "active", 
+                "started_at": started_at, 
+                "last_active": started_at,
+                "warnings": 0
             }).eq("student_id", student_id).execute()
 
     return StartExamResponse(started_at=started_at, status="active")
@@ -600,84 +608,3 @@ def submit_code(
 
 
 
-@router.post("/report-violation", response_model=ReportViolationResponse)
-def report_violation(
-    request: ReportViolationRequest,
-    current: dict = Depends(get_current_student),
-):
-    """
-    Records a security violation and auto-submits the exam after 3 strikes.
-    """
-    db = get_supabase()
-    student_id = current["student_id"]
-    MAX_STRIKES = 3
-
-    try:
-        # 1. Check current status
-        status_res = db.table("exam_status").select("warnings, status, exam_title").eq("student_id", student_id).maybe_single().execute()
-        status_row = status_res.data if status_res.data else {}
-
-        if status_row.get("status") == "submitted":
-            return ReportViolationResponse(
-                warning_count=status_row.get("warnings", 0),
-                auto_submitted=False,
-                message="Exam already submitted."
-            )
-
-        current_warnings = status_row.get("warnings", 0)
-        new_warnings = current_warnings + 1
-        auto_submit = new_warnings >= MAX_STRIKES
-
-        # 2. Log violation
-        violation_payload = {
-            "student_id": student_id,
-            "type": request.type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "metadata": {
-                **(request.metadata or {}),
-                "usn": current.get("usn"),
-                "session_id": request.sessionId
-            }
-        }
-        try:
-            db.table("violations").insert(violation_payload).execute()
-        except Exception as e:
-            print(f"[VIOLATION] Log insert error: {e}")
-
-        # 3. Update exam_status
-        update_payload = {
-            "student_id": student_id,
-            "warnings": new_warnings,
-            "last_violation_at": datetime.now(timezone.utc).isoformat(),
-            "last_active": datetime.now(timezone.utc).isoformat(),
-        }
-        if auto_submit:
-            update_payload["status"] = "submitted"
-            update_payload["submitted_at"] = datetime.now(timezone.utc).isoformat()
-            
-            # Also clear active session in students table
-            db.table("students").update({"is_active_session": False, "current_token": None}).eq("id", student_id).execute()
-
-        db.table("exam_status").upsert(update_payload, on_conflict="student_id").execute()
-
-        # 4. Determine message
-        if auto_submit:
-            msg = f"🔴 3rd violation: Your exam has been auto-submitted."
-        elif new_warnings == 2:
-            msg = f"🚨 Warning 2 of 3: ONE more violation = auto-submit!"
-        else:
-            msg = f"⚠️ Warning 1 of 3: Stay in fullscreen."
-
-        print(f"[VIOLATION] {request.type} | {current.get('usn')} | {new_warnings}/{MAX_STRIKES} | auto={auto_submit}")
-
-        return ReportViolationResponse(
-            warning_count=new_warnings,
-            auto_submitted=auto_submit,
-            message=msg
-        )
-
-    except Exception as e:
-        print(f"[VIOLATION] Processing error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))

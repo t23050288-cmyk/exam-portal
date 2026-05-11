@@ -19,6 +19,14 @@ VALID_VIOLATION_TYPES = {
     "no_face_detected",
     "face_not_front",
     "multiple_faces",
+    "Tab Switch / Minimized",
+    "Window Focus Lost",
+    "Exited Fullscreen (Escape/Button)",
+    "DevTools Detected",
+    "Prohibited Shortcut: f12",
+    "Prohibited Shortcut: ctrl+shift+i",
+    "Prohibited Shortcut: ctrl+shift+j",
+    "Prohibited Shortcut: ctrl+u",
 }
 AUTO_SUBMIT_THRESHOLD = 3
 
@@ -75,8 +83,8 @@ async def report_violation(
             print(f"[VIOLATION] Legacy log failed (maybe using modern schema?): {e}")
 
         # 2. Try to log to modern violations (session_id based) if available
-        # We check for session_id in the metadata or try to find an active session
-        session_id = (request.metadata or {}).get("session_id")
+        # Priority: request.sessionId -> request.metadata["session_id"]
+        session_id = request.sessionId or (request.metadata or {}).get("session_id")
         if session_id:
             try:
                 db.table("violations").insert({
