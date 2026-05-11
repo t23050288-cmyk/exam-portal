@@ -170,35 +170,34 @@ export default function InstructionsPage() {
 
   const handleStartExam = async () => {
     if (starting) return;
-    // Ensure fullscreen before proceeding — also re-enter if lost
-    if (!document.fullscreenElement) {
-      const el = document.documentElement as any;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
-      if (req) req.call(el).catch(() => {});
+    
+    // 1. Move the Call: Execute fullscreen IMMEDIATELY on click
+    const docElm = document.documentElement as any;
+    const requestFs = docElm.requestFullscreen || docElm.webkitRequestFullscreen || docElm.mozRequestFullScreen;
+    
+    let fsPromise: Promise<void> | null = null;
+    if (!document.fullscreenElement && requestFs) {
+      fsPromise = requestFs.call(docElm).catch((err: any) => {
+        console.error("Fullscreen request failed:", err);
+      });
     }
+
     setStarting(true);
 
-    // ── CRITICAL: Request fullscreen SYNCHRONOUSLY within the click handler ──
-    try {
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch (err) {}
-
+    // 2. Handle Asynchronicity: API call happens AFTER gesture-triggered FS request
     startExam(studentInfo?.examTitle || "Initial Assessment").then((res: any) => {
-      
       if (res.status === "submitted") {
         alert("You have already submitted this exam.");
+        // Exit fullscreen if we shouldn't be here
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         setStarting(false);
         return;
       }
 
-      // IMPORTANT: Do NOT overwrite exam_selected_title here.
-      // It was already set correctly by the dashboard when student clicked the exam card.
-      // Overwriting it with studentInfo.examTitle (from login) causes title mismatch.
       if (!sessionStorage.getItem("exam_selected_title")) {
         sessionStorage.setItem("exam_selected_title", studentInfo?.examTitle || "Online Assessment");
       }
+      
       const studentData = sessionStorage.getItem("exam_student");
       if (studentData) {
         const parsed = JSON.parse(studentData);
@@ -209,6 +208,12 @@ export default function InstructionsPage() {
       router.push("/exam");
     }).catch((err: any) => {
       console.error("Failed to start exam", err);
+      
+      // 3. Check logic: If forbidden or error, exit fullscreen so user can see alert
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       const msg: string = err.message || "";
       if (msg.toLowerCase().includes("invalid or expired token") || err.status === 401) {
         sessionStorage.removeItem("exam_token");
