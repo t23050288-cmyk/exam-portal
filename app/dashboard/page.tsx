@@ -199,43 +199,42 @@ export default function DashboardPage() {
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       
       if (studentId) {
-        // ── UUID Validation: Supabase throws 400 if ID format is wrong ──
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId);
-        
         try {
-          if (isUuid) {
-            const token = sessionStorage.getItem("exam_token") || "";
-            const statusResp = await fetch("/api/exam/status", {
-              headers: { "Authorization": `Bearer ${token}` }
-            }).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
-            const statusData: any[] = statusResp.data || [];
-            const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
-            
-            if (resultsData) {
-              resultsData.forEach((r: any) => {
-                if (r.exam_title) {
-                  if (!submittedMap[r.exam_title]) {
-                    submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
-                  }
-                  submittedMap[r.exam_title].attempt_count++;
-                  submittedMap[r.exam_title].score = r.score;
-                  submittedMap[r.exam_title].total_marks = r.total_marks;
+          const token = sessionStorage.getItem("exam_token") || "";
+          
+          // Fetch status from our proxy API (handles JWT auth)
+          const statusResp = await fetch("/api/exam/status", {
+            headers: { "Authorization": `Bearer ${token}` }
+          }).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+          
+          const statusData: any[] = statusResp.data || [];
+          
+          // Fetch results (using studentId for history)
+          const { data: resultsData } = await supabase
+            .from("exam_results")
+            .select("score, total_marks, exam_title")
+            .eq("student_id", studentId);
+          
+          if (resultsData) {
+            resultsData.forEach((r: any) => {
+              if (r.exam_title) {
+                if (!submittedMap[r.exam_title]) {
+                  submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
                 }
-              });
-            }
-            if (statusData) {
-              statusData.forEach((s: any) => {
-                if (s.status === "submitted" && s.exam_title) {
-                  if (!submittedMap[s.exam_title]) {
-                    submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
-                  }
+                submittedMap[r.exam_title].attempt_count++;
+                submittedMap[r.exam_title].score = r.score;
+                submittedMap[r.exam_title].total_marks = r.total_marks;
+              }
+            });
+          }
+          if (statusData) {
+            statusData.forEach((s: any) => {
+              if (s.status === "submitted" && s.exam_title) {
+                if (!submittedMap[s.exam_title]) {
+                  submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
                 }
-              });
-            }
-          } else {
-             // Fallback for non-UUID IDs (legacy USN strings)
-             console.warn("[DASHBOARD] Non-UUID student ID detected:", studentId);
-             // We can't query UUID columns with strings, so we rely on localStorage for history in this case
+              }
+            });
           }
         } catch (dbErr) {
           console.error("[DASHBOARD] DB fetch failed:", dbErr);

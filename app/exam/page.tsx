@@ -50,6 +50,7 @@ export default function ExamPage() {
   // Pagination state
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
+  const [showSecureGate, setShowSecureGate] = useState(true);
 
   // Result Timer (10 seconds for auto-redirect)
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
@@ -112,7 +113,7 @@ export default function ExamPage() {
         import("@/lib/supabase").then(({ supabase }) => {
           supabase.from("exam_status")
             .select("status")
-            .eq("student_id", studentId) // Uses UUID
+            .eq("student_id", studentId)
             .maybeSingle()
             .then(({ data }: { data: any }) => {
               if (data?.status === "submitted") {
@@ -289,13 +290,15 @@ export default function ExamPage() {
       try {
         await flush();
         const res = await submitExam(answers, examTitle);
-        
-        // Results stored in Supabase DB via submit API
-
-        clearExamStorage();
-        setIsSubmitted(true);
         setSubmitResult(res);
+        setIsSubmitted(true);
         setSubmitting(false);
+        
+        // Final Sync & Cleanup
+        try { await flush(); } catch {}
+        clearExamStorage();
+        sessionStorage.removeItem("exam_start_time");
+        sessionStorage.removeItem("exam_selected_title");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Submission failed.";
         setError(auto ? `Auto-submit error: ${msg}` : msg);
@@ -362,19 +365,50 @@ export default function ExamPage() {
     </div>
   );
 
-  if (loading) {
-    return withAntiCheat(
-      <div style={{ padding: 28 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
-          <Skeleton height={80} borderRadius={20} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20 }}>
-            <Skeleton height={400} borderRadius={28} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Skeleton height={200} borderRadius={20} />
-              <Skeleton height={150} borderRadius={20} />
+  if (loading || showSecureGate) {
+    return (
+      <div className={styles.wrapper}>
+        <Background />
+        
+        {showSecureGate ? (
+          <div className={styles.secureGate}>
+            <div className={styles.gateCard}>
+              <div className={styles.gateIcon}>🛡️</div>
+              <h2 className={styles.gateTitle}>Final Security Check</h2>
+              <p className={styles.gateText}>
+                You are about to enter a secure assessment environment.
+                Fullscreen mode will be enforced throughout the session.
+              </p>
+              <div className={styles.gateRules}>
+                <div className={styles.rule}>• Tab switching is disabled</div>
+                <div className={styles.rule}>• Screenshots are strictly monitored</div>
+                <div className={styles.rule}>• Exit from fullscreen logs a violation</div>
+              </div>
+              <button 
+                className={styles.gateBtn}
+                onClick={() => {
+                  enterFullscreen();
+                  setShowSecureGate(false);
+                }}
+              >
+                I AGREE, START EXAM →
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: 28 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+              <Skeleton height={80} borderRadius={20} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20 }}>
+                <Skeleton height={400} borderRadius={28} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <Skeleton height={200} borderRadius={20} />
+                  <Skeleton height={150} borderRadius={20} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -542,13 +576,17 @@ export default function ExamPage() {
       
       {/* ── Confirm Submit Modal ── */}
       {confirmSubmit && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h2>Submit Assessment?</h2>
-            <p>You have answered {answeredCount} out of {questions.length} questions. You cannot undo this action.</p>
-            <div className={styles.modalActions}>
-              <button className={styles.confirmBtn} onClick={() => handleSubmit()} disabled={submitting}>YES, SUBMIT</button>
-              <button className={styles.cancelBtn} onClick={() => setConfirmSubmit(false)} disabled={submitting}>CANCEL</button>
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmModal}>
+            <h2>Finish Assessment?</h2>
+            <p>You have answered {answeredCount} out of {questions.length} questions. Once submitted, you cannot modify your answers.</p>
+            <div className={styles.modalActions} style={{ display: "flex", gap: 16, marginTop: 32, justifyContent: "center" }}>
+              <button className={styles.confirmBtn} style={{ background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff", border: "none", padding: "12px 28px", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }} onClick={() => handleSubmit()} disabled={submitting}>
+                {submitting ? "SUBMITTING..." : "CONFIRM SUBMISSION"}
+              </button>
+              <button className={styles.cancelBtn} style={{ background: "rgba(255,255,255,0.05)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)", padding: "12px 28px", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }} onClick={() => setConfirmSubmit(false)} disabled={submitting}>
+                CANCEL
+              </button>
             </div>
           </div>
         </div>

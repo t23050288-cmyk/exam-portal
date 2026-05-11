@@ -35,6 +35,8 @@ export default function AntiCheat({
   const lastViolationRef = useRef<number>(0);
   const isReportingRef = useRef(false);
   const tabSwitchRef = useRef(false);
+  const fsReentryRef = useRef(false);
+  const screenshotRef = useRef(false);
   const warningRef = useRef(initialWarningCount);
 
   // ── On mount: fetch session state (handles page refresh) ──────────────
@@ -76,6 +78,8 @@ export default function AntiCheat({
       if (!stabilizedRef.current) return;
 
       const now = Date.now();
+      // Add a 500ms hard lock to suppress rapid subsequent triggers
+      if (now - lastViolationRef.current < 500) return;
       if (now - lastViolationRef.current < DEBOUNCE_MS) return;
       lastViolationRef.current = now;
 
@@ -148,25 +152,30 @@ export default function AntiCheat({
   // ── Dismiss overlay + re-enter fullscreen ─────────────────────────────
   const handleUnderstand = useCallback(async () => {
     setOverlayVisible(false);
-    if (autoSubmitted || isSubmitted) return;
-    try {
-      if (!document.fullscreenElement) {
-        if (forceReenterFullscreen) {
-          forceReenterFullscreen();
-        } else {
-          await document.documentElement.requestFullscreen();
-        }
+    fsReentryRef.current = true;
+    if (forceReenterFullscreen) {
+      try {
+        await forceReenterFullscreen();
+      } catch (e) {
+        console.warn("Fullscreen re-entry failed:", e);
       }
-    } catch {
-      // Browser refused — show a gentle instruction (don't trigger another violation)
-      setOverlayMessage(
-        "⚠️ Fullscreen was blocked by your browser.\n" +
-        "Please press F11 or use your browser's View menu to go fullscreen manually."
-      );
-      setOverlayVisible(true);
-      // Don't count this as a violation
+    } else {
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch {
+        // Browser refused — show a gentle instruction (don't trigger another violation)
+        setOverlayMessage(
+          "⚠️ Fullscreen was blocked by your browser.\n" +
+          "Please press F11 or use your browser's View menu to go fullscreen manually."
+        );
+        setOverlayVisible(true);
+      }
     }
-  }, [forceReenterFullscreen, autoSubmitted, isSubmitted]);
+    // Release the re-entry lock after a short delay
+    setTimeout(() => {
+      fsReentryRef.current = false;
+    }, 1500);
+  }, [forceReenterFullscreen]);
 
   // ── Event listeners ───────────────────────────────────────────────────
   useEffect(() => {
@@ -177,6 +186,7 @@ export default function AntiCheat({
       if (document.hidden) {
         tabSwitchRef.current = true;
         triggerViolation("tab_switch");
+        // Maintain lock for 3s to allow the user to come back and click Understand
         setTimeout(() => {
           tabSwitchRef.current = false;
         }, 3000);
@@ -185,6 +195,9 @@ export default function AntiCheat({
 
     // Window blur — only when in fullscreen
     const handleBlur = () => {
+      // If we're already in a tab switch or re-entry, ignore blur
+      if (tabSwitchRef.current || fsReentryRef.current || screenshotRef.current) return;
+      
       if (
         document.visibilityState === "visible" &&
         !tabSwitchRef.current &&
@@ -196,7 +209,10 @@ export default function AntiCheat({
 
     // Fullscreen exit
     const handleFsChange = () => {
-      if (!document.fullscreenElement && !isSubmitted && !tabSwitchRef.current) {
+      // If the browser exits fullscreen because of a tab switch, don't double-trigger
+      if (document.hidden || tabSwitchRef.current || fsReentryRef.current) return;
+      
+      if (!document.fullscreenElement && !isSubmitted && !autoSubmitted) {
         triggerViolation("fullscreen_exit");
       }
     };
@@ -222,7 +238,9 @@ export default function AntiCheat({
       // PrintScreen
       if (key === "PrintScreen" || key === "Printscr") {
         e.preventDefault();
+        screenshotRef.current = true;
         triggerViolation("screenshot_attempt");
+        setTimeout(() => { screenshotRef.current = false; }, 2000);
         return;
       }
       // Escape — exits fullscreen
@@ -279,8 +297,8 @@ export default function AntiCheat({
         position: "fixed",
         inset: 0,
         backgroundColor: autoSubmitted
-          ? "rgba(120, 0, 0, 0.97)"
-          : "rgba(2, 60, 150, 0.96)",
+          ? "rgba(40, 0, 0, 0.9)"
+          : "rgba(10, 20, 40, 0.85)",
         zIndex: 999999,
         display: "flex",
         alignItems: "center",
@@ -288,25 +306,45 @@ export default function AntiCheat({
         color: "#fff",
         padding: 24,
         flexDirection: "column",
-        backdropFilter: "blur(8px)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         fontFamily: "Inter, sans-serif",
       }}
     >
       <div
         style={{
-          maxWidth: 560,
+          maxWidth: 480,
           width: "100%",
           textAlign: "center",
-          background: "rgba(0,0,0,0.3)",
-          borderRadius: 20,
-          padding: "40px 32px",
-          border: `1px solid ${autoSubmitted ? "rgba(255,80,80,0.4)" : "rgba(100,180,255,0.3)"}`,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+          background: "rgba(15, 25, 45, 0.95)",
+          borderRadius: 28,
+          padding: "48px 32px",
+          border: `1px solid ${autoSubmitted ? "rgba(255,80,80,0.4)" : "rgba(40,215,214,0.3)"}`,
+          boxShadow: "0 25px 70px rgba(0,0,0,0.8), 0 0 40px rgba(40,215,214,0.1)",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        {/* Subtle background glow */}
+        <div style={{
+          position: "absolute",
+          top: "-20%",
+          left: "-20%",
+          width: "140%",
+          height: "140%",
+          background: autoSubmitted 
+            ? "radial-gradient(circle at center, rgba(255,0,0,0.05) 0%, transparent 70%)"
+            : "radial-gradient(circle at center, rgba(40,215,214,0.05) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+
         {/* Icon */}
-        <div style={{ fontSize: 52, marginBottom: 16 }}>
-          {autoSubmitted ? "🔴" : "🔒"}
+        <div style={{ 
+          fontSize: 64, 
+          marginBottom: 24,
+          filter: "drop-shadow(0 0 15px rgba(255,255,255,0.2))"
+        }}>
+          {autoSubmitted ? "🚫" : "⚠️"}
         </div>
 
         <h2
