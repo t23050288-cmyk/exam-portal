@@ -113,11 +113,14 @@ export default function DashboardPage() {
     }
     const s: StudentInfo = JSON.parse(raw);
     setStudent(s);
-    const saved = localStorage.getItem("nexus_profile");
-    const p = saved ? JSON.parse(saved) : {};
+    
+    // Identity Hardening: NEVER fallback to localStorage for student identity in a multi-user environment.
+    // Stale data in localStorage causes identity leakage between different students.
     const prof: ProfileData = {
-      name: p.name || s.name || "", email: p.email || s.email || "",
-      course: p.course || "", photo: localStorage.getItem("nexus_profile_photo") || null,
+      name: s.name || "Student", 
+      email: s.email || "",
+      course: s.branch || "", 
+      photo: null, // Photos should be session-bound or fetched from DB
     };
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
@@ -378,8 +381,17 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleLogout = () => { 
-    sessionStorage.removeItem("exam_token"); 
-    sessionStorage.removeItem("exam_student"); 
+    // Total Wipeout: Clear all traces of the current student session
+    sessionStorage.clear();
+    localStorage.clear();
+    
+    // Clear cookies just in case (for future-proofing)
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
     router.replace("/login"); 
   };
 

@@ -104,11 +104,14 @@ async def login(request: LoginRequest):
 
     # 6. Mark session active + record token
     try:
-        update_student_data: Dict[str, Any] = {"is_active_session": True, "current_token": token}
-        if request.name: update_student_data["name"] = request.name
-        if request.email: update_student_data["email"] = request.email
-        if request.branch: update_student_data["branch"] = request.branch
-
+        # DO NOT overwrite name, branch, or email if they already exist.
+        # This prevents identity hijacking where one student overwrites another's profile.
+        update_student_data: Dict[str, Any] = {
+            "is_active_session": True, 
+            "current_token": token,
+            "last_login": datetime.now(timezone.utc).isoformat()
+        }
+        
         db.table("students").update(update_student_data).eq("id", student["id"]).execute()
     except Exception as e:
         print(f"[AUTH] Optional student update failed: {e}")

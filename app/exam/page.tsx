@@ -152,16 +152,20 @@ export default function ExamPage() {
     
     setStudent(info);
 
-    // Fetch initial warning count from exam_status
+    // Fetch initial warning count from exam_status for THIS SPECIFIC exam
     if (info.id && info.id !== "PREVIEW") {
+      const currentExam = sessionStorage.getItem("exam_selected_title") || info.examTitle || "Online Assessment";
       import("@/lib/supabase").then(({ supabase }) => {
         supabase.from("exam_status")
           .select("warnings")
           .eq("student_id", info.id)
+          .eq("exam_title", currentExam) // Filter by specific exam title
           .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {
               setWarningCount(data.warnings || 0);
+            } else {
+              setWarningCount(0); // Fresh start if no record exists for this exam
             }
           });
       });

@@ -51,14 +51,17 @@ def update_last_active(student_id: str):
         {"last_active": datetime.now(timezone.utc).isoformat()}
     ).eq("student_id", student_id).execute()
 @router.get("/status")
-def get_exam_status(current: dict = Depends(get_current_student)):
+def get_exam_status(title: str = None, current: dict = Depends(get_current_student)):
     """
-    Returns the current student's exam session status.
+    Returns the current student's exam session status for a specific exam.
     """
     db = get_supabase()
     student_id = current["student_id"]
     try:
-        result = db.table("exam_status").select("*").eq("student_id", student_id).execute()
+        query = db.table("exam_status").select("*").eq("student_id", student_id)
+        if title:
+            query = query.eq("exam_title", title)
+        result = query.execute()
         return {"data": result.data or []}
     except Exception as e:
         print(f"[EXAM] Status fetch error: {e}")
@@ -305,23 +308,23 @@ def submit_exam(
     db = get_supabase()
     student_id = current["student_id"]
 
-    # 1. Guard: already submitted? Check by student_id only (exam_title not a column in exam_status)
+    # 1. Guard: already submitted this SPECIFIC exam?
     exam_title_for_check = (request.answers or {}).get("__exam_title", "")
     status_rows = (
-        db.table("exam_status")
-        .select("status")
+        db.table("exam_results")
+        .select("id")
         .eq("student_id", student_id)
+        .eq("exam_title", exam_title_for_check)
         .limit(1)
         .execute()
     )
-    all_rows = status_rows.data or []
-    status_row_data = all_rows[0] if all_rows else None
-    if status_row_data and status_row_data.get("status") == "submitted":
-        # Return existing result
+    if status_rows.data:
+        # Return existing result from exam_results instead of global exam_status
         result_row = (
             db.table("exam_results")
-            .select("score, total_marks, submitted_at")
+            .select("score, total_marks, submitted_at, correct_count, wrong_count")
             .eq("student_id", student_id)
+            .eq("exam_title", exam_title_for_check)
             .single()
             .execute()
         )
@@ -393,10 +396,12 @@ def submit_exam(
             {"student_id": student_id, "exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
         ).execute()
 
-    # 5. Mark submitted (single-row schema — just filter by student_id)
-    db.table("exam_status").update(
-        {"status": "submitted", "submitted_at": submitted_at}
-    ).eq("student_id", student_id).execute()
+    # 5. Clean up active session for THIS exam
+    # Instead of global "submitted", we clear the record or mark it finished for this title
+    db.table("exam_status").delete().eq("student_id", student_id).eq("exam_title", exam_title).execute()
+    
+    # Update global student active status
+    db.table("students").update({"is_active_session": False}).eq("id", student_id).execute()
 
     # 6. Clear active session
     db.table("students").update(

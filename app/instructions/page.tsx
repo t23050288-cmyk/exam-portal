@@ -50,8 +50,8 @@ export default function InstructionsPage() {
           name: parsed.name || "Student",
           usn: parsed.usn || "Candidate",
           examTitle,
-          duration: 20,
-          totalQuestions: 0 // Will be updated by fetchQuestionsCount
+          duration: parsed.examDurationMinutes || 20,
+          totalQuestions: parsed.totalQuestions || 0
         });
         fetchQuestionsCount(examTitle);
       } catch (e) { console.error(e); }
@@ -320,6 +320,13 @@ export default function InstructionsPage() {
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
                 Candidate Name: {studentInfo.name}
+              </div>
+              <div className={styles.detailItem}>
+                <svg className={styles.detailIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                Candidate USN: {studentInfo.usn}
               </div>
               <div className={styles.detailItem}>
                 <svg className={styles.detailIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

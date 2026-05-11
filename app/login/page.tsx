@@ -78,6 +78,7 @@ export default function LoginPage() {
       sessionStorage.setItem("exam_student", JSON.stringify({
         id: data.student_id,
         name: data.student_name,
+        usn: usn.trim().toUpperCase(), // Explicitly store USN for identification
         examStartTime: data.exam_start_time,
         examDurationMinutes: data.exam_duration_minutes || 60,
         examTitle: data.exam_title,
