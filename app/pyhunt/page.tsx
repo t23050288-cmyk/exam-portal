@@ -118,13 +118,8 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
     console.warn("[PyHunt] Backend config fetch failed, trying localStorage:", e);
   }
 
-  // Fallback to localStorage only if network completely unavailable
-  if (typeof window === "undefined") return DEFAULT_CONFIG;
-  try {
-    const s = localStorage.getItem("nexus_pyhunt_config_v2");
-    if (!s) return DEFAULT_CONFIG;
-    return parseCfg(JSON.parse(s));
-  } catch { return DEFAULT_CONFIG; }
+  // Network failed — return DEFAULT_CONFIG (don't use stale localStorage)
+  return DEFAULT_CONFIG;
 }
 
 /* ═══════════════════════════════════════════════
