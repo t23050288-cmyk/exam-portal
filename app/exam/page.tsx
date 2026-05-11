@@ -189,7 +189,7 @@ export default function ExamPage() {
     const jitterMs = Math.floor(Math.random() * 2000);
     const timeoutId = setTimeout(() => {
       console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
-      fetchQuestions(quizTitle)
+      fetchQuestions(quizTitle, Date.now())
         .then(async (qs: any) => {
           console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
           if (qs.length === 0) {
@@ -488,7 +488,7 @@ export default function ExamPage() {
             <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
               <button 
                 className={styles.backToDashboardBtn}
-                onClick={() => router.replace("/dashboard?tab=Insights")}
+                onClick={() => router.replace("/dashboard?tab=History")}
               >
                 GO TO SKILLS INSIGHTS →
               </button>
