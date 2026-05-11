@@ -206,35 +206,48 @@ export default function DashboardPage() {
       const { data: qData } = await supabase.from("questions").select("branch, exam_name, category");
 
       const studentRaw = sessionStorage.getItem("exam_student");
-      const studentId = studentRaw ? JSON.parse(studentRaw).id : null;
+      const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
+      const studentId = studentObj?.id;
+      
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
+      
       if (studentId) {
-        const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
-        const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
+        // ── UUID Validation: Supabase throws 400 if ID format is wrong ──
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId);
         
-        // Build submittedMap from exam_results
-        if (resultsData) {
-          resultsData.forEach((r: any) => {
-            if (r.exam_title) {
-              if (!submittedMap[r.exam_title]) {
-                submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
-              }
-              submittedMap[r.exam_title].attempt_count++;
-              // Keep the latest score (simplification)
-              submittedMap[r.exam_title].score = r.score;
-              submittedMap[r.exam_title].total_marks = r.total_marks;
+        try {
+          if (isUuid) {
+            const { data: statusData } = await supabase.from("exam_status").select("status, exam_title").eq("student_id", studentId);
+            const { data: resultsData } = await supabase.from("exam_results").select("score, total_marks, exam_title").eq("student_id", studentId);
+            
+            if (resultsData) {
+              resultsData.forEach((r: any) => {
+                if (r.exam_title) {
+                  if (!submittedMap[r.exam_title]) {
+                    submittedMap[r.exam_title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
+                  }
+                  submittedMap[r.exam_title].attempt_count++;
+                  submittedMap[r.exam_title].score = r.score;
+                  submittedMap[r.exam_title].total_marks = r.total_marks;
+                }
+              });
             }
-          });
-        }
-        // Also check exam_status for submitted rows
-        if (statusData) {
-          statusData.forEach((s: any) => {
-            if (s.status === "submitted" && s.exam_title) {
-              if (!submittedMap[s.exam_title]) {
-                submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
-              }
+            if (statusData) {
+              statusData.forEach((s: any) => {
+                if (s.status === "submitted" && s.exam_title) {
+                  if (!submittedMap[s.exam_title]) {
+                    submittedMap[s.exam_title] = { score: 0, total_marks: 0, attempt_count: 1 };
+                  }
+                }
+              });
             }
-          });
+          } else {
+             // Fallback for non-UUID IDs (legacy USN strings)
+             console.warn("[DASHBOARD] Non-UUID student ID detected:", studentId);
+             // We can't query UUID columns with strings, so we rely on localStorage for history in this case
+          }
+        } catch (dbErr) {
+          console.error("[DASHBOARD] DB fetch failed:", dbErr);
         }
       }
 

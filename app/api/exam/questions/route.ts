@@ -104,26 +104,27 @@ export async function GET(req: NextRequest) {
          questions: [], 
          total: 0, 
          message: "Database table 'questions' is empty.",
-         debug: { rowCount: 0, title } 
+         debug: { rowCount: 0, title, dbUrl: dbUrl.substring(0, 30) } 
        }, { headers: NO_CACHE });
     }
+
     const t = titleLower.trim();
 
     // ── Title Filtering ──────────────────────────────────────────
     let examRows = all.filter((q: any) => {
       const qExam = (q.exam_name || "").trim().toLowerCase();
-      // Lenient matching: nb matches nb, nb (CS), nb-exam, etc.
-      return qExam === t || 
-             qExam.includes(t) || 
-             t.includes(qExam) ||
-             qExam.replace(/\s+/g,"") === t.replace(/\s+/g,"");
+      return qExam === t || qExam.includes(t) || t.includes(qExam) || qExam.replace(/\s+/g,"") === t.replace(/\s+/g,"");
     });
 
-    // Fallback: If no match found for specific title, but we have ANY questions,
-    // we return them as a emergency measure if there's only one exam active.
-    if (examRows.length === 0 && all.length > 0) {
-       console.log(`[QUESTIONS] No match for "${title}". Using emergency all-rows fallback.`);
-       examRows = all.slice(0, 50); 
+    if (examRows.length === 0) {
+       const availableExams = Array.from(new Set(all.map((q: any) => q.exam_name || "Untitled")));
+       return NextResponse.json({ 
+         questions: [], 
+         total: 0, 
+         message: `No questions found for "${title}".`,
+         available_exams: availableExams,
+         debug: { totalRowsInDB: all.length, requestedTitle: title }
+       }, { headers: NO_CACHE });
     }
 
     // ── Branch Filtering ──────────────────────────────────────────

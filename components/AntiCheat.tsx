@@ -33,6 +33,20 @@ export default function AntiCheat({
     }
   }, [initialWarningCount]);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync fullscreen state
+  useEffect(() => {
+    const h = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", h);
+    document.addEventListener("webkitfullscreenchange", h);
+    h();
+    return () => {
+      document.removeEventListener("fullscreenchange", h);
+      document.removeEventListener("webkitfullscreenchange", h);
+    };
+  }, []);
+
   // Reduce grace period to 0.5s so proctoring starts almost immediately
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 500);
@@ -217,6 +231,42 @@ export default function AntiCheat({
 
   return (
     <>
+      {/* Secure Mode Overlay — requires user click to enter fullscreen */}
+      {!isFullscreen && !isSubmitted && ready && !showModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999990,
+          background: "rgba(0,0,0,0.9)", backdropFilter: "blur(20px)",
+          display: "grid", placeItems: "center", textAlign: "center", padding: "20px"
+        }}>
+          <div style={{ maxWidth: "450px" }}>
+            <h2 style={{ color: "#fff", fontSize: "28px", fontWeight: 800, marginBottom: "16px", letterSpacing: "-0.02em" }}>
+              Secure Mode Required
+            </h2>
+            <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "32px", lineHeight: "1.6" }}>
+              To ensure exam integrity, you must enter secure fullscreen mode. 
+              Exiting this mode will be recorded as a violation.
+            </p>
+            <button 
+              onClick={reenterFullscreen}
+              style={{
+                background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                color: "#fff", border: "none", padding: "16px 40px", borderRadius: "12px",
+                fontSize: "18px", fontWeight: 700, cursor: "pointer",
+                boxShadow: "0 10px 25px -5px rgba(99, 102, 241, 0.4)",
+                transition: "transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+            >
+              ENTER SECURE MODE
+            </button>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px", marginTop: "24px" }}>
+              Clicking the button above will lock the browser for the exam.
+            </p>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <>
           {/* Full-screen black backdrop — covers everything */}

@@ -193,11 +193,17 @@ export default function ExamPage() {
           console.log(`[EXAM] Fetched ${qs.length} questions from network.`);
           if (qs.length === 0) {
             console.warn(`[EXAM] WARNING: Zero questions for title="${quizTitle}".`);
-            setError(`No questions found for exam "${quizTitle}". Please contact your invigilator or refresh the page.`);
+            let msg = `No questions found for exam "${quizTitle}". Please contact your invigilator or refresh the page.`;
+            // @ts-ignore
+            if (qs.available_exams && qs.available_exams.length > 0) {
+              // @ts-ignore
+              msg += `\n\nAvailable exams: ${qs.available_exams.join(", ")}`;
+            }
+            setError(msg);
             setLoading(false);
             return;
           }
-          setQuestions(qs);
+          setQuestions(qs.questions || qs);
           // saveQuestionsToCache(quizTitle, qs);
           setLoadSource("network");
           setLoading(false);
