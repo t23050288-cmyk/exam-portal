@@ -37,12 +37,14 @@ export async function POST(req: NextRequest) {
     const autoSubmit = newWarnings >= MAX_WARNINGS;
 
     // Insert violation log
-    await supabaseAdmin.from("violations").insert({
-      student_id: student.id,
-      type: type,
-      timestamp: new Date().toISOString(),
-      metadata: { ...metadata, usn: student.studentId },
-    }).then(() => {}).catch(() => {});
+    try {
+      await supabaseAdmin.from("violations").insert({
+        student_id: student.id,
+        type: type,
+        timestamp: new Date().toISOString(),
+        metadata: { ...metadata, usn: student.studentId },
+      });
+    } catch (_) {}
 
     // Update exam_status
     await supabaseAdmin.from("exam_status").upsert({
