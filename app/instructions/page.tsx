@@ -26,26 +26,50 @@ export default function InstructionsPage() {
   const [examActive, setExamActive] = useState(true);
 
   useEffect(() => {
-    // Check authentication
+    // ── Authentication Check ──
     const token = sessionStorage.getItem("exam_token");
     if (!token) {
       router.replace("/login");
       return;
     }
+
+    // ── Prevent Back Navigation ──
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    // ── Initial Student Data ──
+    const studentData = sessionStorage.getItem("exam_student");
+    if (studentData) {
+      try {
+        const parsed = JSON.parse(studentData);
+        const examTitle = sessionStorage.getItem("exam_selected_title") || parsed.examTitle || "Online Assessment";
+        setStudentInfo({
+          name: parsed.name || "Student",
+          usn: parsed.usn || "Candidate",
+          examTitle,
+          duration: 20,
+          totalQuestions: 0
+        });
+      } catch (e) { console.error(e); }
     }
-  };
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [router]);
 
   useEffect(() => {
     fetchStatus();
 
     // ── Realtime Status Sync ──
-    // Listen for admin changes to exam_config (activation/deactivation)
     const channel = supabase
       .channel("exam_instructions_sync")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "exam_config" }, (payload) => {
         const examTitle = sessionStorage.getItem("exam_selected_title");
         if (payload.new && payload.new.exam_title === examTitle) {
-          console.log("[REALTIME] Exam config updated:", payload.new);
           setExamActive(payload.new.is_active);
           if (payload.new.scheduled_start) {
             const start = new Date(payload.new.scheduled_start);
@@ -84,70 +108,6 @@ export default function InstructionsPage() {
       }
     } catch (e) {}
   };
-
-    const studentData = sessionStorage.getItem("exam_student");
-    if (studentData) {
-      try {
-        const parsed = JSON.parse(studentData);
-        // PRIORITY: Use the exam title selected from dashboard, fallback to login data
-        const examTitle = sessionStorage.getItem("exam_selected_title") || parsed.examTitle || "Online Assessment";
-        
-        // Set initial info immediately so UI renders fast
-        setStudentInfo({
-          name: parsed.name || "Student",
-          usn: parsed.usn || "Candidate",
-          examTitle,
-          duration: 20,
-          totalQuestions: parsed.totalQuestions || 30,
-        });
-
-        // Fetch the real question count AND scheduled start for this exam
-        fetch(`/api/admin/exam/config/public`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        })
-          .then(r => r.ok ? r.json() : [])
-          .then(configs => {
-            const myConfig = configs.find((c: any) => c.exam_title === examTitle);
-            if (myConfig) {
-              setExamActive(myConfig.is_active);
-              if (myConfig.scheduled_start) {
-                const start = new Date(myConfig.scheduled_start);
-                setScheduledStart(start);
-                const diff = Math.floor((start.getTime() - Date.now()) / 1000);
-                if (diff > 0) setCountdown(diff);
-              }
-            }
-          })
-          .catch(() => {});
-
-        fetch(`/api/exam/questions?title=${encodeURIComponent(examTitle)}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        })
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (data && typeof data.total === "number" && data.total > 0) {
-              setStudentInfo(prev => prev ? { ...prev, totalQuestions: data.total } : prev);
-            }
-          })
-          .catch(() => {/* silently fall back to stored value */});
-
-      } catch (err) {
-        console.error("Could not parse student data", err);
-      }
-    } else {
-      // Fallback if session storage is weirdly empty but token exists
-      setStudentInfo({ 
-        name: "Student", 
-        usn: "Candidate", 
-        examTitle: "Online Assessment", 
-        duration: 20,
-        totalQuestions: 30 
-      });
-    }
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [router]);
 
   // ── Countdown Tick ──
   useEffect(() => {
