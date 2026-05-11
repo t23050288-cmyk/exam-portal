@@ -203,11 +203,12 @@ export default function ExamPage() {
             setLoading(false);
             return;
           }
-          setQuestions(qs.questions || qs);
+          setQuestions(Array.isArray(qs) ? qs : (qs.questions || []));
           // saveQuestionsToCache(quizTitle, qs);
           setLoadSource("network");
           setLoading(false);
-          enterFullscreen();
+          // Note: enterFullscreen() is called from the Start button click (user gesture)
+          // NOT here — calling requestFullscreen() outside a user gesture is blocked by browsers
         })
         .catch((err) => {
           console.error("[EXAM] Question fetch failed:", err);
@@ -565,3 +566,4 @@ export default function ExamPage() {
     </>
   );
 }
+
