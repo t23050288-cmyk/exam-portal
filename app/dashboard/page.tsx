@@ -261,8 +261,9 @@ export default function DashboardPage() {
             }
           });
 
-          // Only show exam if there are questions for this student's branch
-          if (matchCount === 0 && studentBranch) continue;
+          // Show exam if there are ANY matching questions, or if exam has questions at all
+          // Don't hide exam just because branch doesn't match — show all active exams
+          if (matchCount === 0) matchCount = qs.length; // fallback: show all questions
 
           const nid = cfg.exam_title;
           if (!seen.has(nid)) {
