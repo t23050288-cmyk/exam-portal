@@ -1,89 +1,81 @@
 "use client";
-
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { reportViolation } from "@/lib/api";
 import WarningModal from "./WarningModal";
 
 interface AntiCheatProps {
   isSubmitted: boolean;
   onAutoSubmit: () => void;
-  onViolation?: (type: string, metadata?: any) => void;
-  initialWarningCount?: number;
+  onViolation?: (type: string, metadata?: Record<string, unknown>) => void;
   forceReenterFullscreen?: () => void;
+  initialWarningCount?: number;
+  isMobile?: boolean;
 }
 
 export default function AntiCheat({
   isSubmitted,
   onAutoSubmit,
   onViolation,
-  initialWarningCount = 0,
   forceReenterFullscreen,
+  initialWarningCount = 0,
+  isMobile = false,
 }: AntiCheatProps) {
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [warningCount, setWarningCount] = useState(initialWarningCount);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const warningRef = useRef(initialWarningCount);
-  const [ready, setReady] = useState(false);
-
-  // Sync initialWarningCount only if it's higher (don't overwrite local violations)
-  useEffect(() => {
-    if (initialWarningCount > warningRef.current) {
-      setWarningCount(initialWarningCount);
-      warningRef.current = initialWarningCount;
-    }
-  }, [initialWarningCount]);
-
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Sync fullscreen state
   useEffect(() => {
     const h = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", h);
     document.addEventListener("webkitfullscreenchange", h);
-    h();
     return () => {
       document.removeEventListener("fullscreenchange", h);
       document.removeEventListener("webkitfullscreenchange", h);
     };
   }, []);
 
-  // Reduce grace period to 0.5s so proctoring starts almost immediately
+  // ── Grace period: 3s so fullscreen dialog doesn't trigger instant violation ──
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 500);
+    const t = setTimeout(() => setReady(true), 3000);
     return () => clearTimeout(t);
   }, []);
 
-  const isMobile =
-    typeof window !== "undefined" &&
-    /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
-  const reenterFullscreen = useCallback(() => {
-    if (forceReenterFullscreen) {
-      forceReenterFullscreen();
-      return;
-    }
-    if (!document.fullscreenElement && !isSubmitted) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
-  }, [forceReenterFullscreen, isSubmitted]);
-
-  // Cooldown between violations (ms) — prevents tab_switch firing 3 events as 3 violations
+  // ── Cooldown between violations ──
+  // 5s cooldown — prevents screenshot / brief alt-tab from stacking violations
   const lastViolationTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
-  // Track if we're in a tab-switch event so fullscreenchange doesn't double-count
+  // Track tab-switch so fullscreenchange doesn't double-count
   const tabSwitchActiveRef = useRef<boolean>(false);
+  // Track whether fullscreen was INTENTIONALLY exited (by us) — don't count as violation
+  const intentionalExitRef = useRef<boolean>(false);
 
   const triggerViolation = useCallback(
     (type: string, metadata?: Record<string, unknown>) => {
+      // Guards: not submitted, grace period done, not already processing
       if (isSubmitted || !ready || processingRef.current) return;
 
+      // CRITICAL: Only count violations when exam IS in fullscreen mode.
+      // If fullscreen was never entered (e.g. browser blocked it), don't punish student.
+      // We check: either currently in fullscreen OR this IS a fullscreen_exit event
+      const currentlyFullscreen = !!document.fullscreenElement;
+      if (!currentlyFullscreen && type === "window_blur") {
+        // window_blur while NOT in fullscreen = student never entered fullscreen properly
+        // Don't count this — it's a browser/OS artifact (screenshot, alt-tab before start)
+        return;
+      }
+
       const now = Date.now();
-      // 3-second cooldown between violations
-      if (now - lastViolationTimeRef.current < 3000) return;
+      // 5-second cooldown between violations
+      if (now - lastViolationTimeRef.current < 5000) return;
 
       processingRef.current = true;
       lastViolationTimeRef.current = now;
-      setTimeout(() => { processingRef.current = false; }, 100);
+      // Release lock after 5s (matches cooldown)
+      setTimeout(() => { processingRef.current = false; }, 5000);
 
       const nextCount = warningRef.current + 1;
       warningRef.current = nextCount;
@@ -93,14 +85,16 @@ export default function AntiCheat({
 
       const friendlyType = type.replace(/_/g, " ");
       let message: string;
-      const isAutoSubmit = nextCount >= 3;
+      const isAutoSubmit = nextCount >= 4;
 
       if (isAutoSubmit) {
-        message = `🔴 FINAL VIOLATION (${friendlyType}): Your exam is being AUTO-SUBMITTED for security review.`;
+        message = `🔴 4th violation (${friendlyType}): Your exam has been auto-submitted.`;
+      } else if (nextCount === 3) {
+        message = `🚨 Warning 3 of 4: ${friendlyType}. ONE more violation = auto-submit!`;
       } else if (nextCount === 2) {
-        message = `🚨 Warning 2 of 3: ${friendlyType} detected. ONE more violation = auto-submit!`;
+        message = `🚨 Warning 2 of 4: ${friendlyType} detected. ${4 - nextCount} violations remaining.`;
       } else {
-        message = `⚠️ Warning 1 of 3: ${friendlyType} detected. Stay in fullscreen — next violation is your LAST warning.`;
+        message = `⚠️ Warning 1 of 4: ${friendlyType} detected. Stay in fullscreen.`;
       }
 
       setModalMessage(message);
@@ -115,14 +109,13 @@ export default function AntiCheat({
       }).catch(() => {});
 
       if (isAutoSubmit) {
-        // 2.5s so student can read the message
         setTimeout(() => onAutoSubmit(), 2500);
-      } else {
-        // Re-enter fullscreen after a moment
-        setTimeout(reenterFullscreen, 600);
       }
+      // NOTE: Do NOT try to re-enter fullscreen programmatically here.
+      // Only the user clicking "I Understood" button can trigger requestFullscreen.
+      // Any setTimeout(requestFullscreen) will be blocked by the browser = more violations.
     },
-    [isSubmitted, ready, onAutoSubmit, onViolation, reenterFullscreen]
+    [isSubmitted, ready, onAutoSubmit, onViolation]
   );
 
   // ── Visibility + Blur ──────────────────────────────────────────
@@ -133,21 +126,21 @@ export default function AntiCheat({
       if (document.visibilityState === "hidden") {
         tabSwitchActiveRef.current = true;
         triggerViolation("tab_switch");
-        // Reset flag after 2s (enough time for fullscreenchange to fire and skip)
-        setTimeout(() => { tabSwitchActiveRef.current = false; }, 2000);
-      } else {
-        // Student returned — try to re-enter fullscreen
-        setTimeout(() => {
-          if (!document.fullscreenElement && !isSubmitted) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          }
-        }, 300);
+        // Reset tab-switch flag after 3s
+        setTimeout(() => { tabSwitchActiveRef.current = false; }, 3000);
       }
+      // NOTE: Do NOT auto-re-enter fullscreen on visibility "visible" — browser blocks it.
+      // Student must click the "I Understood" button which re-enters fullscreen synchronously.
     };
 
-    // Window blur: only fire if tab is STILL VISIBLE (window blur within same tab, e.g. DevTools)
+    // Window blur: only fire if tab is STILL VISIBLE (DevTools open, alt-tab within same window)
+    // AND we are in fullscreen (screenshots / OS-level focus changes happen while NOT fullscreen too)
     const handleBlur = () => {
-      if (document.visibilityState === "visible" && !tabSwitchActiveRef.current) {
+      if (
+        document.visibilityState === "visible" &&
+        !tabSwitchActiveRef.current &&
+        !!document.fullscreenElement  // Only count blur when actually in fullscreen exam
+      ) {
         triggerViolation("window_blur");
       }
     };
@@ -164,10 +157,21 @@ export default function AntiCheat({
   // ── Fullscreen change ──────────────────────────────────────────
   useEffect(() => {
     const handleFsChange = () => {
-      // Only count as violation if: fullscreen EXITED + not caused by tab switch
-      if (!document.fullscreenElement && !isSubmitted && ready && !tabSwitchActiveRef.current) {
+      // Only count as violation if:
+      // 1. Fullscreen was EXITED (not entered)
+      // 2. Not caused by tab switch (tab switch already reported its own violation)
+      // 3. Not intentionally exited by us
+      // 4. Exam is active and grace period is done
+      if (
+        !document.fullscreenElement &&
+        !isSubmitted &&
+        ready &&
+        !tabSwitchActiveRef.current &&
+        !intentionalExitRef.current
+      ) {
         triggerViolation("fullscreen_exit");
       }
+      intentionalExitRef.current = false;
     };
 
     document.addEventListener("fullscreenchange", handleFsChange);
@@ -178,118 +182,25 @@ export default function AntiCheat({
     };
   }, [triggerViolation, isSubmitted, ready]);
 
-  // ── Clipboard + Context Menu ───────────────────────────────────
-  useEffect(() => {
-    const cmh = (e: MouseEvent) => { e.preventDefault(); triggerViolation("right_click"); };
-    const ch = (e: ClipboardEvent) => { e.preventDefault(); triggerViolation("copy_attempt"); };
-    const ph = (e: ClipboardEvent) => { e.preventDefault(); triggerViolation("paste_attempt"); };
-    document.addEventListener("contextmenu", cmh);
-    document.addEventListener("copy", ch);
-    document.addEventListener("paste", ph);
-    return () => {
-      document.removeEventListener("contextmenu", cmh);
-      document.removeEventListener("copy", ch);
-      document.removeEventListener("paste", ph);
-    };
-  }, [triggerViolation]);
-
-  // ── Keyboard shortcuts ─────────────────────────────────────────
-  useEffect(() => {
-    const kdh = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes("MAC");
-      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
-      const key = e.key.toLowerCase();
-      const code = e.code.toLowerCase();
-
-      const blocked = [
-        cmdOrCtrl && ["c", "v", "a", "u", "s", "p", "f"].includes(key),
-        key === "f12",
-        cmdOrCtrl && e.shiftKey && ["i", "j", "c"].includes(key),
-        e.altKey && ["tab", "f4", "d", "enter"].includes(key),
-        key === "printscreen" || code === "printscreen",
-        (e.metaKey || e.ctrlKey) && (key === "tab" || key === "w"),
-        cmdOrCtrl && e.shiftKey && key === "escape",
-        e.metaKey && e.shiftKey && ["3", "4", "5", "s"].includes(key),
-      ].some(Boolean);
-
-      if (blocked) {
-        e.preventDefault();
-        e.stopPropagation();
-        const isScreenshot =
-          key === "printscreen" ||
-          code === "printscreen" ||
-          (e.shiftKey && ["s", "3", "4"].includes(key));
-        triggerViolation(isScreenshot ? "screenshot_attempt" : "keyboard_shortcut", {
-          key: e.key,
-          code: e.code,
-        });
-      }
-    };
-    document.addEventListener("keydown", kdh, true);
-    return () => document.removeEventListener("keydown", kdh, true);
-  }, [triggerViolation]);
+  const handleDismissModal = useCallback(() => {
+    setShowModal(false);
+    // Re-enter fullscreen SYNCHRONOUSLY inside this click handler (user gesture)
+    if (forceReenterFullscreen) {
+      forceReenterFullscreen();
+    } else if (!document.fullscreenElement && !isSubmitted) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, [forceReenterFullscreen, isSubmitted]);
 
   return (
     <>
-      {/* Secure Mode Overlay — requires user click to enter fullscreen */}
-      {!isFullscreen && !isSubmitted && ready && !showModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 999990,
-          background: "rgba(0,0,0,0.9)", backdropFilter: "blur(20px)",
-          display: "grid", placeItems: "center", textAlign: "center", padding: "20px"
-        }}>
-          <div style={{ maxWidth: "450px" }}>
-            <h2 style={{ color: "#fff", fontSize: "28px", fontWeight: 800, marginBottom: "16px", letterSpacing: "-0.02em" }}>
-              Secure Mode Required
-            </h2>
-            <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: "32px", lineHeight: "1.6" }}>
-              To ensure exam integrity, you must enter secure fullscreen mode. 
-              Exiting this mode will be recorded as a violation.
-            </p>
-            <button 
-              onClick={reenterFullscreen}
-              style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
-                color: "#fff", border: "none", padding: "16px 40px", borderRadius: "12px",
-                fontSize: "18px", fontWeight: 700, cursor: "pointer",
-                boxShadow: "0 10px 25px -5px rgba(99, 102, 241, 0.4)",
-                transition: "transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >
-              ENTER SECURE MODE
-            </button>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px", marginTop: "24px" }}>
-              Clicking the button above will lock the browser for the exam.
-            </p>
-          </div>
-        </div>
-      )}
-
       {showModal && (
-        <>
-          {/* Full-screen black backdrop — covers everything */}
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 999997,
-              background: "rgba(0,0,0,0.95)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-            }}
-          />
-          <WarningModal
-            message={modalMessage}
-            warningCount={warningCount}
-            onDismiss={() => {
-              setShowModal(false);
-              if (warningCount < 3) reenterFullscreen();
-            }}
-            onReenterFullscreen={reenterFullscreen}
-          />
-        </>
+        <WarningModal
+          warningCount={warningCount}
+          message={modalMessage}
+          onDismiss={handleDismissModal}
+          onReenterFullscreen={forceReenterFullscreen}
+        />
       )}
     </>
   );
