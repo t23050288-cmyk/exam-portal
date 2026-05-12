@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { fetchPublicExamConfig, apiFetch } from "@/lib/api";
 
@@ -18,7 +18,7 @@ import ExamCard from "@/components/dashboard/ExamCard";
 import ProfileChip from "@/components/dashboard/ProfileChip";
 import FloatingDiamond from "@/components/dashboard/FloatingDiamond";
 
-const Mountain = dynamic(() => import("@/components/dashboard/Mountain"), { 
+const Mountain = nextDynamic(() => import("@/components/dashboard/Mountain"), { 
   ssr: false,
   loading: () => <div style={{ height: '150px' }} />
 });
