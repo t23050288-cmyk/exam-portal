@@ -1148,11 +1148,17 @@ export default function PyHuntPage() {
       const effectiveId = sid || sessionStudent.id;
       if (effectiveId) {
         supabase.from("pyhunt_progress")
-          .select("warnings, turtle_image, current_round")
+          .select("warnings, turtle_image, current_round, status")
           .eq("student_id", effectiveId)
           .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {
+              if (data.status === "TERMINATED") {
+                setTerminated(true);
+                setFinished(true);
+                setPyhuntLoading(false);
+                return;
+              }
               setWarningCount(data.warnings || 0);
               if (data.turtle_image) setTurtleImage(data.turtle_image);
               // Optionally restore round if they refreshed

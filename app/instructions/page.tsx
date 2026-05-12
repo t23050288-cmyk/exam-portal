@@ -111,21 +111,35 @@ export default function InstructionsPage() {
     if (!token) return;
 
     try {
-      const res = await fetch(`/api/admin/exam/config/public`, {
+      const res = await fetch(`/api/admin/exam/config/public?_=${Date.now()}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const configs = await res.json();
       const myConfig = configs.find((c: any) => c.exam_title === examTitle);
+      
       if (myConfig) {
         setExamActive(myConfig.is_active);
+        
+        // Sync Live Duration & Question Count
+        setStudentInfo(prev => prev ? { 
+          ...prev, 
+          duration: myConfig.duration_minutes || prev.duration,
+          totalQuestions: myConfig.total_questions || prev.totalQuestions
+        } : null);
+
         if (myConfig.scheduled_start) {
           const start = new Date(myConfig.scheduled_start);
           setScheduledStart(start);
           const diff = Math.floor((start.getTime() - Date.now()) / 1000);
           if (diff > 0) setCountdown(diff);
         }
+
+        // Attempt blocking (Extra Layer)
+        // Note: Real check is done on the server, but we can block UI here
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("[Instructions] fetchStatus failed:", e);
+    }
   };
 
   // ── Countdown Tick ──

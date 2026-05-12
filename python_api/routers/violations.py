@@ -133,41 +133,48 @@ async def report_violation(
         # 5. SYNC TO PYHUNT if metadata has pyhunt=true
         if (request.metadata or {}).get("pyhunt") == True:
             try:
-                status = "active"
-                if request.type == "terminal_violation" or new_warnings >= 3:
-                    status = "TERMINATED"
+                ph_status = "active"
+                if request.type == "terminal_violation" or new_warnings >= AUTO_SUBMIT_THRESHOLD:
+                    ph_status = "TERMINATED"
                     
                 db.table("pyhunt_progress").upsert({
                     "student_id": student_id,
                     "warnings": min(new_warnings, 3),
-                    "status": status,
+                    "status": ph_status,
                     "last_violation": request.type,
                     "last_active": datetime.now(timezone.utc).isoformat()
                 }, on_conflict="student_id").execute()
-                
-                if status == "TERMINATED":
-                    db.table("exam_status").upsert({
-                        "student_id": student_id,
-                        "exam_title": request.metadata.get("exam_title", "Unknown"),
-                        "status": "TERMINATED",
-                        "warnings": new_warnings,
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }, on_conflict="student_id,exam_title").execute()
-
-                    # 3. Insert into exam_results so it shows in History tab
-                    try:
-                        db.table("exam_results").upsert({
-                            "student_id": student_id,
-                            "exam_title": request.metadata.get("exam_title", "Unknown"),
-                            "score": 0,
-                            "total_marks": 0,
-                            "submitted_at": datetime.now(timezone.utc).isoformat(),
-                            "status": "TERMINATED", # If schema allows
-                        }, on_conflict="student_id,exam_title").execute()
-                    except Exception as e:
-                        print(f"[VIOLATION] Failed to insert termination result: {e}")
             except Exception as e:
-                print(f"[VIOLATION] PyHunt sync failed: {e}")
+                print(f"[VIOLATION] PyHunt progress sync failed: {e}")
+
+        # 6. GLOBAL TERMINATION (for both PyHunt and Regular Exams)
+        if request.type == "terminal_violation" or new_warnings >= AUTO_SUBMIT_THRESHOLD:
+            try:
+                exam_title = request.metadata.get("exam_title") or (request.metadata or {}).get("examTitle") or "Unknown Assessment"
+                
+                # Update exam_status to TERMINATED
+                db.table("exam_status").upsert({
+                    "student_id": student_id,
+                    "exam_title": exam_title,
+                    "status": "TERMINATED",
+                    "warnings": new_warnings,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }, on_conflict="student_id,exam_title").execute()
+
+                # Insert into exam_results so it shows in History tab and blocks re-entry
+                try:
+                    db.table("exam_results").upsert({
+                        "student_id": student_id,
+                        "exam_title": exam_title,
+                        "score": 0,
+                        "total_marks": 0,
+                        "submitted_at": datetime.now(timezone.utc).isoformat(),
+                        "status": "TERMINATED",
+                    }, on_conflict="student_id,exam_title").execute()
+                except Exception as e:
+                    print(f"[VIOLATION] Failed to insert termination result into exam_results: {e}")
+            except Exception as e:
+                print(f"[VIOLATION] Global termination sync failed: {e}")
     except Exception as e:
         print(f"[VIOLATION] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -189,6 +196,36 @@ async def report_violation(
         auto_submitted=auto_submitted,
         message=message,
     )
+
+@router.post("/pyhunt/init")
+async def init_pyhunt_progress(
+    request: PyHuntProgressUpdate,
+    current: dict = Depends(get_current_student),
+):
+    """
+    Initialize student's PyHunt progress if not exists.
+    Also check if they were already terminated.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+    
+    # 1. Check existing status
+    existing = db.table("pyhunt_progress").select("status").eq("student_id", student_id).maybe_single().execute()
+    if existing.data and existing.data.get("status") == "TERMINATED":
+        return {"ok": False, "status": "TERMINATED", "message": "Access denied: Terminated"}
+
+    # 2. Upsert initial record
+    try:
+        db.table("pyhunt_progress").upsert({
+            "student_id": student_id,
+            "status": "active",
+            "last_active": datetime.now(timezone.utc).isoformat(),
+            "current_round": "Round 1"
+        }, on_conflict="student_id").execute()
+        return {"ok": True, "status": "active"}
+    except Exception as e:
+        print(f"[PYHUNT] Init failed: {e}")
+        raise HTTPException(500, str(e))
 
 @router.post("/pyhunt/sync-progress")
 async def sync_pyhunt_progress(

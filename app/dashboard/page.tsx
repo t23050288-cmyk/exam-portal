@@ -408,9 +408,30 @@ export default function DashboardPage() {
 
   const handleLaunch = useCallback(async (exam: ExamNode) => {
     if (!exam.is_active) return;
-    if ((exam.attempt_count || 0) >= (exam.max_attempts || 1)) {
-      setActiveNav("History");
-      return;
+
+    // Check status in database before launch
+    const token = sessionStorage.getItem("exam_token");
+    if (token) {
+      try {
+        const res = await fetch(`/api/exam/status?_=${Date.now()}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const statusData = await res.json();
+        const myStatus = statusData.data?.find((s: any) => s.exam_title === exam.exam_name);
+        
+        if (myStatus && myStatus.status === "TERMINATED") {
+          alert("You have been terminated from this exam due to violations.");
+          setActiveNav("History");
+          return;
+        }
+
+        if ((exam.attempt_count || 0) >= (exam.max_attempts || 1)) {
+          setActiveNav("History");
+          return;
+        }
+      } catch (e) {
+        console.error("[Dashboard] Pre-launch check failed:", e);
+      }
     }
 
     try {
@@ -621,13 +642,28 @@ export default function DashboardPage() {
                         setPyHuntError(false);
                       }}
                     />
-                    <button className={styles.startBtn} onClick={() => {
-                      if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
-                        router.push("/pyhunt");
-                      } else {
-                        setPyHuntError(true);
-                      }
-                    }}>🚀 Start PyHunt</button>
+            <button className={styles.startBtn} onClick={async () => {
+              if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
+                // Check termination before pushing
+                const token = sessionStorage.getItem("exam_token");
+                const res = await fetch(`/api/admin/pyhunt/status?_=${Date.now()}`, {
+                   headers: { "Authorization": `Bearer ${token}` }
+                });
+                const pyHuntStats = await res.json();
+                const studentData = sessionStorage.getItem("exam_student");
+                const sid = studentData ? JSON.parse(studentData).id : null;
+                const myProgress = pyHuntStats.find((s: any) => s.student_id === sid);
+                
+                if (myProgress && myProgress.status === "TERMINATED") {
+                  setPyHuntError(true);
+                  alert("You have been terminated from PyHunt due to violations.");
+                  return;
+                }
+                router.push("/pyhunt");
+              } else {
+                setPyHuntError(true);
+              }
+            }}>🚀 Start PyHunt</button>
                   </div>
                   {pyHuntError && <p className={styles.authError}>Invalid access code. Contact facilitator.</p>}
                 </div>

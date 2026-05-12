@@ -237,38 +237,50 @@ export default function ExamPage() {
 
   useEffect(() => {
     const checkConfig = async () => {
-      if (!examTitle) return;
+      const token = sessionStorage.getItem("exam_token");
+      if (!token || !examTitle) return;
+
       try {
-        const configs = await fetchPublicExamConfig();
-        const cfg = configs.find(c => c.exam_title === examTitle) || 
-                    configs.find(c => c.exam_title?.toLowerCase() === examTitle.toLowerCase());
+        const res = await fetch(`/api/admin/exam/config/public?_=${Date.now()}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const configs = await res.json();
+        const myConfig = configs.find((c: any) => c.exam_title === examTitle);
         
-        if (cfg && cfg.is_active === false) {
-          setExamInactive(true);
-          setExamScheduled(null);
-        } else if (cfg && cfg.scheduled_start) {
-          const start = new Date(cfg.scheduled_start);
-          if (start > new Date()) {
-            setExamScheduled(cfg.scheduled_start);
-            setExamInactive(false);
-          } else {
-            setExamInactive(false);
-            setExamScheduled(null);
+        if (myConfig) {
+          if (myConfig.is_active === false) {
+             setNotification({ type: "error", message: "Exam deactivated by admin." });
+             setTimeout(() => router.push("/dashboard"), 3000);
           }
-        } else {
-          setExamInactive(false);
-          setExamScheduled(null);
+
+          // Sync Duration
+          if (myConfig.duration_minutes && myConfig.duration_minutes !== examDurationMinutes) {
+            setExamDurationMinutes(myConfig.duration_minutes);
+          }
+          // Sync Marks
+          if (myConfig.marks_per_question && myConfig.marks_per_question !== marksPerQuestion) {
+            setMarksPerQuestion(myConfig.marks_per_question);
+          }
         }
-      } catch {
-        // Silently ignore
+
+        // ── SYNC STATUS: Termination Check ──
+        const statusRes = await fetch(`/api/exam/status?_=${Date.now()}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const statusData = await statusRes.json();
+        const myStatus = statusData.data?.find((s: any) => s.exam_title === examTitle);
+        if (myStatus && myStatus.status === "TERMINATED") {
+          router.replace("/dashboard");
+        }
+      } catch (e) {
+        console.error("[Exam] Config sync failed:", e);
       }
     };
     checkConfig();
-    // Add jitter (15s + 0-10s) to status checks to prevent concurrent spikes
     const jitter = Math.floor(Math.random() * 10000);
     const id = setInterval(checkConfig, 15_000 + jitter);
     return () => clearInterval(id);
-  }, [examTitle]);
+  }, [examTitle, examDurationMinutes, marksPerQuestion]);
 
   const handleSelect = useCallback(
     (qId: string, option: string) => {

@@ -713,10 +713,16 @@ async def get_pyhunt_status(_: bool = Depends(verify_admin)):
         # Flatten the data for frontend convenience
         flattened = []
         for row in (result.data or []):
-            student = row.get("students") or {}
+            # student might be a dict or a list depending on relation config
+            student = row.get("students")
+            if isinstance(student, list) and len(student) > 0:
+                student = student[0]
+            elif not isinstance(student, dict):
+                student = {}
+
             flattened.append({
                 **row,
-                "student_name": student.get("name") or "Unknown",
+                "student_name": student.get("name") or row.get("student_id", "Unknown"),
                 "student_usn": student.get("usn") or "Anonymous",
             })
         return flattened
