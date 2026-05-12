@@ -21,12 +21,10 @@ VALID_VIOLATION_TYPES = {
     "multiple_faces",
     "Tab Switch / Minimized",
     "Window Focus Lost",
+    "Exited Fullscreen",
     "Exited Fullscreen (Escape/Button)",
     "DevTools Detected",
-    "Prohibited Shortcut: f12",
-    "Prohibited Shortcut: ctrl+shift+i",
-    "Prohibited Shortcut: ctrl+shift+j",
-    "Prohibited Shortcut: ctrl+u",
+    "terminal_violation",
 }
 AUTO_SUBMIT_THRESHOLD = 3
 
@@ -44,12 +42,12 @@ async def report_violation(
     db = get_supabase()
     student_id = current["student_id"]
 
-    # Validate type
-    if request.type not in VALID_VIOLATION_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unknown violation type: {request.type}",
-        )
+    # Validate type (allow Prohibited Shortcut: prefix)
+    is_valid = request.type in VALID_VIOLATION_TYPES or request.type.startswith("Prohibited Shortcut")
+    if not is_valid:
+        print(f"[VIOLATION] Rejected unknown type: {request.type}")
+        # Log it anyway but don't crash
+        # raise HTTPException(...)
 
     try:
         # Check not already submitted
@@ -116,6 +114,23 @@ async def report_violation(
                 }).eq("id", session_id).execute()
             except Exception:
                 pass
+
+        # 5. SYNC TO PYHUNT if metadata has pyhunt=true
+        if (request.metadata or {}).get("pyhunt") == True:
+            try:
+                status = "active"
+                if request.type == "terminal_violation" or new_warnings >= 3:
+                    status = "TERMINATED"
+                
+                db.table("pyhunt_progress").upsert({
+                    "student_id": student_id,
+                    "warnings": min(new_warnings, 3),
+                    "status": status,
+                    "last_violation": request.type,
+                    "last_active": datetime.now(timezone.utc).isoformat()
+                }, on_conflict="student_id").execute()
+            except Exception as e:
+                print(f"[VIOLATION] PyHunt sync failed: {e}")
     except Exception as e:
         print(f"[VIOLATION] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

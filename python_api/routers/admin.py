@@ -220,26 +220,30 @@ async def admin_sign_upload(_: bool = Depends(verify_admin)):
 async def get_all_students(_: bool = Depends(verify_admin)):
     try:
         db = get_supabase()
-        result = db.table("exam_status").select("*, students(usn, email, name, branch)").execute()
+        # Query students table and join exam_status (left join via select)
+        result = db.table("students").select("id, usn, email, name, branch, exam_status(status, warnings, last_active, submitted_at, started_at)").execute()
 
         rows = []
         if result.data:
             for r in result.data:
-                student_info = r.get("students")
-                if not student_info:
-                    continue
+                # result.data[0]['exam_status'] is a list in Supabase JS/Python client when using select with foreign key
+                status_list = r.get("exam_status")
+                
+                # If there are multiple exam statuses (unlikely in current schema but possible), 
+                # we pick the first one or default.
+                status_data = status_list[0] if isinstance(status_list, list) and len(status_list) > 0 else (status_list or {})
 
                 rows.append(StudentStatus(
-                    student_id=r["student_id"],
-                    usn=student_info.get("usn", "UNKNOWN"),
-                    name=student_info.get("name", "UNKNOWN"),
-                    email=student_info.get("email"),
-                    branch=student_info.get("branch", "CS"),
-                    status=r["status"],
-                    warnings=r["warnings"],
-                    last_active=r["last_active"],
-                    submitted_at=r["submitted_at"],
-                    started_at=r.get("started_at")
+                    student_id=r["id"],
+                    usn=r.get("usn", "UNKNOWN"),
+                    name=r.get("name", "UNKNOWN"),
+                    email=r.get("email"),
+                    branch=r.get("branch", "CS"),
+                    status=status_data.get("status", "not_started"),
+                    warnings=status_data.get("warnings", 0),
+                    last_active=status_data.get("last_active"),
+                    submitted_at=status_data.get("submitted_at"),
+                    started_at=status_data.get("started_at")
                 ))
         return rows
     except Exception as e:
@@ -247,6 +251,7 @@ async def get_all_students(_: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @router.post("/students")
+
 async def create_student(request: StudentCreate, _: bool = Depends(verify_admin)):
     db = get_supabase()
     existing = db.table("students").select("id").eq("usn", request.usn.upper()).execute()
@@ -677,6 +682,34 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
     except Exception as e:
         print(f"save_pyhunt_config error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/pyhunt/progress/reset")
+async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
+    """Reset a student's PyHunt progress to Round 1."""
+    db = get_supabase()
+    try:
+        db.table("pyhunt_progress").update({
+            "current_round": "Round 1",
+            "status": "active",
+            "warnings": 0,
+            "last_violation": None,
+            "turtle_image": None
+        }).eq("student_id", student_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        print(f"reset_pyhunt_progress error: {e}")
+        raise HTTPException(500, str(e))
+
+@router.delete("/pyhunt/progress/{student_id}")
+async def delete_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
+    """Remove a student from the PyHunt progress table."""
+    db = get_supabase()
+    try:
+        db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        print(f"delete_pyhunt_progress error: {e}")
+        raise HTTPException(500, str(e))
 
 
 # ── Orbital Node Management (Folder CRUD) ─────────────────────

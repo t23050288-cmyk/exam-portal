@@ -25,6 +25,7 @@ export interface AntiCheatProps {
   onViolation?: (type: string, meta?: any) => void;
   children: ReactNode;
   initialWarningCount?: number;
+  extraMetadata?: Record<string, any>;
 }
 
 const MAX_STRIKES  = 3;
@@ -41,6 +42,7 @@ export default function AntiCheat({
   onViolation,
   children,
   initialWarningCount = 0,
+  extraMetadata = {},
 }: AntiCheatProps) {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [strikeCount,    setStrikeCount]    = useState(initialWarningCount);
@@ -52,6 +54,11 @@ export default function AntiCheat({
   const cooldownRef      = useRef(false);          // true = in grace window
   const fsReentryRef     = useRef(false);          // true = programmatic FS request in flight
   const overlayVisibleRef = useRef(false);
+
+  useEffect(() => {
+    setStrikeCount(initialWarningCount);
+    strikesRef.current = initialWarningCount;
+  }, [initialWarningCount]);
 
   useEffect(() => { overlayVisibleRef.current = overlayVisible; }, [overlayVisible]);
 
@@ -67,7 +74,7 @@ export default function AntiCheat({
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
         type: "terminal_violation",
-        metadata: { warning_count: MAX_STRIKES, is_auto_submit: true },
+        metadata: { warning_count: MAX_STRIKES, is_auto_submit: true, ...extraMetadata },
       }),
     }).catch(() => {});
 
@@ -105,6 +112,7 @@ export default function AntiCheat({
           is_auto_submit: currentStrikes >= MAX_STRIKES,
           url: typeof window !== "undefined" ? window.location.href : "",
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+          ...extraMetadata,
         },
       }),
     }).catch(() => {});

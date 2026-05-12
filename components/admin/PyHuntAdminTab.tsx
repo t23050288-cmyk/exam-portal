@@ -399,6 +399,32 @@ function LiveStatusView() {
     }
   };
 
+  const resetProgress = async (studentId: string) => {
+    if (!confirm("Reset this student's progress to Round 1?")) return;
+    try {
+      const res = await adminFetch<any>(`/admin/pyhunt/progress/reset?student_id=${studentId}`, {
+        method: "POST"
+      });
+      if (res.ok) fetchStatus();
+      else alert("Failed to reset progress.");
+    } catch (err) {
+      console.error("Reset error:", err);
+    }
+  };
+
+  const removeStudent = async (studentId: string) => {
+    if (!confirm("Permanently remove this student from the progress board?")) return;
+    try {
+      const res = await adminFetch<any>(`/admin/pyhunt/progress/${studentId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) fetchStatus();
+      else alert("Failed to remove student.");
+    } catch (err) {
+      console.error("Remove error:", err);
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
@@ -435,7 +461,8 @@ function LiveStatusView() {
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>TURTLE ART</th>
+              <th style={{padding:"12px 8px", color:"#3a5578", textAlign:"right"}}>ACTIONS</th>
+
             </tr>
           </thead>
           <tbody>
@@ -490,29 +517,32 @@ function LiveStatusView() {
                       padding: "2px 8px",
                       borderRadius: 4,
                       fontSize: 10,
-                      background: isTerminated ? "rgba(239, 68, 68, 0.1)" : (isFinished ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)"),
-                      color: isTerminated ? "#ef4444" : (isFinished ? "#10b981" : "#00dcff"),
-                      border: isTerminated ? "1px solid rgba(239, 68, 68, 0.2)" : (isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)")
+                      background: isTerminated || s.warnings >= 3 ? "rgba(239, 68, 68, 0.1)" : (isFinished ? "rgba(16,185,129,0.1)" : "rgba(0,220,255,0.1)"),
+                      color: isTerminated || s.warnings >= 3 ? "#ef4444" : (isFinished ? "#10b981" : "#00dcff"),
+                      border: isTerminated || s.warnings >= 3 ? "1px solid rgba(239, 68, 68, 0.2)" : (isFinished ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(0,220,255,0.2)")
                     }}>
-                      {isTerminated ? "TERMINATED" : (isFinished ? "FINISHED" : "ACTIVE")}
+                      {isTerminated || s.warnings >= 3 ? "TERMINATED" : (isFinished ? "FINISHED" : "ACTIVE")}
                     </span>
                   </td>
-                  <td style={{padding:"12px 8px"}}>
-                    {s.turtle_image ? (
-                     <div 
-                        onClick={() => setSelectedArt({ id: s.student_id, name: s.student_name, img: s.turtle_image })}
-                        style={{
-                          width: 40, height: 30, background: "#000", borderRadius: 4, 
-                          border: "1px solid rgba(0,220,255,0.3)", cursor: "pointer",
-                          overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center"
-                        }}
-                      >
-                        <img src={s.turtle_image} style={{ width: "100%", height: "100%", objectFit: "contain" }} alt="Art" />
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: 10, opacity: 0.3 }}>-</span>
-                    )}
+                  <td style={{padding:"12px 8px", textAlign:"right"}}>
+                    <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
+                      {s.turtle_image && (
+                        <button 
+                          onClick={() => setSelectedArt({ id: s.student_id, name: s.student_name, img: s.turtle_image })}
+                          style={{ ...$.btnEdit, padding: "4px 8px", fontSize: 10 }}
+                        >View Art</button>
+                      )}
+                      <button 
+                        onClick={() => resetProgress(s.student_id)}
+                        style={{ ...$.btnAdd, padding: "4px 8px", fontSize: 10, borderColor: "rgba(245, 158, 11, 0.3)", color: "#f59e0b", background: "rgba(245, 158, 11, 0.05)" }}
+                      >Reset</button>
+                      <button 
+                        onClick={() => removeStudent(s.student_id)}
+                        style={{ ...$.btnDel, padding: "4px 8px", fontSize: 10 }}
+                      >Remove</button>
+                    </div>
                   </td>
+
                 </tr>
               );
             })}

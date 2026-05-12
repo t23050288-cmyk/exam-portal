@@ -1319,39 +1319,6 @@ export default function PyHuntPage() {
     </div>
   );
 
-  if (!isFullscreen && !finished) return (
-    <div className={styles.page}>
-      <div className={styles.stars} />
-      <div className={styles.nebula1} /><div className={styles.nebula2} />
-      <div className={styles.fsOverlay}>
-        <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(40, 215, 214, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", padding: "40px", borderRadius: "24px" }}>
-          <div className={styles.fsIcon} style={{ fontSize: "48px", marginBottom: "20px" }}>🛡️</div>
-          <h2 style={{ fontSize: "24px", fontWeight: 900, color: "#fff", marginBottom: "12px" }}>Secure Environment Required</h2>
-          <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "32px", fontSize: "15px", lineHeight: "1.5" }}>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
-          <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 12 }}>
-            <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard")} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", fontWeight: 600, cursor: "pointer" }}>
-              Back to Dashboard
-            </button>
-            <button className={styles.primaryBtn} onClick={enterFullscreen} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", boxShadow: "0 8px 20px rgba(40, 215, 214, 0.2)" }}>
-              Enter Secure Mode
-            </button>
-          </div>
-          <div style={{ marginTop: "24px", fontSize: "11px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.05em", fontWeight: 700 }}>
-            VIOLATIONS ARE RECORDED IN REAL-TIME
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (finished) return (
-    <div className={styles.page}>
-      <div className={styles.stars} />
-      <div className={styles.nebula1} /><div className={styles.nebula2} />
-      <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} terminated={terminated} />
-    </div>
-  );
-
   return (
     <div className={styles.page}>
       <div className={styles.stars} />
@@ -1363,6 +1330,7 @@ export default function PyHuntPage() {
         studentId={studentId || "PYHUNT_GUEST"}
         studentName={studentName || "PyHunter"}
         isSubmitted={finished} 
+        extraMetadata={{ pyhunt: true }}
         onAutoSubmit={() => {
           setTerminated(true);
           setFinished(true);
@@ -1379,41 +1347,65 @@ export default function PyHuntPage() {
         }}
         initialWarningCount={warningCount}
       >
-        {/* Header */}
-        <header className={styles.header}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🐍</span>
-            <div>
-              <div className={styles.logoTitle}>PYHUNT</div>
-              <div className={styles.logoSub}>Python Treasure Hunt</div>
+        {finished ? (
+          <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} terminated={terminated} />
+        ) : !isFullscreen ? (
+          <div className={styles.fsOverlay}>
+            <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(40, 215, 214, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", padding: "40px", borderRadius: "24px" }}>
+              <div className={styles.fsIcon} style={{ fontSize: "48px", marginBottom: "20px" }}>🛡️</div>
+              <h2 style={{ fontSize: "24px", fontWeight: 900, color: "#fff", marginBottom: "12px" }}>Secure Environment Required</h2>
+              <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "32px", fontSize: "15px", lineHeight: "1.5" }}>PyHunt requires mandatory full-screen mode to ensure assessment integrity.</p>
+              <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 12 }}>
+                <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard")} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#94a3b8", fontWeight: 600, cursor: "pointer" }}>
+                  Back to Dashboard
+                </button>
+                <button className={styles.primaryBtn} onClick={enterFullscreen} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #28D7D6, #0066cc)", color: "#000", fontWeight: 900, cursor: "pointer", boxShadow: "0 8px 20px rgba(40, 215, 214, 0.2)" }}>
+                  Enter Secure Mode
+                </button>
+              </div>
+              <div style={{ marginTop: "24px", fontSize: "11px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.05em", fontWeight: 700 }}>
+                VIOLATIONS ARE RECORDED IN REAL-TIME
+              </div>
             </div>
           </div>
-          <ProgressBar round={round} showingClue={showingClue} />
-        
+        ) : (
+          <>
+            {/* Header */}
+            <header className={styles.header}>
+              <div className={styles.logo}>
+                <span className={styles.logoIcon}>🐍</span>
+                <div>
+                  <div className={styles.logoTitle}>PYHUNT</div>
+                  <div className={styles.logoSub}>Python Treasure Hunt</div>
+                </div>
+              </div>
+              <ProgressBar round={round} showingClue={showingClue} />
+            
+              <div className={styles.headerRight}>
+                <div className={styles.statsBadge}>
+                  <span className={styles.statLabel}>Tries:</span>
+                  <span className={styles.statValue}>{totalWrongs}</span>
+                </div>
+                <span className={styles.studentBadge}>👤 {studentName}</span>
+              </div>
+            </header>
 
-          <div className={styles.headerRight}>
-            <div className={styles.statsBadge}>
-              <span className={styles.statLabel}>Tries:</span>
-              <span className={styles.statValue}>{totalWrongs}</span>
-            </div>
-            <span className={styles.studentBadge}>👤 {studentName}</span>
-          </div>
-        </header>
+            {/* Content */}
+            <main className={styles.content}>
+              {/* CLUE SCREEN */}
+              {showingClue && cfg.clues[round] && (
+                <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
+              )}
 
-        {/* Content */}
-        <main className={styles.content}>
-          {/* CLUE SCREEN */}
-          {showingClue && cfg.clues[round] && (
-            <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
-          )}
-
-          {/* ROUNDS */}
-          {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-          {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-          {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-          {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-          {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
-        </main>
+              {/* ROUNDS */}
+              {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+              {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+              {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+              {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
+              {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
+            </main>
+          </>
+        )}
       </AntiCheat>
     </div>
   );

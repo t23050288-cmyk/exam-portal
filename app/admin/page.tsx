@@ -1541,8 +1541,8 @@ function QuestionsTab() {
                               <div className={adminStyles.cardHeader}>
                                 <div className={adminStyles.cardIndex} style={{ fontSize: 11, fontWeight: 700, color: palette.accent }}>Q{q.order_index + 1}</div>
                                 <div style={{ display: "flex", gap: 8 }}>
-                                  <button className="btn-icon" onClick={() => { setEditing(q); setFormData({ ...q }); setShowModal(true); }}>✏️</button>
-                                  <button className="btn-icon btn-danger" onClick={() => handleDelete(q.id)}>🗑️</button>
+                                  <button className="btn btn-outline" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => { setEditing(q); setFormData({ ...q }); setShowModal(true); }}>Edit</button>
+                                  <button className="btn btn-outline btn-danger" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => handleDelete(q.id)}>Delete</button>
                                 </div>
                               </div>
                               {q.image_url && (
@@ -1993,7 +1993,18 @@ function StudentsTab() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { 
+    load(); 
+    // Real-time subscription for students and exam_status
+    const channel = supabase
+      .channel("admin-students-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "students" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "exam_status" }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
+
 
   const handleSave = async () => {
     const usnRegex = /^[A-Z0-9]{5}[A-Z]{2}[0-9]{3}$/;
@@ -2141,16 +2152,18 @@ function StudentsTab() {
         const getCompletion = (sid: string, studentBranch: string) => {
           const qMap = (window as any).__examBranchMap || [];
           
-          // Get unique exam names from active configs
-          const activeExamTitles = new Set(examConfigs.filter(c => c.is_active).map(c => c.exam_title));
+          // Get unique exam titles from ALL configs (active or inactive)
+          // This represents the "total" set of exams that have been configured/given
+          const configuredExams = new Set(examConfigs.map(c => c.exam_title));
 
-          // Find exams that have at least one question for this student's branch AND match category filter
+          // Find exams that have at least one question for this student's branch 
+          // AND have a configuration record
           const branchExams = new Set(qMap
             .filter((q: any) => {
               const bMatch = (q.branch === studentBranch || q.branch?.includes(studentBranch));
               const cMatch = catFilter === "all" || q.category === catFilter;
-              const isActive = activeExamTitles.has(q.exam_name);
-              return bMatch && cMatch && isActive;
+              const hasConfig = configuredExams.has(q.exam_name);
+              return bMatch && cMatch && hasConfig;
             })
             .map((q: any) => q.exam_name)
           );
@@ -2161,11 +2174,14 @@ function StudentsTab() {
           const done = Array.from(completed).filter(title => branchExams.has(title)).length;
           return { done, total: branchExams.size };
         };
+
+
         return (
         <div className={adminStyles.tableWrapper}>
           <table className={adminStyles.table}>
             <thead>
-              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>PyHunt</th><th>Warnings</th><th>Actions</th></tr>
+              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>PyHunt</th><th>Actions</th></tr>
+
             </thead>
             <tbody>
               {filtered.map((s, i) => {
@@ -2194,15 +2210,17 @@ function StudentsTab() {
                       );
                     })()}
                   </td>
-                  <td><WarningBadge count={s.warnings} /></td>
+                  {/* Warnings removed per request */}
+
                   <td>
                     <div style={{ display:"flex", gap:6, background:"rgba(255,255,255,0.02)", borderRadius:12, padding:6, border:"1px solid rgba(255,255,255,0.05)" }}>
-                      <button title="View Report" onClick={() => handleShowInfo(s)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(16,185,129,0.12)", color:"#10b981", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>📋</button>
-                      <button title="Edit Profile" onClick={() => { let bID = s.branch || "CS"; const match = ALL_BRANCH_DATA.find(b => b.name === bID || b.id === bID); if (match) bID = match.id; setEditing(s); setFormData({ usn: s.usn, name: s.name, email: s.email || "", branch: bID, password: "" }); setShowModal(true); }} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(99,102,241,0.12)", color:"#818cf8", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✏️</button>
-                      <button title="Reset Password" onClick={() => { const p = prompt("Enter new password:"); if (p) updateAdminStudent(s.student_id, { password: p }).then(() => alert("Password reset")); }} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(255,255,255,0.05)", color:"#94a3b8", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🔑</button>
-                      <button title="Allow Re-Exam" onClick={() => handleResetExam(s.student_id)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(245,158,11,0.12)", color:"#f59e0b", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🔄</button>
-                      <button title="Remove Student" onClick={() => handleDelete(s.student_id)} style={{ width:32, height:32, borderRadius:8, border:"none", background:"rgba(239,68,68,0.12)", color:"#f87171", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>🗑️</button>
+                      <button title="View Report" onClick={() => handleShowInfo(s)} style={{ height:32, padding:"0 12px", borderRadius:8, border:"none", background:"rgba(16,185,129,0.12)", color:"#10b981", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>View Report</button>
+                      <button title="Edit Profile" onClick={() => { let bID = s.branch || "CS"; const match = ALL_BRANCH_DATA.find(b => b.name === bID || b.id === bID); if (match) bID = match.id; setEditing(s); setFormData({ usn: s.usn, name: s.name, email: s.email || "", branch: bID, password: "" }); setShowModal(true); }} style={{ height:32, padding:"0 12px", borderRadius:8, border:"none", background:"rgba(99,102,241,0.12)", color:"#818cf8", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>Edit</button>
+                      <button title="Reset Password" onClick={() => { const p = prompt("Enter new password:"); if (p) updateAdminStudent(s.student_id, { password: p }).then(() => alert("Password reset")); }} style={{ height:32, padding:"0 12px", borderRadius:8, border:"none", background:"rgba(255,255,255,0.05)", color:"#94a3b8", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>Reset</button>
+                      <button title="Allow Re-Exam" onClick={() => handleResetExam(s.student_id)} style={{ height:32, padding:"0 12px", borderRadius:8, border:"none", background:"rgba(245,158,11,0.12)", color:"#f59e0b", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>Retake</button>
+                      <button title="Remove Student" onClick={() => handleDelete(s.student_id)} style={{ height:32, padding:"0 12px", borderRadius:8, border:"none", background:"rgba(239,68,68,0.12)", color:"#f87171", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>Delete</button>
                     </div>
+
                   </td>
                 </tr>
                 );
@@ -2219,14 +2237,14 @@ function StudentsTab() {
         const qMap = (window as any).__examBranchMap || [];
         const sResults = examResults.filter((r: any) => r.student_id === sid);
         
-        // Branch-aware totals per category (Only count ACTIVE exams)
+        // Branch-aware totals per category (Only count CONFIGURED exams)
         const getCatStats = (cat: string) => {
-          const activeTitles = new Set(examConfigs.filter(c => c.is_active).map(c => c.exam_title));
+          const configuredTitles = new Set(examConfigs.map(c => c.exam_title));
           const catExams = new Set(qMap.filter((q: any) => {
             const bMatch = q.branch?.includes("," + sBranch + ",") || q.branch === sBranch;
             const cMatch = (q.category||"Others").toLowerCase() === cat.toLowerCase();
-            const isActive = activeTitles.has(q.exam_name);
-            return bMatch && cMatch && isActive;
+            const hasConfig = configuredTitles.has(q.exam_name);
+            return bMatch && cMatch && hasConfig;
           }).map((q: any) => q.exam_name));
 
           const completed = new Set(sResults.filter((r: any) => (r.category||"Others").toLowerCase() === cat.toLowerCase()).map((r: any) => r.exam_title));
@@ -2234,13 +2252,15 @@ function StudentsTab() {
           return { done, total: catExams.size };
         };
 
+
         const catFilter = (cat: string) => cat === "all" ? sResults : sResults.filter((r: any) => (r.category || "Others").toLowerCase() === cat.toLowerCase());
         const filteredResults = catFilter(infoCatTab);
         
         const overall = {
-          done: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name).filter((t: any) => sResults.some((r: any) => r.exam_title === t))).size,
-          total: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.is_active && c.exam_title === q.exam_name)).map((q: any) => q.exam_name)).size
+          done: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.exam_title === q.exam_name)).map((q: any) => q.exam_name).filter((t: any) => sResults.some((r: any) => r.exam_title === t))).size,
+          total: new Set(qMap.filter((q: any) => (q.branch === sBranch || q.branch?.includes(sBranch)) && examConfigs.some(c => c.exam_title === q.exam_name)).map((q: any) => q.exam_name)).size
         };
+
 
         return (
         <div className={adminStyles.modalOverlay} onClick={() => setInfoStudent(null)}>
