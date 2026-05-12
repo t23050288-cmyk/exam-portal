@@ -48,6 +48,8 @@ export default function ExamPage() {
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "saved">("idle");
   const [loadSource, setLoadSource] = useState<"network" | "cache" | null>(null);
   const [warningCount, setWarningCount] = useState(0);
+  const [examDurationMinutes, setExamDurationMinutes] = useState(20);
+  const [marksPerQuestion, setMarksPerQuestion] = useState(4);
 
   // Pagination state
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -249,7 +251,7 @@ export default function ExamPage() {
         
         if (myConfig) {
           if (myConfig.is_active === false) {
-             setNotification({ type: "error", message: "Exam deactivated by admin." });
+             setError("Exam deactivated by admin.");
              setTimeout(() => router.push("/dashboard"), 3000);
           }
 
