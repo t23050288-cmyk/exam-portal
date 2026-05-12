@@ -165,11 +165,12 @@ export default function DashboardPage() {
       }
     }
 
-    // Reload history from DB when student returns from exam (window focus)
+    // Reload history + exam list when student returns (e.g. after exam submission)
     const onFocus = async () => {
       const token2 = sessionStorage.getItem("exam_token") || "";
       const histResp = await fetch("/api/exam/history", {
-        headers: { "Authorization": `Bearer ${token2}` }
+        headers: { "Authorization": `Bearer ${token2}` },
+        cache: "no-store",
       }).then(r => r.ok ? r.json() : null).catch(() => null);
       const data = histResp?.results || null;
       if (data && data.length > 0) {
@@ -181,6 +182,14 @@ export default function DashboardPage() {
           timestamp: r.submitted_at,
         })));
       }
+      // Also refresh exam list so completed exams disappear from Home immediately
+      try {
+        const { fetchPublicExamConfig } = await import("@/lib/api");
+        const configs = await fetchPublicExamConfig();
+        const active = configs.filter((c: any) => c.is_active);
+        // Trigger loadExams side-effect by dispatching a custom event
+        window.dispatchEvent(new CustomEvent("exam-history-updated"));
+      } catch {}
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -300,6 +309,9 @@ export default function DashboardPage() {
     loadExams();
     const ch1 = supabase.channel("ec").on("postgres_changes", { event: "*", schema: "public", table: "exam_config" }, () => loadExams()).subscribe();
     const ch2 = supabase.channel("qc").on("postgres_changes", { event: "*", schema: "public", table: "questions" }, () => loadExams()).subscribe();
+    // Re-run loadExams when student returns from exam (history updated = exam now completed)
+    const onHistoryUpdated = () => loadExams();
+    window.addEventListener("exam-history-updated", onHistoryUpdated);
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [loadExams]);
 

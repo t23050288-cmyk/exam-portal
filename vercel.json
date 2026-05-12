@@ -31,6 +31,50 @@
       "dest": "python_api/index.py"
     },
     {
+      "src": "/api/autosave",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/events_batch",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/events_beacon",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/sync",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/start_exam",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/final_submit",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/leaderboard/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/leaderboard",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/support/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/grading/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/violations/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
       "src": "/api/py/(.*)",
       "dest": "python_api/index.py"
     },

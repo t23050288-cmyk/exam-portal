@@ -113,12 +113,16 @@ export default function ExamPage() {
       const studentId = studentInfo?.id;
       if (studentId) {
         import("@/lib/supabase").then(({ supabase }) => {
-          supabase.from("exam_status")
-            .select("status")
+          // Check exam_results (has exam_title) for per-exam retake prevention
+          const examTitleCheck = sessionStorage.getItem("exam_selected_title") || "";
+          supabase.from("exam_results")
+            .select("id")
             .eq("student_id", studentId)
-            .maybeSingle()
+            .eq("exam_title", examTitleCheck)
+            .limit(1)
             .then(({ data }: { data: any }) => {
-              if (data?.status === "submitted") {
+              if (data && data.length > 0) {
+                // Already submitted this specific exam
                 router.replace("/dashboard?tab=History");
               }
             });
@@ -159,7 +163,6 @@ export default function ExamPage() {
         supabase.from("exam_status")
           .select("warnings")
           .eq("student_id", info.id)
-          .eq("exam_title", currentExam) // Filter by specific exam title
           .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {

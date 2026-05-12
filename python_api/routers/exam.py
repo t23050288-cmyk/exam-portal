@@ -59,8 +59,8 @@ def get_exam_status(title: str = None, current: dict = Depends(get_current_stude
     student_id = current["student_id"]
     try:
         query = db.table("exam_status").select("*").eq("student_id", student_id)
-        if title:
-            query = query.eq("exam_title", title)
+        # exam_status has no exam_title column; query by student only
+        # if title:  <-- removed: column does not exist
         result = query.execute()
         return {"data": result.data or []}
     except Exception as e:
@@ -412,7 +412,8 @@ def submit_exam(
 
     # 5. Clean up active session for THIS exam
     # Instead of global "submitted", we clear the record or mark it finished for this title
-    db.table("exam_status").delete().eq("student_id", student_id).eq("exam_title", exam_title).execute()
+    # exam_status has no exam_title column — delete the single row for this student
+    db.table("exam_status").delete().eq("student_id", student_id).execute()
     
     # Update global student active status
     db.table("students").update({"is_active_session": False}).eq("id", student_id).execute()
