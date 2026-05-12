@@ -175,7 +175,7 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = options.method || "GET";
   const url = `${API_BASE}${path}`;
   
