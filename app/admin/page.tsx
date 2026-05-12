@@ -354,13 +354,10 @@ export default function AdminPage() {
     };
     buildQuizList();
 
-    const channel = supabase
-      .channel("admin-exam-status")
-      .on("postgres_changes", { event: "*", schema: "public", table: "exam_status" }, () => fetchStudents())
-      .subscribe();
-
-    const interval = setInterval(fetchStudents, 5_000);
-    return () => { supabase.removeChannel(channel); clearInterval(interval); };
+    // REMOVED: Realtime features (Interval + Supabase Channel)
+    // User requested removal of all background API calls to reduce load.
+    // The monitor now only updates on initial load or manual refresh.
+    return () => {};
   }, [authed, fetchStudents]);
 
   const handleCleanup = async () => {

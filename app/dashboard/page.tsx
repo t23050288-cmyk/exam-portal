@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
+export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
-import { fetchPublicExamConfig } from "@/lib/api";
+import { fetchPublicExamConfig, apiFetch } from "@/lib/api";
 
 // Styles
 import "./theme.css";
@@ -214,11 +215,8 @@ export default function DashboardPage() {
         try {
           const token = sessionStorage.getItem("exam_token") || "";
           
-          // Fetch status from our proxy API (handles JWT auth)
-          const statusResp = await fetch("/api/exam/status", {
-            headers: { "Authorization": `Bearer ${token}` }
-          }).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
-          
+          // Fetch status from our hardened proxy API (handles JWT auth + no-cache)
+          const statusResp = await apiFetch<{ data: any[] }>("/exam/status").catch(() => ({ data: [] }));
           const statusData: any[] = statusResp.data || [];
           
 

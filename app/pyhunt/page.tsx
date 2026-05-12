@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
+export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
 import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
