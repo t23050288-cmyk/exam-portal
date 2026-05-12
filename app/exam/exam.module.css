@@ -1,6 +1,6 @@
-/* ══════════════════════════════════════════════════════════════
-   ExamGuard – Exact Mockup: Warm Frosted Glass
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ExamGuard â€“ Exact Mockup: Warm Frosted Glass
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .wrapper {
   height: 100vh;
@@ -13,7 +13,7 @@
   color: var(--text-primary);
 }
 
-/* ── CSS Variables ── */
+/* â”€â”€ CSS Variables â”€â”€ */
 .wrapper {
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
@@ -36,7 +36,7 @@
   background: transparent;
 }
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .header {
   position: relative;
   z-index: 10;
@@ -75,7 +75,7 @@
   box-shadow: 0 6px 20px rgba(255, 75, 75, 0.4);
 }
 
-/* ── Main layout ── */
+/* â”€â”€ Main layout â”€â”€ */
 .main {
   display: grid;
   grid-template-columns: 1fr 280px;
@@ -102,7 +102,7 @@
 .questionList::-webkit-scrollbar-track { background: transparent; }
 .questionList::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-/* ── Sidebar ── */
+/* â”€â”€ Sidebar â”€â”€ */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -133,7 +133,7 @@
   letter-spacing: 0.1em;
 }
 
-/* ── Navigation Grid (Circular) ── */
+/* â”€â”€ Navigation Grid (Circular) â”€â”€ */
 .navGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -188,7 +188,7 @@
   color: #eab308 !important;
 }
 
-/* ── Legend ── */
+/* â”€â”€ Legend â”€â”€ */
 .legend {
   display: flex;
   flex-direction: column;
@@ -211,7 +211,7 @@
   border-radius: 50%;
 }
 
-/* ── Confirm Modal ── */
+/* â”€â”€ Confirm Modal â”€â”€ */
 .confirmOverlay {
   position: fixed;
   inset: 0;
@@ -240,7 +240,7 @@
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ── Submitted screen (Mockup Redesign) ── */
+/* â”€â”€ Submitted screen (Mockup Redesign) â”€â”€ */
 .submittedWrapper {
   min-height: 100vh;
   width: 100%;
@@ -402,16 +402,16 @@
   z-index: 0;
 }
 
-/* ── No-select ── */
+/* â”€â”€ No-select â”€â”€ */
 :global(.no-select) {
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MOBILE RESPONSIVE — Full Redesign for ≤768px
-   Layout: Header → Question Card → Question Grid
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   MOBILE RESPONSIVE â€” Full Redesign for â‰¤768px
+   Layout: Header â†’ Question Card â†’ Question Grid
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 @media (max-width: 768px) {
 
@@ -571,7 +571,7 @@
   color: var(--text-primary);
 }
 
-/* ── Secure Mode Gate ── */
+/* â”€â”€ Secure Mode Gate â”€â”€ */
 .secureGate {
   position: fixed;
   inset: 0;
@@ -676,13 +676,13 @@
   100% { opacity: 0.6; transform: scale(0.95); }
 }
 
- . a c t i o n s R o w   { 
-     d i s p l a y :   f l e x ; 
-     g a p :   1 6 p x ; 
-     a l i g n - i t e m s :   c e n t e r ; 
-     j u s t i f y - c o n t e n t :   f l e x - e n d ; 
-     m a r g i n - t o p :   2 0 p x ; 
-     p a d d i n g - t o p :   2 0 p x ; 
-     b o r d e r - t o p :   1 p x   s o l i d   v a r ( - - r i m - m e t a l ) ; 
- }  
- 
+.actionsRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rim-metal);
+}
+
