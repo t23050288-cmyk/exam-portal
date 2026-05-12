@@ -145,8 +145,8 @@ export default function DashboardPage() {
       if (data && data.length > 0) {
         const dbHistory = data.map((r: any) => ({
           examName: r.exam_title,
-          score: r.score || 0,
-          totalMarks: r.total_marks || 0,
+          score: r.correct_count ?? r.score ?? 0,
+          totalMarks: r.total_questions ?? r.total_marks ?? 0,
           category: r.category || "Others",
           timestamp: r.submitted_at,
         }));
@@ -176,8 +176,8 @@ export default function DashboardPage() {
       if (data && data.length > 0) {
         setLocalHistory(data.map((r: any) => ({
           examName: r.exam_title,
-          score: r.score || 0,
-          totalMarks: r.total_marks || 0,
+          score: r.correct_count ?? r.score ?? 0,
+          totalMarks: r.total_questions ?? r.total_marks ?? 0,
           category: r.category || "Others",
           timestamp: r.submitted_at,
         })));
@@ -221,24 +221,49 @@ export default function DashboardPage() {
           
           const statusData: any[] = statusResp.data || [];
           
+
           // Fetch results (using studentId for history)
           const { data: resultsData } = await supabase
             .from("exam_results")
-            .select("score, total_marks, exam_title")
+            .select("score, total_marks, exam_title, correct_count, total_questions, submitted_at")
             .eq("student_id", studentId);
           
           if (resultsData) {
+            const histRecords: any[] = [];
             resultsData.forEach((r: any) => {
               if (r.exam_title) {
                 const title = r.exam_title.trim().toLowerCase();
+                
+                // Calculate question count as a fallback
+                const qs = (qData || []).filter((q: any) => (q.exam_name || "").trim().toLowerCase() === title);
+                let qCount = 0;
+                qs.forEach((q: any) => {
+                   const bStr = (q.branch || "").toUpperCase();
+                   if (!studentBranch || bStr.includes(studentBranch) || bStr === "" || bStr === "GLOBAL" || bStr === "ALL") {
+                     qCount++;
+                   }
+                });
+
+                // User specifically wants "How much got / Total Questions"
+                const displayScore = r.correct_count ?? r.score ?? 0;
+                const displayTotal = r.total_questions ?? (qCount > 0 ? qCount : r.total_marks) ?? 0;
+
                 if (!submittedMap[title]) {
-                  submittedMap[title] = { score: r.score || 0, total_marks: r.total_marks || 0, attempt_count: 0 };
+                  submittedMap[title] = { score: displayScore, total_marks: displayTotal, attempt_count: 0 };
                 }
                 submittedMap[title].attempt_count++;
-                submittedMap[title].score = r.score;
-                submittedMap[title].total_marks = r.total_marks;
+                submittedMap[title].score = displayScore;
+                submittedMap[title].total_marks = displayTotal;
+
+                histRecords.push({
+                  examName: r.exam_title,
+                  score: displayScore,
+                  totalMarks: displayTotal,
+                  timestamp: r.submitted_at,
+                });
               }
             });
+            setLocalHistory(histRecords);
           }
           if (statusData) {
             statusData.forEach((s: any) => {

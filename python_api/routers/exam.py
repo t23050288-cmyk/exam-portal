@@ -355,45 +355,51 @@ def submit_exam(
             submitted_at=r.get("submitted_at", datetime.now(timezone.utc).isoformat()),
         )
 
-    # 2. Load correct answers ONLY for the question IDs the student was served
+
+    # 2. Fetch student branch to ensure we calculate total based on what they were assigned
+    student_res = db.table("students").select("branch").eq("id", student_id).maybe_single().execute()
+    branch = (student_res.data.get("branch") or "").strip().upper() if student_res.data else ""
+
     answers = request.answers
     exam_title = answers.pop("__exam_title", "Initial Assessment")
 
-    # Get the exact question IDs submitted by the student (excluding meta keys)
-    submitted_ids = [k for k in answers.keys() if not k.startswith("__")]
-
-    # Fetch only those specific questions from DB
-    questions_result = (
-        db.table("questions")
-        .select("id, correct_answer, marks")
-        .in_("id", submitted_ids)
-        .execute()
-    )
+    # 3. Load correct answers for ALL questions assigned to this student (branch-aware)
+    all_qs_res = db.table("questions").select("id, correct_answer, marks, branch").eq("exam_name", exam_title).execute()
+    
+    filtered_qs = []
+    for q in (all_qs_res.data or []):
+        q_branch = (q.get("branch") or "").strip().upper()
+        if not branch or branch in q_branch or q_branch in ["", "GLOBAL", "ALL"]:
+            filtered_qs.append(q)
 
     correct_map = {
-        q["id"]: (q["correct_answer"], q["marks"])
-        for q in (questions_result.data or [])
+        q["id"]: (q["correct_answer"], q.get("marks", 1))
+        for q in filtered_qs
     }
 
     score = 0
     correct_count = 0
     wrong_count = 0
-    # total_marks = marks for the questions the student actually received
-    total_marks = sum(marks for _, marks in correct_map.values())
+    total_marks = sum(q.get("marks", 1) for q in filtered_qs)
+    total_questions = len(filtered_qs)
 
-    for q_id, selected in answers.items():
-        if q_id in correct_map:
-            correct_ans, marks = correct_map[q_id]
+    # 4. Calculate score based on correct_map (all questions)
+    for q_id, (correct_ans, marks) in correct_map.items():
+        selected = answers.get(q_id)
+        if selected:
             if selected == correct_ans:
                 score += marks
                 correct_count += 1
             else:
                 wrong_count += 1
+        else:
+            # Skipped question
+            pass
 
     submitted_at = datetime.now(timezone.utc).isoformat()
 
+
     # 4. Upsert exam_results — use student_id + exam_title as composite key
-    # so multiple exams per student are stored as separate rows
     existing = (
         db.table("exam_results")
         .select("id")
@@ -401,14 +407,36 @@ def submit_exam(
         .eq("exam_title", exam_title)
         .execute()
     )
-    if existing.data:
-        db.table("exam_results").update(
-            {"answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).eq("student_id", student_id).eq("exam_title", exam_title).execute()
-    else:
-        db.table("exam_results").insert(
-            {"student_id": student_id, "exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).execute()
+    payload_full = {
+        "student_id": student_id,
+        "exam_title": exam_title,
+        "answers": answers,
+        "score": score,
+        "total_marks": total_marks,
+        "correct_count": correct_count,
+        "total_questions": total_questions,
+        "submitted_at": submitted_at
+    }
+    payload_safe = {
+        "student_id": student_id,
+        "exam_title": exam_title,
+        "answers": answers,
+        "score": score,
+        "total_marks": total_marks,
+        "submitted_at": submitted_at
+    }
+
+    try:
+        if existing.data:
+            db.table("exam_results").update(payload_full).eq("student_id", student_id).eq("exam_title", exam_title).execute()
+        else:
+            db.table("exam_results").insert(payload_full).execute()
+    except Exception as e:
+        print(f"[EXAM] DB Schema missing extra columns, falling back: {e}")
+        if existing.data:
+            db.table("exam_results").update(payload_safe).eq("student_id", student_id).eq("exam_title", exam_title).execute()
+        else:
+            db.table("exam_results").insert(payload_safe).execute()
 
     # 5. Clean up active session for THIS exam
     # Instead of global "submitted", we clear the record or mark it finished for this title
