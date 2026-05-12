@@ -21,6 +21,7 @@ class LoginResponse(BaseModel):
     student_name: Optional[str] = None
     email: Optional[str] = None
     branch: Optional[str] = "CS"
+    usn: Optional[str] = None
     exam_start_time: Optional[str] = None
     exam_duration_minutes: int = 60
     exam_title: str = "ExamGuard Assessment"

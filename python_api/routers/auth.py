@@ -182,6 +182,7 @@ async def login(request: LoginRequest):
         student_name=request.name or student.get("name"),
         email=request.email or student.get("email"),
         branch=current_branch,
+        usn=student.get("usn"),
         exam_start_time=started_at,
         exam_duration_minutes=current_duration,
         exam_title=current_exam_title,

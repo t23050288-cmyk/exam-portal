@@ -28,6 +28,7 @@ import {
   forceSubmitAdminStudent,
   cleanupStaleSessions,
   fetchExamConfig,
+  fetchPublicExamConfig,
   fetchStudentDetailedStats,
   StudentDetailedStats,
   StudentExamHistory,
@@ -321,18 +322,37 @@ export default function AdminPage() {
     if (!authed) return;
     setLoading(true);
     fetchStudents().finally(() => setLoading(false));
-    fetchActiveExams();
-    fetchAdminQuestions().then(({ questions: qs }: any) => {
-      const list: BranchExamSummary[] = [];
-      qs.forEach((q: any) => {
-        const br = q.branch || "CS";
-        const ex = q.exam_name || "ExamGuard Assessment";
-        if (!list.find(x => x.branch === br && x.exam_name === ex)) {
-          list.push({ branch: br, exam_name: ex, question_count: 1 });
-        }
-      });
-      setQuizzes(list);
-    }).catch(console.error);
+    // Build quizzes list from both config (even if no questions) and actual questions
+    const buildQuizList = async () => {
+      try {
+        const configs = await fetchPublicExamConfig();
+        const { questions: qs } = await fetchAdminQuestions();
+        const list: BranchExamSummary[] = [];
+        
+        // 1. Add all named exams from config
+        configs.forEach((c: any) => {
+          if (c.exam_title && !list.find(x => x.exam_name === c.exam_title)) {
+            list.push({ branch: "ALL", exam_name: c.exam_title, question_count: 0 });
+          }
+        });
+        
+        // 2. Add/Update based on questions (captures branch-specific counts)
+        qs.forEach((q: any) => {
+          const br = q.branch || "CS";
+          const ex = q.exam_name || "ExamGuard Assessment";
+          const existing = list.find(x => x.branch === br && x.exam_name === ex);
+          if (!existing) {
+            list.push({ branch: br, exam_name: ex, question_count: 1 });
+          } else {
+            existing.question_count++;
+          }
+        });
+        setQuizzes(list);
+      } catch (err) {
+        console.error("[ADMIN] buildQuizList failed:", err);
+      }
+    };
+    buildQuizList();
 
     const channel = supabase
       .channel("admin-exam-status")

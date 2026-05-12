@@ -6,6 +6,7 @@ interface ProfileChipProps {
   user: {
     id: string;
     name: string;
+    usn?: string;
     photo: string | null;
   };
   onProfileClick: () => void;
@@ -22,7 +23,7 @@ export default function ProfileChip({ user, onProfileClick, onLogout }: ProfileC
       </div>
       <div className={styles.info}>
         <div className={styles.name}>{user.name || "Student"}</div>
-        <div className={styles.role}>Candidate — {user.id ? `${user.id.slice(0, 8)}...` : "NEXUS"}</div>
+        <div className={styles.role}>Candidate — {user.usn || "NEXUS"}</div>
       </div>
       <span className={styles.arrow}>{open ? "▴" : "▾"}</span>
 

@@ -303,20 +303,32 @@ export default function DashboardPage() {
             const branchStr = (q.branch || "").toUpperCase();
             const qCat = q.category || "";
             if (qCat === "Aptitude" || qCat === "Programming") cat = qCat;
-            // Match if the branch string contains the student's branch
-            if (!studentBranch || branchStr.toUpperCase().includes(studentBranch) || branchStr === "" || branchStr === "GLOBAL" || branchStr === "ALL") {
+            // Match: branch field contains student's branch, or is empty/global/all
+            if (!studentBranch || branchStr.includes(studentBranch) || branchStr === "" || branchStr === "GLOBAL" || branchStr === "ALL") {
               matchCount++;
             }
           });
 
-          // Show exam if there are ANY matching questions, or if exam has questions at all
-          // Don't hide exam just because branch doesn't match — show all active exams
-          const finalMatchCount = matchCount === 0 ? qs.length : matchCount;
+          // BRANCH ISOLATION: If the exam HAS questions but NONE match this
+          // student's branch, skip it entirely — don't show it to them.
+          if (qs.length > 0 && matchCount === 0 && studentBranch) {
+            console.log(`[DASHBOARD] Skipping exam ${cfgTitle} - no questions for branch ${studentBranch}`);
+            continue;
+          }
+          
+          // If no questions exist at all for any branch, we usually skip it too 
+          // unless it's a global/shared exam config with no questions yet.
+          if (qs.length === 0) {
+            console.log(`[DASHBOARD] Skipping exam ${cfgTitle} - no questions found.`);
+            continue;
+          }
+
+          const finalMatchCount = matchCount > 0 ? matchCount : qs.length;
 
           const nid = cfg.exam_title;
           if (!seen.has(nid)) {
             const sub = submittedMap[cfg.exam_title.trim().toLowerCase()];
-            nodes.push({ id: nid, exam_name: cfg.exam_title, branch: studentBranch || "ALL", is_active: cfg.is_active,
+            nodes.push({ id: nid, exam_name: cfg.exam_title, branch: "ALL", is_active: cfg.is_active,
               duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
               question_count: finalMatchCount, category: cat,
               submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
@@ -482,7 +494,7 @@ export default function DashboardPage() {
             </div>
             <div className={styles.headerActions}>
               <ProfileChip 
-                user={{ id: student?.id || "", name: profile.name, photo: profile.photo }}
+                user={{ id: student?.id || "", name: profile.name, usn: student?.usn, photo: profile.photo }}
                 onProfileClick={() => setActiveNav("Profile")}
                 onLogout={handleLogout}
               />
