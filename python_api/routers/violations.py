@@ -208,7 +208,6 @@ async def sync_pyhunt_progress(
         
         # If terminated, force warnings to 3 and record in history
         if request.terminated:
-            data["warnings"] = 3
             try:
                 # Insert record into exam_results for History tab visibility
                 db.table("exam_results").upsert({
@@ -235,8 +234,9 @@ async def sync_pyhunt_progress(
         if request.last_violation:
             data["last_violation"] = request.last_violation
             
+        print(f"[PyHuntSync] Syncing progress for student {student_id}: Round {request.current_round}, status {status}")
         db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()
         return {"ok": True}
     except Exception as e:
-        print(f"[PYHUNT SYNC] Error: {e}")
+        print(f"[PyHuntSync] CRITICAL ERROR for {student_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

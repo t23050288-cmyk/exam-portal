@@ -686,6 +686,7 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
 @router.post("/pyhunt/progress/reset")
 async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
     """Reset a student's PyHunt progress to Round 1."""
+
     db = get_supabase()
     try:
         db.table("pyhunt_progress").update({
@@ -698,6 +699,30 @@ async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)
         return {"ok": True}
     except Exception as e:
         print(f"reset_pyhunt_progress error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/pyhunt/status")
+async def get_pyhunt_status(_: bool = Depends(verify_admin)):
+    """Fetch all student PyHunt progress with student details."""
+    db = get_supabase()
+    try:
+        # Join with students table to get name and USN
+        # Supabase PostgREST join syntax: select('*, students(name, usn)')
+        result = db.table("pyhunt_progress").select("*, students(name, usn)").order("last_active", desc=True).execute()
+        
+        # Flatten the data for frontend convenience
+        flattened = []
+        for row in (result.data or []):
+            student = row.get("students") or {}
+            flattened.append({
+                **row,
+                "student_name": student.get("name") or "Unknown",
+                "student_usn": student.get("usn") or "Anonymous",
+            })
+        return flattened
+    except Exception as e:
+        print(f"get_pyhunt_status error: {e}")
+        return []
         raise HTTPException(500, str(e))
 
 @router.delete("/pyhunt/progress/{student_id}")

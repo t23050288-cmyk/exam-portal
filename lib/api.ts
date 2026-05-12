@@ -177,7 +177,9 @@ function getAuthHeaders(): Record<string, string> {
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = options.method || "GET";
-  const url = `${API_BASE}${path}`;
+  // Cache busting: append timestamp to ensure fresh data every time
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `${API_BASE}${path}${sep}t=${Date.now()}`;
   
   // Production-style logging to match user preference
   console.log(`[API] Fetching: ${method} ${url}`);
@@ -224,7 +226,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
 export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = options.method || "GET";
-  const url = `${API_BASE}${path}`;
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `${API_BASE}${path}${sep}t=${Date.now()}`;
   
   console.log(`[API-ADMIN] Fetching: ${method} ${url}`);
 
@@ -369,7 +372,11 @@ export async function reportViolation(
 }
 
 export async function fetchPublicExamConfig(): Promise<ExamConfig[]> {
-  const data = await fetch(`${API_BASE}/admin/exam/config/public`, { cache: "no-store" });
+  // Use unique timestamp to bypass mobile/CDN caching entirely
+  const data = await fetch(`${API_BASE}/admin/exam/config/public?t=${Date.now()}`, { 
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
+  });
   if (!data.ok) return [];
   const json = await data.json();
   return Array.isArray(json) ? json : (json.configs || []);

@@ -101,9 +101,9 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
   // ── Route through backend (bypasses Supabase RLS) ──
   // Always fetch fresh from backend — never trust stale localStorage
   try {
-    const res = await fetch(`/api/admin/pyhunt/config`, {
+    const res = await fetch(`/api/admin/pyhunt/config?t=${Date.now()}`, {
       cache: "no-store",
-      headers: { "Cache-Control": "no-cache" },
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
     });
     if (res.ok) {
       const json = await res.json();
@@ -1203,16 +1203,15 @@ export default function PyHuntPage() {
   useEffect(() => {
     const updateProgress = async () => {
       try {
-        const examStudent2 = sessionStorage.getItem("exam_student"); const sid2 = examStudent2 ? JSON.parse(examStudent2).id : null;
-        const studentId = sid2 || "anonymous";
-        const name = studentName || "Student";
+        const examStudent2 = sessionStorage.getItem("exam_student"); 
+        const studentId = examStudent2 ? JSON.parse(examStudent2).id : "anonymous";
         const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
         
         // Important: Fetch the latest image from state
         // If it's empty, try to get it from local storage as a last resort
         const imgToSend = turtleImage || localStorage.getItem("nexus_turtle_temp");
-
         const token = sessionStorage.getItem("exam_token") || "";
+        console.log(`[PyHunt] Syncing progress for: ${studentId} (Round: ${currentRound})`);
         if (!token) return;
 
         await fetch("/api/exam/pyhunt/sync-progress", {

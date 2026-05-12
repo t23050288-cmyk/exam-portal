@@ -365,18 +365,21 @@ function LiveStatusView() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedArt, setSelectedArt] = useState<{id: string, name: string, img: string} | null>(null);
+  const [countdown, setCountdown] = useState(60);
+
+  const [lastSync, setLastSync] = useState<string>("");
 
   const fetchStatus = async () => {
     try {
-      const { data, error } = await supabase
-        .from('pyhunt_progress')
-        .select('*')
-        .order('last_active', { ascending: false });
-      
-      if (error) throw error;
+      // Use our new hardened admin API for joined data (Name + USN)
+      const data = await adminFetch<any[]>("/admin/pyhunt/status");
       setStudents(data || []);
+      setLastSync(new Date().toLocaleTimeString());
     } catch (err) {
       console.error("Fetch error:", err);
+      // Fallback to direct supabase if API fails (e.g. during migration)
+      const { data } = await supabase.from('pyhunt_progress').select('*').order('last_active', { ascending: false });
+      if (data) setStudents(data);
     } finally {
       setLoading(false);
     }
@@ -427,7 +430,16 @@ function LiveStatusView() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
+    setCountdown(60);
+
+    const interval = setInterval(() => {
+      fetchStatus();
+      setCountdown(60);
+    }, 60000); // 1 minute as requested
+
+    const cd = setInterval(() => {
+      setCountdown(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
 
     // REAL-TIME: Listen for any changes in the pyhunt_progress table
     const channel = supabase
@@ -444,6 +456,7 @@ function LiveStatusView() {
 
     return () => {
       clearInterval(interval);
+      clearInterval(cd);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -459,8 +472,23 @@ function LiveStatusView() {
   return (
     <div style={$.card}>
       <div style={{...$.cardTitle, marginBottom:20}}>
-        <span>📡 Real-time Student Progress</span>
-        <button style={$.btnAdd} onClick={fetchStatus}>🔄 Refresh</button>
+        <div style={{display:"flex", alignItems:"center", gap:15}}>
+          <div style={{display:"flex", alignItems:"center", gap:8}}>
+            <span style={{fontSize: 20}}>📡</span>
+            <span>Live Monitor</span>
+          </div>
+          <div style={{fontSize:12, opacity:0.6, fontWeight: 400}}>
+            Last Sync: <span style={{color:"#00dcff", fontWeight:700}}>{lastSync || "Waiting..." }</span>
+          </div>
+          <div style={{
+            fontSize:10, background:"rgba(0,220,255,0.08)", padding:"2px 10px", 
+            borderRadius:4, border:"1px solid rgba(0,220,255,0.2)", color:"#00dcff",
+            fontWeight: 800, minWidth: 100, textAlign: "center", textTransform: "uppercase"
+          }}>
+            Refresh in {countdown}s
+          </div>
+        </div>
+        <button style={$.btnAdd} onClick={() => { fetchStatus(); setCountdown(60); }}>🔄 Refresh Now</button>
       </div>
 
       {loading && students.length === 0 ? (
@@ -495,7 +523,7 @@ function LiveStatusView() {
                 }}>
                     <td style={{padding:"12px 8px"}}>
                       <div style={{fontWeight:700}}>{s.student_name || "Unknown Name"}</div>
-                      <div style={{fontSize:10, opacity:0.5}}>{s.student_id || "Anonymous"}</div>
+                      <div style={{fontSize:10, opacity:0.6, color: "#00dcff", fontWeight: 700}}>{s.student_usn || s.student_id || "Anonymous"}</div>
                     </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{
