@@ -1218,8 +1218,8 @@ export default function PyHuntPage() {
             student_name: name,
             current_round: currentRound,
             last_active: new Date().toISOString(),
-            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 4 ? 'auto_submitted' : 'finished')) : 'active',
-            warnings: Math.min(warningCount, 4),
+            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 3 ? 'auto_submitted' : 'finished')) : 'active',
+            warnings: Math.min(warningCount, 3),
             last_violation: lastViolation,
             turtle_image: imgToSend
           }, { onConflict: 'student_id' });
