@@ -365,12 +365,12 @@ async def force_submit_student(student_id: str, _: bool = Depends(verify_admin))
     """Admin tool to force submission of a student session using current saved answers."""
     db = get_supabase()
     
-    student_res = db.table("students").select("branch").eq("id", student_id).single().execute()
+    student_res = db.table("students").select("branch").eq("id", student_id).maybe_single().execute()
     if not student_res.data:
         raise HTTPException(status_code=404, detail="Student not found")
     branch = student_res.data["branch"]
 
-    results_res = db.table("exam_results").select("answers").eq("student_id", student_id).single().execute()
+    results_res = db.table("exam_results").select("answers").eq("student_id", student_id).maybe_single().execute()
     answers = results_res.data.get("answers") or {} if results_res.data else {}
     
     qs_res = db.table("questions").select("id, correct_answer, marks").eq("branch", branch).execute()

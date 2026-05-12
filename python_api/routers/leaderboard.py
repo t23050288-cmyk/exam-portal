@@ -18,11 +18,11 @@ def _compute_leaderboard() -> LeaderboardResponse:
     # Fetch all submitted results with student info
     results = (
         db.table("exam_results")
-        .select("student_id, score, total_marks, submitted_at, answers")
+        .select("student_id, score, total_marks, submitted_at, answers, exam_title")
         .execute()
     )
 
-    # Fetch exam status for started_at (velocity)
+    # Fetch exam status for started_at (velocity) — optional since it might be deleted
     statuses = (
         db.table("exam_status")
         .select("student_id, started_at, status")
@@ -34,19 +34,6 @@ def _compute_leaderboard() -> LeaderboardResponse:
     students = db.table("students").select("id, usn, name, branch").execute()
     student_map = {s["id"]: s for s in (students.data or [])}
 
-    # Fetch question IDs to map results to exams (Virtual Folder Logic)
-    all_question_ids = []
-    for r in (results.data or []):
-        ans = r.get("answers") or {}
-        if ans:
-            all_question_ids.extend(list(ans.keys()))
-    
-    q_map = {}
-    if all_question_ids:
-        unique_q_ids = list(set(all_question_ids))
-        qs = db.table("questions").select("id, exam_name").in_("id", unique_q_ids[:500]).execute()
-        q_map = {q["id"]: q["exam_name"] for q in (qs.data or [])}
-
     entries: list[LeaderboardEntry] = []
 
     for r in (results.data or []):
@@ -55,17 +42,17 @@ def _compute_leaderboard() -> LeaderboardResponse:
         if not student:
             continue
 
-        exam_status = status_map.get(sid, {})
-        # Only include submitted students
-        if exam_status.get("status") != "submitted":
-            continue
+        # We no longer filter by exam_status.status == "submitted" 
+        # because exam_status row is often deleted on submission.
+        # If it's in exam_results, it's a valid submission.
 
         score = r.get("score") or 0
         total_marks = r.get("total_marks") or 0
         pct = round(score / total_marks * 100, 1) if total_marks else 0.0
 
-        # Calculate velocity
+        # Calculate velocity (best effort)
         time_taken: int | None = None
+        exam_status = status_map.get(sid, {})
         if r.get("submitted_at") and exam_status.get("started_at"):
             try:
                 t_start = datetime.fromisoformat(exam_status["started_at"].replace("Z", "+00:00"))
@@ -74,13 +61,8 @@ def _compute_leaderboard() -> LeaderboardResponse:
             except Exception:
                 pass
 
-        # Resolve exam name from answers
-        ans = r.get("answers") or {}
-        resolved_exam_name = "Initial Assessment"
-        for qid in ans.keys():
-            if qid in q_map:
-                resolved_exam_name = q_map[qid]
-                break
+        # Use exam_title directly from results
+        resolved_exam_name = r.get("exam_title") or "Assessment"
 
         entries.append(
             LeaderboardEntry(

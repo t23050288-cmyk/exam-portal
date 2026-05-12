@@ -1211,18 +1211,24 @@ export default function PyHuntPage() {
         // If it's empty, try to get it from local storage as a last resort
         const imgToSend = turtleImage || localStorage.getItem("nexus_turtle_temp");
 
-        await supabase
-          .from('pyhunt_progress')
-          .upsert({ 
-            student_id: studentId,
-            student_name: name,
+        const token = sessionStorage.getItem("exam_token") || "";
+        if (!token) return;
+
+        await fetch("/api/exam/pyhunt/sync-progress", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
             current_round: currentRound,
-            last_active: new Date().toISOString(),
-            status: finished ? (terminated ? 'TERMINATED' : (warningCount >= 3 ? 'auto_submitted' : 'finished')) : 'active',
-            warnings: Math.min(warningCount, 3),
-            last_violation: lastViolation,
-            turtle_image: imgToSend
-          }, { onConflict: 'student_id' });
+            turtle_image: imgToSend || undefined,
+            finished: finished,
+            terminated: terminated,
+            warning_count: warningCount,
+            last_violation: lastViolation || undefined
+          })
+        });
       } catch (err) {
         console.error("Failed to update progress:", err);
       }
@@ -1332,6 +1338,8 @@ export default function PyHuntPage() {
         isSubmitted={finished} 
         extraMetadata={{ pyhunt: true }}
         onAutoSubmit={() => {
+          setWarningCount(3);
+          setLastViolation("TERMINATED");
           setTerminated(true);
           setFinished(true);
           const duration = Math.floor((Date.now() - startTime) / 60000);

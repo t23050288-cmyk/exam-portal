@@ -280,6 +280,31 @@ export default function AntiCheat({
             </button>
           )}
 
+          {terminated && (
+            <div style={{ marginTop: "40px", display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}>
+              <button
+                onClick={() => window.location.href = "/dashboard?tab=History"}
+                style={{
+                  padding: "16px 40px", 
+                  background: "linear-gradient(135deg, #ef4444, #991b1b)", 
+                  color: "#fff",
+                  border: "none", 
+                  borderRadius: "12px", 
+                  fontWeight: 900,
+                  cursor: "pointer", 
+                  boxShadow: "0 10px 25px rgba(239,68,68,0.4)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                RETURN TO DASHBOARD
+              </button>
+              <p style={{ fontSize: "14px", color: "#64748b" }}>
+                Session recorded as terminated. Please contact your administrator.
+              </p>
+            </div>
+          )}
+
           <p style={{ marginTop: "30px", fontSize: "12px", color: "#475569" }}>
             Session ID: {sessionId}
           </p>

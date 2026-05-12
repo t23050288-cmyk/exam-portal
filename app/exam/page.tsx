@@ -592,7 +592,7 @@ export default function ExamPage() {
               <QuestionCard
                 key={activeQuestion.id} question={activeQuestion} questionNumber={activeQuestionIndex + 1} totalQuestions={questions.length} selectedAnswer={answers[activeQuestion.id]} savedCode={codeAnswers[activeQuestion.id]?.code} onSelect={handleSelect} onCodeSubmit={handleCodeSubmit} isSubmitted={isSubmitted}
               >
-                <div style={{ display: "flex", gap: 16, alignItems: "center", justifyContent: "flex-end", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--rim-metal)" }}>
+                <div className={styles.actionsRow}>
                   {activeQuestionIndex < questions.length - 1 ? (
                     <button type="button" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}>NEXT QUESTION →</button>
                   ) : (

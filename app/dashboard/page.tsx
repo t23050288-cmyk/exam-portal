@@ -242,7 +242,7 @@ export default function DashboardPage() {
           }
           if (statusData) {
             statusData.forEach((s: any) => {
-              if (s.status === "submitted" && s.exam_title) {
+              if ((s.status === "submitted" || s.status === "TERMINATED") && s.exam_title) {
                 const title = s.exam_title.trim().toLowerCase();
                 if (!submittedMap[title]) {
                   submittedMap[title] = { score: 0, total_marks: 0, attempt_count: 1 };

@@ -420,5 +420,15 @@ class StudentDetailedStats(BaseModel):
     last_exam_at: Optional[str] = None
     history: List[StudentExamHistory] = []
 
+# ── PyHunt ────────────────────────────────────────────────────
+
+class PyHuntProgressUpdate(BaseModel):
+    current_round: str
+    turtle_image: Optional[str] = None
+    finished: bool = False
+    terminated: bool = False
+    warning_count: Optional[int] = None
+    last_violation: Optional[str] = None
+
 
 

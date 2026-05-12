@@ -23,6 +23,15 @@ const STATUS_CONFIG: Record<SyncStatus, { label: string; color: string; dot: str
 };
 
 export default function SyncStatusBar({ syncStatus, lastSyncedAt, offlineMsg }: Props) {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const cfg = STATUS_CONFIG[syncStatus];
 
   return (
@@ -30,9 +39,10 @@ export default function SyncStatusBar({ syncStatus, lastSyncedAt, offlineMsg }: 
       {/* Floating status pill */}
       <div style={{
         position:   "fixed",
-        bottom:     "16px",
+        bottom:     isMobile ? "auto" : "16px",
+        top:        isMobile ? "16px" : "auto",
         right:      "16px",
-        zIndex:     9999,
+        zIndex:     10000,
         display:    "flex",
         flexDirection: "column",
         alignItems: "flex-end",

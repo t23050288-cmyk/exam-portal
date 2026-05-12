@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import datetime, timezone
 
-from models.schemas import ReportViolationRequest, ReportViolationResponse
+from models.schemas import ReportViolationRequest, ReportViolationResponse, PyHuntProgressUpdate
 from core.security import get_current_student
 from db.supabase_client import get_supabase
 
@@ -67,7 +67,22 @@ async def report_violation(
             )
 
         current_warnings = (exam_status.data[0] if exam_status.data else {}).get("warnings", 0)
-        new_warnings = current_warnings + 1
+        
+        # If in PyHunt and exam_status is missing, try fetching from pyhunt_progress
+        if not exam_status.data and (request.metadata or {}).get("pyhunt") == True:
+            try:
+                ph = db.table("pyhunt_progress").select("warnings").eq("student_id", student_id).maybe_single().execute()
+                if ph.data:
+                    current_warnings = ph.data.get("warnings", 0)
+            except Exception:
+                pass
+
+        # Trust the frontend warning count if it's higher (prevents race conditions/sync lag)
+        fe_warnings = (request.metadata or {}).get("warning_count")
+        if fe_warnings is not None and isinstance(fe_warnings, int) and fe_warnings > current_warnings:
+             new_warnings = fe_warnings
+        else:
+             new_warnings = current_warnings + 1
 
         # 1. Log to legacy violations (student_id based)
         try:
@@ -121,7 +136,7 @@ async def report_violation(
                 status = "active"
                 if request.type == "terminal_violation" or new_warnings >= 3:
                     status = "TERMINATED"
-                
+                    
                 db.table("pyhunt_progress").upsert({
                     "student_id": student_id,
                     "warnings": min(new_warnings, 3),
@@ -129,6 +144,28 @@ async def report_violation(
                     "last_violation": request.type,
                     "last_active": datetime.now(timezone.utc).isoformat()
                 }, on_conflict="student_id").execute()
+                
+                if status == "TERMINATED":
+                    db.table("exam_status").upsert({
+                        "student_id": student_id,
+                        "exam_title": request.metadata.get("exam_title", "Unknown"),
+                        "status": "TERMINATED",
+                        "warnings": new_warnings,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }, on_conflict="student_id,exam_title").execute()
+
+                    # 3. Insert into exam_results so it shows in History tab
+                    try:
+                        db.table("exam_results").upsert({
+                            "student_id": student_id,
+                            "exam_title": request.metadata.get("exam_title", "Unknown"),
+                            "score": 0,
+                            "total_marks": 0,
+                            "submitted_at": datetime.now(timezone.utc).isoformat(),
+                            "status": "TERMINATED", # If schema allows
+                        }, on_conflict="student_id,exam_title").execute()
+                    except Exception as e:
+                        print(f"[VIOLATION] Failed to insert termination result: {e}")
             except Exception as e:
                 print(f"[VIOLATION] PyHunt sync failed: {e}")
     except Exception as e:
@@ -152,3 +189,54 @@ async def report_violation(
         auto_submitted=auto_submitted,
         message=message,
     )
+
+@router.post("/pyhunt/sync-progress")
+async def sync_pyhunt_progress(
+    request: PyHuntProgressUpdate,
+    current: dict = Depends(get_current_student),
+):
+    """
+    Securely sync student's PyHunt progress to the database.
+    Bypasses RLS by using service role via backend.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+    
+    status = "active"
+    if request.finished:
+        status = "TERMINATED" if request.terminated else "finished"
+        
+        # If terminated, force warnings to 3 and record in history
+        if request.terminated:
+            data["warnings"] = 3
+            try:
+                # Insert record into exam_results for History tab visibility
+                db.table("exam_results").upsert({
+                    "student_id": student_id,
+                    "exam_title": "PyHunt",
+                    "score": request.current_round or 0,
+                    "total_marks": 5,
+                    "submitted_at": datetime.now(timezone.utc).isoformat(),
+                }, on_conflict="student_id,exam_title").execute()
+            except Exception as e:
+                print(f"[PYHUNT] History sync failed: {e}")
+    
+    try:
+        data = {
+            "student_id": student_id,
+            "current_round": request.current_round,
+            "status": status,
+            "last_active": datetime.now(timezone.utc).isoformat(),
+        }
+        if request.turtle_image:
+            data["turtle_image"] = request.turtle_image
+        if request.warning_count is not None:
+            data["warnings"] = min(request.warning_count, 3)
+        if request.last_violation:
+            data["last_violation"] = request.last_violation
+            
+        db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()
+        return {"ok": True}
+    except Exception as e:
+        print(f"[PYHUNT SYNC] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

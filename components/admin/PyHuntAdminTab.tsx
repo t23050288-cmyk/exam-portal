@@ -428,7 +428,24 @@ function LiveStatusView() {
   useEffect(() => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
+
+    // REAL-TIME: Listen for any changes in the pyhunt_progress table
+    const channel = supabase
+      .channel('pyhunt-admin-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pyhunt_progress' },
+        (payload: any) => {
+          console.log("[PyHunt Admin] Realtime update detected:", payload.eventType);
+          fetchStatus(); // Re-fetch to get consistent data
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Parse round number from current_round field (e.g. "Round 3" → 3, "COMPLETED" → 5)

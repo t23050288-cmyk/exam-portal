@@ -515,6 +515,18 @@
 
   /* Hide camera card on mobile */
   .sideCard:nth-child(2) { display: none; }
+
+  .actionsRow {
+    flex-direction: column !important;
+    gap: 12px !important;
+    align-items: stretch !important;
+  }
+
+  .actionsRow button {
+    width: 100%;
+    padding: 12px 20px !important;
+    font-size: 13px !important;
+  }
 }
 
 @media (max-width: 390px) {
@@ -663,3 +675,14 @@
   50% { opacity: 1; transform: scale(1.05); }
   100% { opacity: 0.6; transform: scale(0.95); }
 }
+
+ . a c t i o n s R o w   { 
+     d i s p l a y :   f l e x ; 
+     g a p :   1 6 p x ; 
+     a l i g n - i t e m s :   c e n t e r ; 
+     j u s t i f y - c o n t e n t :   f l e x - e n d ; 
+     m a r g i n - t o p :   2 0 p x ; 
+     p a d d i n g - t o p :   2 0 p x ; 
+     b o r d e r - t o p :   1 p x   s o l i d   v a r ( - - r i m - m e t a l ) ; 
+ }  
+ 
