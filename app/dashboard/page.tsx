@@ -30,7 +30,7 @@ interface ExamNode {
   max_attempts?: number; attempt_count?: number;
 }
 interface StudentInfo {
-  id: string; name: string; email: string; branch: string;
+  id: string; name: string; email: string; branch: string; usn?: string;
 }
 interface ProfileData {
   name: string; email: string; course: string; photo: string | null;
@@ -635,7 +635,7 @@ export default function DashboardPage() {
                           <span className={styles.detailIcon}>💳</span>
                           <div className={styles.detailContent}>
                             <label>USN</label>
-                            <p>{student?.id || "—"}</p>
+                            <p>{student?.usn || student?.id || "—"}</p>
                           </div>
                         </div>
                       </div>

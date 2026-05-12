@@ -107,13 +107,25 @@ async def start_exam(req: StartExamRequest, user=Depends(get_current_student)):
         except Exception: pass
 
     # Fetch minimal question list for this exam
-    q_resp = (
-        sb.table("questions")
-        .select("id, text, marks, question_type, audio_url, image_url")
-        .ilike("exam_name", req.exam_name)
-        .order("order_index")
-        .execute()
-    )
+    try:
+        q_resp = (
+            sb.table("questions")
+            .select("id, text, marks, question_type, audio_url, image_url")
+            .ilike("exam_name", req.exam_name)
+            .order("order_index")
+            .execute()
+        )
+    except Exception as col_err:
+        if "audio_url" in str(col_err):
+            q_resp = (
+                sb.table("questions")
+                .select("id, text, marks, question_type, image_url")
+                .ilike("exam_name", req.exam_name)
+                .order("order_index")
+                .execute()
+            )
+        else:
+            raise
     questions = q_resp.data or []
 
     # Reproducible shuffle — use seeded RNG (seed from session_id+user_id)

@@ -105,13 +105,27 @@ def get_questions(
         # ── Branch-Only Matching (Python-side filtering) ──
         # To avoid Supabase PostgREST URL encoding crashes with `%`, we fetch 
         # questions and filter them securely in Python.
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category")
-            .order("order_index")
-            .limit(500)
-            .execute()
-        )
+        # Try with audio_url first; if column doesn't exist, retry without it
+        try:
+            result = (
+                db.table("questions")
+                .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category")
+                .order("order_index")
+                .limit(500)
+                .execute()
+            )
+        except Exception as col_err:
+            if "audio_url" in str(col_err):
+                print(f"[EXAM] audio_url column missing, retrying without it: {col_err}")
+                result = (
+                    db.table("questions")
+                    .select("id, text, options, branch, order_index, marks, exam_name, image_url, question_type, category")
+                    .order("order_index")
+                    .limit(500)
+                    .execute()
+                )
+            else:
+                raise
         
         all_questions = result.data or []
         print(f"[EXAM] DB fetched {len(all_questions)} questions from table.")

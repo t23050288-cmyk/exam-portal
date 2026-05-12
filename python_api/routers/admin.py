@@ -61,7 +61,19 @@ async def create_question(request: QuestionCreate, _: bool = Depends(verify_admi
     try:
         db = get_supabase()
         data = request.model_dump()
-        result = db.table("questions").insert(data).execute()
+        # Strip empty-string URL fields to avoid DB errors if column doesn't exist
+        for url_field in ("audio_url", "image_url"):
+            if url_field in data and not data[url_field]:
+                del data[url_field]
+        
+        try:
+            result = db.table("questions").insert(data).execute()
+        except Exception as col_err:
+            if "audio_url" in str(col_err):
+                data.pop("audio_url", None)
+                result = db.table("questions").insert(data).execute()
+            else:
+                raise
 
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to insert question - no data returned")
@@ -76,7 +88,20 @@ async def update_question(question_id: str, request: QuestionUpdate, _: bool = D
     try:
         db = get_supabase()
         update_data = {k: v for k, v in request.model_dump().items() if v is not None}
-        result = db.table("questions").update(update_data).eq("id", question_id).execute()
+        # Strip empty-string values for optional URL fields to avoid DB errors
+        for url_field in ("audio_url", "image_url"):
+            if url_field in update_data and update_data[url_field] == "":
+                del update_data[url_field]
+        
+        try:
+            result = db.table("questions").update(update_data).eq("id", question_id).execute()
+        except Exception as col_err:
+            if "audio_url" in str(col_err):
+                # Column doesn't exist in DB — remove it and retry
+                update_data.pop("audio_url", None)
+                result = db.table("questions").update(update_data).eq("id", question_id).execute()
+            else:
+                raise
 
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update question - no data returned")
