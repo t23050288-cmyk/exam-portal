@@ -228,6 +228,30 @@ async def get_all_students(_: bool = Depends(verify_admin)):
         print(f"CRITICAL get_all_students: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+
+
+@router.post("/students/{student_id}/ban")
+async def ban_student(student_id: str, _: bool = Depends(verify_admin)):
+    """Ban a student — sets is_banned=True and prevents login."""
+    try:
+        db = get_supabase()
+        db.table("students").update({"is_banned": True}).eq("id", student_id).execute()
+        # Also force-submit any active exam
+        db.table("exam_status").update({"status": "submitted", "submitted_at": "now()"}).eq("student_id", student_id).eq("status", "active").execute()
+        return {"success": True, "student_id": student_id, "banned": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/students/{student_id}/ban")
+async def unban_student(student_id: str, _: bool = Depends(verify_admin)):
+    """Unban a student."""
+    try:
+        db = get_supabase()
+        db.table("students").update({"is_banned": False}).eq("id", student_id).execute()
+        return {"success": True, "student_id": student_id, "banned": False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/students")
 async def create_student(request: StudentCreate, _: bool = Depends(verify_admin)):
     db = get_supabase()
