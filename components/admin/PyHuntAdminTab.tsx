@@ -97,7 +97,7 @@ const $ = {
   info: { fontSize:13, color:"rgba(216, 234, 242, 0.5)", lineHeight:1.6, marginBottom:16 },
 };
 
-type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "finalmcq" | "status";
+type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "status";
 const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"clues",    label:"Clues & Codes", icon:"🗝️" },
   { id:"mcq",      label:"Round 1 MCQ",  icon:"📝" },
@@ -342,76 +342,7 @@ export default function PyHuntAdminTab() {
         );
       })()}
 
-      {/* ══ ROUND 5 MCQ TAB ══ */}
-      {sub==="finalmcq" && (
-        <div>
-          <div style={$.info}>Final Round (Round 5) consists of advanced MCQ questions.</div>
-          {(cfg.finalMcqQuestions || []).map((q, qi) => (
-            <div key={q.id} style={$.card}>
-              <div style={$.cardTitle}>
-                <span style={{color:"#f59e0b"}}>Final Q{qi+1}</span>
-                <div style={{display:"flex",gap:8}}>
-                  <button style={$.btnEdit} onClick={()=>setEditIdx(editIdx===qi?null:qi)}>
-                    {editIdx===qi?"▲ Collapse":"✏️ Edit"}
-                  </button>
-                  <button style={$.btnDel} onClick={() => setCfg(c=>({...c, finalMcqQuestions: (c.finalMcqQuestions||[]).filter((_,j)=>j!==qi)}))}>✕</button>
-                </div>
-              </div>
-              <div style={{fontSize:14,color:"#a0c0e0",marginBottom:editIdx===qi?12:0,lineHeight:1.5}}>{q.question}</div>
 
-              {editIdx===qi && (
-                <>
-                  <label style={$.lbl}>Question</label>
-                  <textarea style={{...$.ta,minHeight:60}} value={q.question} onChange={e => {
-                    const qs = [...(cfg.finalMcqQuestions||[])];
-                    qs[qi] = {...qs[qi], question: e.target.value};
-                    setCfg({...cfg, finalMcqQuestions: qs});
-                  }} />
-
-                  <label style={$.lbl}>Options</label>
-                  {q.options.map((opt, oi) => (
-                    <div key={opt.label} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                      <span style={{color:"#f59e0b",fontWeight:800,width:20,flexShrink:0}}>{opt.label}.</span>
-                      <input style={{...$.inp,margin:0,flex:1}} value={opt.text} onChange={e => {
-                        const qs = [...(cfg.finalMcqQuestions||[])];
-                        const opts = [...qs[qi].options];
-                        opts[oi] = {...opts[oi], text: e.target.value};
-                        qs[qi] = {...qs[qi], options: opts};
-                        setCfg({...cfg, finalMcqQuestions: qs});
-                      }} />
-                    </div>
-                  ))}
-
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                    <div>
-                      <label style={$.lbl}>Correct Answer</label>
-                      <select style={{...$.inp,width:"auto"}} value={q.correct} onChange={e => {
-                        const qs = [...(cfg.finalMcqQuestions||[])];
-                        qs[qi] = {...qs[qi], correct: e.target.value};
-                        setCfg({...cfg, finalMcqQuestions: qs});
-                      }}>
-                        {q.options.map(o=><option key={o.label} value={o.label}>{o.label} — {o.text}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={$.lbl}>Explanation</label>
-                      <input style={$.inp} value={q.explanation} onChange={e => {
-                        const qs = [...(cfg.finalMcqQuestions||[])];
-                        qs[qi] = {...qs[qi], explanation: e.target.value};
-                        setCfg({...cfg, finalMcqQuestions: qs});
-                      }} />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-          <button style={$.btnAdd} onClick={() => {
-            const q: MCQQuestion = { id:`f${Date.now()}`, question:"New Final MCQ?", options:[{label:"A",text:"A"},{label:"B",text:"B"},{label:"C",text:"C"},{label:"D",text:"D"}], correct:"A", explanation:"" };
-            setCfg({...cfg, finalMcqQuestions: [...(cfg.finalMcqQuestions||[]), q]});
-          }}>+ Add Final MCQ</button>
-        </div>
-      )}
 
       {/* ══ LIVE STATUS TAB ══ */}
       {sub==="status" && (
