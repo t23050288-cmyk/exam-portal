@@ -196,6 +196,25 @@ export default function DashboardPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [router]);
 
+  const deleteHistoryItem = useCallback(async (r: any, i: number) => {
+    if (!confirm(`Delete "${r.examName || "this result"}" from your history? This cannot be undone.`)) return;
+    try {
+      const token = sessionStorage.getItem("exam_token") || "";
+      if (r.id) {
+        // Delete from backend
+        await fetch(`/api/exam/history/${r.id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      }
+      // Remove from local state
+      setLocalHistory(prev => prev.filter((_: any, idx: number) => idx !== i));
+    } catch (err) {
+      console.warn("Delete failed:", err);
+      setLocalHistory(prev => prev.filter((_: any, idx: number) => idx !== i));
+    }
+  }, []);
+
   const loadExams = useCallback(async () => {
     try {
       const configs = await fetchPublicExamConfig();
@@ -524,6 +543,38 @@ export default function DashboardPage() {
             {activeNav === "Home" && (
               <div className={styles.homeGrid}>
                 <section className={styles.examSection}>
+                  {/* PyHunt Special Event Banner */}
+                  <div 
+                    className={styles.pyhuntBanner}
+                    onClick={() => setActiveNav("PyHunt")}
+                  >
+                    <div className={styles.pyhuntBannerGlow} />
+                    <div className={styles.pyhuntBannerLeft}>
+                      <span className={styles.pyhuntSpecialTag}>⚡ SPECIAL EVENT</span>
+                      <h2 className={styles.pyhuntBannerTitle}>
+                        <span style={{ fontSize: 20 }}>🐍</span> PyHunt: Logic Treasure Hunt
+                      </h2>
+                      <p className={styles.pyhuntBannerDesc}>Crack 4 rounds of Python puzzles, unlock clues, and rise to the top.</p>
+                      <button className={styles.pyhuntBannerBtn}>JOIN PYHUNT →</button>
+                    </div>
+                    <div className={styles.pyhuntBannerRight}>
+                      <div className={styles.pyhuntOrb} />
+                    </div>
+                  </div>
+
+                  {/* Available Exams heading */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <div>
+                      <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary, #fff)", margin: 0 }}>Available Exams</h2>
+                      <p style={{ fontSize: 13, color: "var(--text-muted, rgba(255,255,255,0.5))", margin: "2px 0 0" }}>Live and upcoming assessments</p>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "4px 12px",
+                      background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
+                      borderRadius: 999, color: "#10b981", letterSpacing: 1,
+                    }}>SYSTEM LIVE</span>
+                  </div>
+
                   <div className={styles.cardsGrid}>
                     {activeExams.map((exam) => (
                       <ExamCard 
@@ -640,6 +691,12 @@ export default function DashboardPage() {
                       onChange={(e) => {
                         setEnteredPyHuntCode(e.target.value.toUpperCase());
                         setPyHuntError(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const btn = e.currentTarget.closest("div")?.querySelector("button") as HTMLButtonElement | null;
+                          btn?.click();
+                        }
                       }}
                     />
             <button className={styles.startBtn} onClick={async () => {
@@ -776,7 +833,29 @@ export default function DashboardPage() {
                               <span className={styles.scoreLabel}>Final Score</span>
                               <div className={styles.scoreValue}>{r.score ?? 0} / {r.totalMarks ?? 0}</div>
                             </div>
-                            <div className={styles.historyStatus}>COMPLETED</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div className={styles.historyStatus}>COMPLETED</div>
+                              <button
+                                onClick={() => deleteHistoryItem(r, i)}
+                                title="Delete this result"
+                                style={{
+                                  background: "rgba(239,68,68,0.1)",
+                                  border: "1px solid rgba(239,68,68,0.3)",
+                                  color: "#f87171",
+                                  borderRadius: 8,
+                                  padding: "5px 10px",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  transition: "all 0.15s",
+                                  flexShrink: 0,
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.2)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "rgba(239,68,68,0.1)")}
+                              >
+                                🗑
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
