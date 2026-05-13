@@ -703,13 +703,11 @@ export default function DashboardPage() {
               if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
                 // Check termination before pushing
                 const token = sessionStorage.getItem("exam_token");
-                const res = await fetch(`/api/admin/pyhunt/status?_=${Date.now()}`, {
+                const res = await fetch(`/api/exam/pyhunt/status?_=${Date.now()}`, {
                    headers: { "Authorization": `Bearer ${token}` }
                 });
                 const pyHuntStats = await res.json();
-                const studentData = sessionStorage.getItem("exam_student");
-                const sid = studentData ? JSON.parse(studentData).id : null;
-                const myProgress = pyHuntStats.find((s: any) => s.student_id === sid);
+                const myProgress = pyHuntStats.data;
                 
                 if (myProgress && myProgress.status === "TERMINATED") {
                   setPyHuntError(true);

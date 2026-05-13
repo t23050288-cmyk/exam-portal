@@ -155,9 +155,54 @@ export default function AntiCheat({
     }
   }, []);
 
-  // ── 4. SECURITY LISTENERS ──────────────────────────────────────────────────
+  // ── 4. AUTO-SUBMIT TIMER ──────────────────────────────────────────────────
+  // If the overlay stays open for too long without re-entry, auto-submit.
+  // This prevents students from sitting in the blurred state to check other devices.
+  const [timerSeconds, setTimerSeconds] = useState(60);
+  useEffect(() => {
+    if (!overlayVisible || terminated || isSubmitted) {
+      setTimerSeconds(60);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimerSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          terminate();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [overlayVisible, terminated, isSubmitted, terminate]);
+
+  // ── 5. SECURITY LISTENERS ──────────────────────────────────────────────────
   useEffect(() => {
     if (isSubmitted) return;   // Tear down everything once exam is over
+
+    // Prevent Back/Forward navigation
+    const handlePopState = (e: PopStateEvent) => {
+      if (!isSubmitted && !terminatedRef.current) {
+        window.history.pushState(null, "", window.location.href);
+        recordViolation("Attempted Back Navigation");
+      }
+    };
+
+    // Prevent Page Close / Refresh
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isSubmitted && !terminatedRef.current) {
+        e.preventDefault();
+        e.returnValue = "Exam in progress. Closing this tab will record a violation.";
+        return e.returnValue;
+      }
+    };
+
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     const onFsChange = () => {
       if (!document.fullscreenElement && !terminatedRef.current && !fsReentryRef.current) {
@@ -223,6 +268,8 @@ export default function AntiCheat({
       window.removeEventListener("blur",                onBlur);
       window.removeEventListener("keydown",             onKeydown, true);
       document.removeEventListener("contextmenu",       onContextMenu);
+      window.removeEventListener("popstate",    handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       clearInterval(trap);
     };
   }, [isSubmitted, recordViolation, handleUnderstand]);
@@ -263,9 +310,15 @@ export default function AntiCheat({
           <p style={{ color: "#94a3b8", marginBottom: "20px" }}>
             Reason: <span style={{ color: "#fff" }}>{lastReason}</span>
           </p>
-          <div style={{ fontSize: "24px", fontWeight: 800, marginBottom: "30px" }}>
+          <div style={{ fontSize: "24px", fontWeight: 800, marginBottom: "15px" }}>
             Strike {strikeCount} / {MAX_STRIKES}
           </div>
+
+          {!terminated && (
+            <div style={{ marginBottom: "30px", color: "#f87171", fontWeight: 700, fontSize: "14px" }}>
+              AUTO-SUBMITTING IN {timerSeconds}s
+            </div>
+          )}
 
           {!terminated && (
             <button

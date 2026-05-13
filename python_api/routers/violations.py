@@ -277,3 +277,19 @@ async def sync_pyhunt_progress(
     except Exception as e:
         print(f"[PyHuntSync] CRITICAL ERROR for {student_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+@router.get("/pyhunt/status")
+async def get_pyhunt_status_student(
+    current: dict = Depends(get_current_student),
+):
+    """
+    Returns the student's own PyHunt progress and status.
+    Student-safe version of admin status check.
+    """
+    db = get_supabase()
+    student_id = current["student_id"]
+    try:
+        ph = db.table("pyhunt_progress").select("*").eq("student_id", student_id).maybe_single().execute()
+        return {"ok": True, "data": ph.data or None}
+    except Exception as e:
+        print(f"[PYHUNT] Status fetch failed for {student_id}: {e}")
+        return {"ok": False, "error": str(e)}

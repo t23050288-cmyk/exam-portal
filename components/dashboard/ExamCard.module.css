@@ -3,7 +3,7 @@
   backdrop-filter: blur(16px);
   border: 1px solid var(--nexus-glass-border);
   border-radius: var(--nexus-radius-lg);
-  padding: 1.5rem;
+  padding: 2.5rem;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -36,10 +36,11 @@
 }
 
 .title {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.8rem;
+  font-weight: 800;
   color: #fff;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .badgeLive {
@@ -116,12 +117,15 @@
   background: var(--accent-warm-gradient);
   color: #fff;
   border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: var(--nexus-radius-md);
-  font-weight: 700;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 900;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: var(--nexus-glow-orange);
+  box-shadow: 0 4px 15px rgba(255, 154, 76, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .startBtn:hover {
