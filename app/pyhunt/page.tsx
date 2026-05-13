@@ -30,10 +30,12 @@ interface ClueConfig {
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
+  jumbleProblem2?: JumbleProblem;  // Round 2 Part B
   round3: CodingProblem;
+  round3b?: CodingProblem;         // Round 3 Part B
   round4: CodingProblem;
-  turtleProblem: TurtleProblem;
-  clues: ClueConfig[];   // 5 entries, one per round
+  turtleProblem: TurtleProblem;   // kept for config compat; Round 5 is offline
+  clues: ClueConfig[];             // 4 entries (rounds 0-3); clue[3] shown after Round 4
   finishMessage: string;
 }
 
@@ -65,17 +67,27 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     starterCode:"def fizzbuzz(n: int) -> list:\n    # Your code here\n    pass\n\nresult = fizzbuzz(15)\nprint(result)\n",
     testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"},{input:"15",expected:"['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']"}],
   },
+  jumbleProblem2: {
+    title: "Fix the Bubble Sort!",
+    description: "The lines of a Bubble Sort function have been jumbled. Drag them into the correct order so the list is sorted correctly.",
+    lines: ["def bubble_sort(arr):", "    n = len(arr)", "    for i in range(n):", "        for j in range(0, n-i-1):", "            if arr[j] > arr[j+1]:", "                arr[j], arr[j+1] = arr[j+1], arr[j]", "    return arr", "", "print(bubble_sort([64, 34, 25, 12, 22, 11, 90]))"],
+  },
+  round3b: {
+    title: "Count Vowels",
+    description: "Write a function `count_vowels(s: str) -> int` that counts the number of vowels (a, e, i, o, u — case-insensitive) in the string.",
+    starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n\nprint(count_vowels(\"hello\"))   # 2\nprint(count_vowels(\"Python\"))  # 1\n",
+    testCases: [{input: "hello", expected: "2"}, {input: "Python", expected: "1"}, {input: "aeiou", expected: "5"}, {input: "xyz", expected: "0"}],
+  },
   turtleProblem: {
-    title: "Final Challenge: Sketch the Star",
+    title: "Final Challenge: Sketch the Star (Offline)",
     description: "Use the turtle module to recreate the star shown below. A 5-pointed star has an internal angle of 144 degrees.",
     starterCode: "import turtle\nt = turtle.Turtle()\n",
   },
   clues:[
     { clueText:"🗝️ Round 1 Complete! ROUND 1 COMPLETE", unlockCode:"LIBRARY" },
-    { clueText:"🗝️ Round 2 Complete! GOOD JUB NOW FOR 3", unlockCode:"LAB2CO" },
+    { clueText:"🗝️ Round 2 Complete! GOOD JOB — NOW FOR ROUND 3!", unlockCode:"LAB2CO" },
     { clueText:"🗝️ Round 3 Complete! Proceed to Round 4.", unlockCode:"ROUND3CODE" },
-    { clueText:"🗝️ Round 4 Complete! Final round awaits.", unlockCode:"ROUND4CODE" },
-    { clueText:"🎉 You did it! All rounds complete. Show this screen to the facilitator!", unlockCode:"" },
+    { clueText:"🗝️ Round 4 Complete! You are ready for the Final Round. Show this screen to your facilitator!", unlockCode:"ROUND4CODE" },
   ],
   finishMessage:"🏆 Congratulations! You've conquered PyHunt! You are a true Python treasure hunter. Show this screen to your facilitator!",
 };
@@ -89,7 +101,9 @@ function parseCfg(parsed: any): PyHuntConfig {
   return {
     mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
     jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
+    jumbleProblem2: parsed.jumbleProblem2 || DEFAULT_CONFIG.jumbleProblem2,
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
+    round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
     turtleProblem: parsed.turtleProblem || DEFAULT_CONFIG.turtleProblem,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
@@ -425,7 +439,7 @@ function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem;
 /* ═══════════════════════════════════════════════
    ROUND 3 & 4 — CODING
 ═══════════════════════════════════════════════ */
-function RoundCoding({ problem, roundNum, onComplete, onWrong }: { problem: CodingProblem; roundNum: number; onComplete: () => void; onWrong: () => void }) {
+function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: { problem: CodingProblem; roundNum: number; partLabel?: string; onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean }) {
   const { ready, loadError, runCode, runTests } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
   const [running, setRunning] = useState(false);
@@ -494,7 +508,7 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
   return (
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round {roundNum} · Coding</span>
+        <span className={styles.roundTag}>Round {roundNum} · Coding{partLabel ? ` · ${partLabel}` : ""}</span>
         {loadError && <span className={styles.errorTag}>⚠ Pyodide: {loadError}</span>}
         {!loadError && !ready && <span className={styles.loadingTag}>⟳ Loading Python…</span>}
         {!loadError && ready && <span className={styles.readyTag}>✓ Python Ready</span>}
@@ -573,8 +587,10 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
           {allPass && (
             <div className={styles.roundDone} style={{marginTop:12}}>
               <div className={styles.doneIcon}>🎉</div>
-              <p>All tests passed!</p>
-              <button className={styles.primaryBtn} onClick={onComplete}>Get Clue →</button>
+              <p>All tests passed! {partLabel ? `${partLabel} complete!` : ""}</p>
+              <button className={styles.primaryBtn} onClick={onComplete}>
+                {showNextPartOnPass ? "Next Part →" : "Get Clue →"}
+              </button>
             </div>
           )}
         </div>
@@ -583,394 +599,223 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
   );
 }
 
+
 /* ═══════════════════════════════════════════════
-   ROUND 5 — TURTLE
+   ROUND 2 — DUAL CODE JUMBLE  (Part A + Part B, with compiler on right)
 ═══════════════════════════════════════════════ */
-function RoundTurtle({ problem, onComplete, onWrong, onDrawUpdate }: { problem: TurtleProblem; onComplete: (dataUrl?: string) => void; onWrong: () => void; onDrawUpdate?: (img: string) => void }) {
-  const { ready, loadError, runCode } = usePyodide();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [code, setCode] = useState(problem.starterCode || `import turtle\nt = turtle.Turtle()\n`);
+function JumblePart({
+  problem,
+  partLabel,
+  partIndex,
+  runCode,
+  ready,
+  onPartComplete,
+  onWrong,
+}: {
+  problem: JumbleProblem;
+  partLabel: string;
+  partIndex: number;
+  runCode: (code: string) => Promise<{ stdout: string; stderr: string; error?: string }>;
+  ready: boolean;
+  onPartComplete: () => void;
+  onWrong: () => void;
+}) {
+  const correct = problem.lines;
+  const [lines, setLines] = useState<string[]>(() => shuffle(correct));
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [runOutput, setRunOutput] = useState<{ stdout: string; stderr: string; error?: string } | null>(null);
   const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
-  const [turtleErr, setTurtleErr] = useState<string>("");
+
+  const handleDragStart = (i: number) => setDragging(i);
+  const handleDrop = (i: number) => {
+    if (dragging === null || dragging === i) return;
+    const next = [...lines];
+    [next[dragging], next[i]] = [next[i], next[dragging]];
+    setLines(next);
+    setDragging(null);
+  };
 
   const handleRun = async () => {
     if (!ready || running) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     setRunning(true);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setTurtleErr("");
-
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-
-    // ── Full Python→Canvas Turtle Bridge ──
-    // Turtle emits JSON drawing commands to stdout.
-    // Supports: forward/fd, backward/bk, left/lt, right/rt,
-    //           goto/setpos, setheading/seth, home,
-    //           penup/pu, pendown/pd, pensize/width,
-    //           color, pencolor, fillcolor, begin_fill, end_fill,
-    //           circle, dot, hideturtle/ht, showturtle/st,
-    //           speed, clear, reset, bgcolor, title, setup,
-    //           done/mainloop/exitonclick (no-ops)
-    const bridgeScript = `
-import json as _json
-import sys as _sys
-from math import radians as _rad, cos as _cos, sin as _sin
-from types import ModuleType as _Mod
-
-def _emit(**kw):
-    print(_json.dumps(kw))
-
-def _parse_color(c):
-    if isinstance(c, (list, tuple)) and len(c) == 3:
-        r,g,b = [int(x*255) if x<=1 else int(x) for x in c]
-        return f"rgb({r},{g},{b})"
-    return str(c)
-
-class Turtle:
-    def __init__(self):
-        self._x = \${CX}
-        self._y = \${CY}
-        self._angle = -90.0   # heading: 0=East, -90=North (canvas coords)
-        self._pen = True
-        self._color = "cyan"
-        self._fill_color = "cyan"
-        self._fill_pts = None
-        self._lw = 1
-        _emit(type="init", x=self._x, y=self._y)
-
-    # ── Movement ──
-    def _move(self, dist):
-        nx = self._x + dist * _cos(_rad(self._angle))
-        ny = self._y + dist * _sin(_rad(self._angle))
-        if self._pen:
-            _emit(type="line", x1=self._x, y1=self._y, x2=nx, y2=ny,
-                  color=self._color, lw=self._lw)
-        else:
-            _emit(type="move", x=nx, y=ny)
-        if self._fill_pts is not None:
-            self._fill_pts.append((nx, ny))
-        self._x, self._y = nx, ny
-
-    def forward(self, d): self._move(float(d))
-    def fd(self, d): self._move(float(d))
-    def backward(self, d): self._move(-float(d))
-    def bk(self, d): self._move(-float(d))
-    def back(self, d): self._move(-float(d))
-
-    # ── Turning ──
-    def left(self, deg): self._angle -= float(deg)
-    def lt(self, deg): self._angle -= float(deg)
-    def right(self, deg): self._angle += float(deg)
-    def rt(self, deg): self._angle += float(deg)
-    def setheading(self, deg): self._angle = float(deg) - 90
-    def seth(self, deg): self.setheading(deg)
-
-    # ── Position ──
-    def goto(self, x, y=None):
-        if y is None: x, y = x
-        nx, ny = float(x) + \${CX}, -float(y) + \${CY}
-        if self._pen:
-            _emit(type="line", x1=self._x, y1=self._y, x2=nx, y2=ny,
-                  color=self._color, lw=self._lw)
-        else:
-            _emit(type="move", x=nx, y=ny)
-        self._x, self._y = nx, ny
-    def setpos(self, x, y=None): self.goto(x, y)
-    def setposition(self, x, y=None): self.goto(x, y)
-    def home(self):
-        self.goto(0, 0)
-        self._angle = -90.0
-    def xcor(self): return self._x - \${CX}
-    def ycor(self): return -(self._y - \${CY})
-    def pos(self): return (self.xcor(), self.ycor())
-    def position(self): return self.pos()
-    def heading(self): return (self._angle + 90) % 360
-
-    # ── Pen ──
-    def penup(self): self._pen = False
-    def pu(self): self._pen = False
-    def up(self): self._pen = False
-    def pendown(self): self._pen = True
-    def pd(self): self._pen = True
-    def down(self): self._pen = True
-    def isdown(self): return self._pen
-    def pensize(self, w): self._lw = float(w)
-    def width(self, w): self._lw = float(w)
-    def pencolor(self, *args):
-        self._color = _parse_color(args[0] if len(args)==1 else args)
-    def fillcolor(self, *args):
-        self._fill_color = _parse_color(args[0] if len(args)==1 else args)
-    def color(self, *args):
-        if len(args) == 1:
-            self._color = _parse_color(args[0])
-            self._fill_color = self._color
-        elif len(args) == 2:
-            self._color = _parse_color(args[0])
-            self._fill_color = _parse_color(args[1])
-        elif len(args) == 3:
-            c = _parse_color(args)
-            self._color = c; self._fill_color = c
-
-    # ── Fill ──
-    def begin_fill(self):
-        self._fill_pts = [(self._x, self._y)]
-    def end_fill(self):
-        if self._fill_pts:
-            _emit(type="fill", pts=self._fill_pts, color=self._fill_color)
-            self._fill_pts = None
-
-    # ── Shapes ──
-    def circle(self, r, extent=360, steps=None):
-        steps = steps or max(int(abs(r) * abs(extent) / 20), 12)
-        step_angle = extent / steps
-        step_len = 2 * 3.14159265 * abs(r) * (extent / 360) / steps
-        for _ in range(steps):
-            self._move(step_len)
-            self.left(step_angle)
-
-    def dot(self, size=None, *args):
-        sz = size if size else self._lw + 4
-        c = _parse_color(args[0]) if args else self._color
-        _emit(type="dot", x=self._x, y=self._y, r=sz/2, color=c)
-
-    def stamp(self): pass
-    def clearstamp(self, *a): pass
-    def write(self, txt, *a, **kw):
-        _emit(type="text", x=self._x, y=self._y, text=str(txt), color=self._color)
-
-    # ── Misc no-ops ──
-    def speed(self, s): pass
-    def hideturtle(self): pass
-    def ht(self): pass
-    def showturtle(self): pass
-    def st(self): pass
-    def isvisible(self): return True
-    def clear(self): pass
-    def reset(self): pass
-    def tracer(self, *a, **kw): pass
-    def update(self): pass
-    def shape(self, *a): pass
-    def shapesize(self, *a): pass
-    def turtlesize(self, *a): pass
-    def ondrag(self, *a, **kw): pass
-    def onclick(self, *a, **kw): pass
-    def onrelease(self, *a, **kw): pass
-
-_t_instance = None
-def _get_screen(): return type("Screen", (), {
-    "bgcolor": lambda s,*a: None, "title": lambda s,*a: None,
-    "setup": lambda s,*a: None, "tracer": lambda s,*a: None,
-    "update": lambda s: None,
-})()
-
-_t_mod = _Mod("turtle")
-_t_mod.Turtle = Turtle
-_t_mod.RawTurtle = Turtle
-_t_mod.Pen = Turtle
-_t_mod.RawPen = Turtle
-_t_mod.Screen = _get_screen
-_t_mod.getscreen = _get_screen
-
-# Module-level convenience functions (turtle.forward(), turtle.right(), etc.)
-_t_global = Turtle()
-_t_mod.forward = _t_global.forward;  _t_mod.fd = _t_global.fd
-_t_mod.backward = _t_global.backward; _t_mod.bk = _t_global.bk
-_t_mod.left = _t_global.left;        _t_mod.lt = _t_global.lt
-_t_mod.right = _t_global.right;      _t_mod.rt = _t_global.rt
-_t_mod.goto = _t_global.goto;        _t_mod.setpos = _t_global.setpos
-_t_mod.setheading = _t_global.setheading; _t_mod.seth = _t_global.seth
-_t_mod.home = _t_global.home
-_t_mod.penup = _t_global.penup;      _t_mod.pu = _t_global.pu
-_t_mod.pendown = _t_global.pendown;  _t_mod.pd = _t_global.pd
-_t_mod.pensize = _t_global.pensize;  _t_mod.width = _t_global.width
-_t_mod.color = _t_global.color
-_t_mod.pencolor = _t_global.pencolor
-_t_mod.fillcolor = _t_global.fillcolor
-_t_mod.begin_fill = _t_global.begin_fill
-_t_mod.end_fill = _t_global.end_fill
-_t_mod.circle = _t_global.circle
-_t_mod.dot = _t_global.dot
-_t_mod.speed = _t_global.speed
-_t_mod.hideturtle = _t_global.hideturtle; _t_mod.ht = _t_global.ht
-_t_mod.showturtle = _t_global.showturtle; _t_mod.st = _t_global.st
-_t_mod.write = _t_global.write
-_t_mod.done = lambda: None
-_t_mod.mainloop = lambda: None
-_t_mod.exitonclick = lambda: None
-_t_mod.tracer = lambda *a,**kw: None
-_t_mod.update = lambda: None
-_t_mod.bgcolor = lambda *a: None
-_t_mod.title = lambda *a: None
-_t_mod.setup = lambda *a,**kw: None
-_t_mod.xcor = _t_global.xcor; _t_mod.ycor = _t_global.ycor
-_t_mod.pos = _t_global.pos; _t_mod.position = _t_global.position
-_t_mod.heading = _t_global.heading
-_sys.modules["turtle"] = _t_mod
-`;
-
-    // Replace template placeholders with actual canvas center
-    const bridge = bridgeScript
-      .replace(/\$\{CX\}/g, String(cx))
-      .replace(/\$\{CY\}/g, String(cy));
-
-    try {
-      const res = await runCode(bridge + "\n" + code);
-
-      // Render all drawing commands
-      let curColor = "#00dcff";
-      let curLw = 2;
-      let curX = cx, curY = cy;
-
-      const lines = (res.stdout || "").split("\n");
-      for (const line of lines) {
-        const tl = line.trim();
-        if (!tl.startsWith("{")) continue;
-        try {
-          const cmd = JSON.parse(tl);
-          if (cmd.type === "init" || cmd.type === "move") {
-            curX = cmd.x; curY = cmd.y;
-          } else if (cmd.type === "line") {
-            ctx.beginPath();
-            ctx.strokeStyle = cmd.color || curColor;
-            ctx.lineWidth = cmd.lw || curLw;
-            ctx.moveTo(cmd.x1, cmd.y1);
-            ctx.lineTo(cmd.x2, cmd.y2);
-            ctx.stroke();
-            curX = cmd.x2; curY = cmd.y2;
-          } else if (cmd.type === "fill") {
-            if (cmd.pts && cmd.pts.length > 1) {
-              ctx.beginPath();
-              ctx.moveTo(cmd.pts[0][0], cmd.pts[0][1]);
-              for (let i = 1; i < cmd.pts.length; i++) {
-                ctx.lineTo(cmd.pts[i][0], cmd.pts[i][1]);
-              }
-              ctx.closePath();
-              ctx.fillStyle = cmd.color || curColor;
-              ctx.fill();
-            }
-          } else if (cmd.type === "dot") {
-            ctx.beginPath();
-            ctx.arc(cmd.x, cmd.y, cmd.r, 0, Math.PI * 2);
-            ctx.fillStyle = cmd.color || curColor;
-            ctx.fill();
-          } else if (cmd.type === "text") {
-            ctx.fillStyle = cmd.color || curColor;
-            ctx.font = "14px monospace";
-            ctx.fillText(cmd.text, cmd.x, cmd.y);
-          }
-        } catch { /* ignore non-JSON lines */ }
-      }
-
-      // Check if they drew something meaningful
-      const stderr = (res.stderr || "").trim();
-      const hasError = stderr && !stderr.includes("UserWarning") && !stderr.includes("DeprecationWarning");
-      if (hasError) console.warn("Turtle stderr:", stderr);
-
-      // Count actual line drawing commands
-      const drawCmds = (res.stdout || "").split("\n").filter(l => {
-        try { const c = JSON.parse(l.trim()); return c.type === "line" || c.type === "fill" || c.type === "dot"; }
-        catch { return false; }
-      });
-
-      if (hasError && drawCmds.length === 0) {
-        setTurtleErr(stderr);
-        onWrong();
-      } else if (drawCmds.length === 0 && !code.trim()) {
-        setTurtleErr("Write some turtle code first!");
-        onWrong();
-      } else {
-        if (hasError) setTurtleErr(stderr); // show warning but still complete
-        setDone(true);
-      }
-    } catch (err: any) {
-      console.error("Turtle Error:", err);
-      onWrong();
-    } finally {
-      setRunning(false);
-      if (canvasRef.current && onDrawUpdate) {
-        onDrawUpdate(canvasRef.current.toDataURL("image/png"));
-      }
-    }
+    setRunOutput(null);
+    const code = lines.join("\n");
+    const result = await runCode(code);
+    setRunOutput(result);
+    setRunning(false);
   };
 
-  const handleFinish = () => {
-    if (canvasRef.current) {
-      onComplete(canvasRef.current.toDataURL("image/png"));
-    } else {
-      onComplete();
-    }
+  const handleSubmit = () => {
+    const ok = lines.join("\n") === correct.join("\n");
+    setSubmitted(true);
+    setIsCorrect(ok);
+    if (!ok) { setAttempts(a => a + 1); onWrong(); }
   };
+  const handleRetry = () => { setSubmitted(false); setIsCorrect(false); setLines(shuffle(correct)); setRunOutput(null); };
+
+  if (submitted && isCorrect) return (
+    <div className={styles.roundDone}>
+      <div className={styles.doneIcon}>🔀</div>
+      <h2>{partLabel} Complete!</h2>
+      <p className={styles.scoreText}>You unscrambled the code correctly!</p>
+      <button className={styles.primaryBtn} onClick={onPartComplete}>
+        {partIndex === 0 ? "Next Part →" : "Get Clue →"}
+      </button>
+    </div>
+  );
 
   return (
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round 5 · Turtle Art</span>
-        {loadError && <span className={styles.errorTag}>⚠ {loadError}</span>}
-        {!ready && <span className={styles.loadingTag}>⟳ Initializing Turtle Engine…</span>}
+        <span className={styles.roundTag}>Round 2 · Code Jumble · {partLabel}</span>
+        {!ready && <span className={styles.loadingTag}>⟳ Loading Python…</span>}
+        {ready && <span className={styles.readyTag}>✓ Python Ready</span>}
       </div>
-      <div className={styles.codingLayout}>
-        <div className={styles.problemPane}>
-          <div className={styles.problemTitle}>{problem.title}</div>
-          <div className={styles.problemDesc}>
-            {problem.description}
+      <div className={styles.problemTitle}>{problem.title}</div>
+      <div className={styles.problemDesc}>{problem.description}</div>
+
+      {/* Side-by-side: jumble board + compiler */}
+      <div className={styles.jumbleCompilerLayout}>
+        {/* LEFT — drag-drop jumble */}
+        <div className={styles.jumbleSide}>
+          <div className={styles.tcHeader} style={{ marginBottom: 8 }}>🔀 Arrange the lines</div>
+          <div className={styles.jumbleBoard}>
+            {lines.map((line, i) => (
+              <div
+                key={i}
+                className={`${styles.jumbleLine} ${dragging === i ? styles.jumbleDragging : ""}`}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(i)}
+              >
+                <span className={styles.lineNum}>{i + 1}</span>
+                <code>{line || "\u200b"}</code>
+                <span className={styles.dragHandle}>⠿</span>
+              </div>
+            ))}
           </div>
-          {/* Reference Image */}
-          <div className={styles.referenceBox}>
-            <div className={styles.tcHeader}>Reference Target</div>
-            <div style={{ padding: 10, background: "rgba(0,0,0,0.3)", borderRadius: 12, textAlign: "center" }}>
-              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#00dcff" strokeWidth="1">
-                 <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-              </svg>
-              <div style={{ fontSize: 10, color: "#475569", marginTop: 4 }}>Goal: 5-Pointed Star</div>
-            </div>
+          {submitted && !isCorrect && (
+            <div className={styles.wrongMsg}>❌ Not quite — the logic isn't right yet. Try reordering!</div>
+          )}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 12 }}>
+            {submitted && !isCorrect && <button className={styles.secondaryBtn} onClick={handleRetry}>🔄 Reset</button>}
+            <button className={styles.primaryBtn} onClick={submitted && !isCorrect ? handleRetry : handleSubmit}>
+              {submitted && !isCorrect ? "Try Again" : "✓ Submit Order"}
+            </button>
           </div>
         </div>
 
-        <div className={styles.editorPane}>
-          <textarea
-            className={styles.codeEditor}
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            spellCheck={false}
-          />
-          <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running}>
-            {running ? "🐢 Drawing…" : "▶ Run Turtle Code"}
-          </button>
-          
-          <div className={styles.outputBox} style={{ height: "auto" }}>
-             <div className={styles.outputLabel}>Canvas Output</div>
-             <canvas 
-               id="turtle-canvas"
-               ref={canvasRef} 
-               width={400} 
-               height={300} 
-               className={styles.turtleCanvas} 
-               style={{ background: "#0c1117", borderRadius: 8, marginTop: 8, display: "block", width: "100%" }}
-             />
-             {turtleErr && (
-               <pre style={{ marginTop: 8, padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                 ⚠ {turtleErr}
-               </pre>
-             )}
-          </div>
-
-          {done && (
-            <div className={styles.roundDone} style={{marginTop:24, background:"rgba(0,220,255,0.05)", border:"1px solid rgba(0,220,255,0.2)"}}>
-              <div className={styles.doneIcon}>🌟</div>
-              <h3>Star Captured!</h3>
-              <p>Your cosmic sketch is complete. The treasure hunt is over!</p>
-              <button className={styles.primaryBtn} onClick={handleFinish}>Finish PyHunt & View Results →</button>
+        {/* RIGHT — compiler */}
+        <div className={styles.compilerSide}>
+          <div className={styles.tcHeader} style={{ marginBottom: 8 }}>▶ Test Your Arrangement</div>
+          <div className={styles.editorPane} style={{ height: "100%" }}>
+            <textarea
+              className={styles.codeEditor}
+              value={lines.join("\n")}
+              readOnly
+              style={{ opacity: 0.85, cursor: "not-allowed", minHeight: 160 }}
+              spellCheck={false}
+            />
+            <button className={styles.runBtn} onClick={handleRun} disabled={!ready || running}>
+              {running ? "⟳ Running…" : "▶ Run Code"}
+            </button>
+            {runOutput && (
+              <div className={styles.outputBox}>
+                <div className={styles.outputLabel}>
+                  {runOutput.stderr || runOutput.error ? "❌ Error Output" : "✅ Output"}
+                </div>
+                <pre style={{ color: runOutput.stderr || runOutput.error ? "#f87171" : "#80c8a0" }}>
+                  {runOutput.stderr || runOutput.error || runOutput.stdout || "(no output)"}
+                </pre>
+              </div>
+            )}
+            <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
+              💡 Run your arrangement to see if the output looks correct before submitting!
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function RoundJumbleDual({
+  problemA,
+  problemB,
+  onComplete,
+  onWrong,
+}: {
+  problemA: JumbleProblem;
+  problemB: JumbleProblem;
+  onComplete: () => void;
+  onWrong: () => void;
+}) {
+  const { ready, runCode } = usePyodide();
+  const [part, setPart] = useState<0 | 1>(0);
+
+  return part === 0 ? (
+    <JumblePart
+      problem={problemA}
+      partLabel="Part A"
+      partIndex={0}
+      runCode={runCode}
+      ready={ready}
+      onPartComplete={() => setPart(1)}
+      onWrong={onWrong}
+    />
+  ) : (
+    <JumblePart
+      problem={problemB}
+      partLabel="Part B"
+      partIndex={1}
+      runCode={runCode}
+      ready={ready}
+      onPartComplete={onComplete}
+      onWrong={onWrong}
+    />
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   ROUND 3 — DUAL CODING  (Part A + Part B)
+═══════════════════════════════════════════════ */
+function RoundCodingDual({
+  problemA,
+  problemB,
+  roundNum,
+  onComplete,
+  onWrong,
+}: {
+  problemA: CodingProblem;
+  problemB: CodingProblem;
+  roundNum: number;
+  onComplete: () => void;
+  onWrong: () => void;
+}) {
+  const [part, setPart] = useState<0 | 1>(0);
+
+  return part === 0 ? (
+    <RoundCoding
+      problem={problemA}
+      roundNum={roundNum}
+      partLabel="Part A"
+      onComplete={() => setPart(1)}
+      onWrong={onWrong}
+      showNextPartOnPass
+    />
+  ) : (
+    <RoundCoding
+      problem={problemB}
+      roundNum={roundNum}
+      partLabel="Part B"
+      onComplete={onComplete}
+      onWrong={onWrong}
+      showNextPartOnPass={false}
+    />
   );
 }
 
@@ -985,7 +830,7 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
       <div className={styles.finishTitle} style={terminated ? { color: "#ef4444", textShadow: "0 0 20px rgba(239, 68, 68, 0.5)" } : {}}>
         {terminated ? "SESSION TERMINATED" : "PYHUNT COMPLETE!"}
       </div>
-      
+
       <div className={styles.statsCard}>
         <div className={styles.statItem}>
           <div className={styles.statValue}>{stats.minutes}m</div>
@@ -1002,10 +847,16 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
       </div>
 
       <div className={styles.finishSub} style={terminated ? { color: "#fca5a5", fontWeight: 600 } : {}}>
-        {terminated ? "Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator." : message}
+        {terminated
+          ? "Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator."
+          : message}
       </div>
       <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard?tab=History")} style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}>
+        <button
+          className={styles.primaryBtn}
+          onClick={() => router.replace("/dashboard?tab=History")}
+          style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}
+        >
           ← GO TO HISTORY DASHBOARD
         </button>
         <div style={{ fontSize: 12, opacity: 0.5 }}>
@@ -1017,22 +868,25 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
 }
 
 /* ═══════════════════════════════════════════════
-   PROGRESS BAR
+   PROGRESS BAR  (4 rounds only — Round 5 is offline)
 ═══════════════════════════════════════════════ */
 function ProgressBar({ round, showingClue }: { round: number; showingClue: boolean }) {
-  const ROUNDS = ["MCQ","Jumble","Palindrome","FizzBuzz","Turtle"];
+  const ROUNDS = ["MCQ", "Jumble", "Coding", "Final Code"];
   const filled = showingClue ? round + 1 : round;
   return (
     <div className={styles.progressWrap}>
       <div className={styles.progressLine}>
-        <div className={styles.progressLineFill} style={{width:`${(filled/5)*100}%`}} />
+        <div className={styles.progressLineFill} style={{ width: `${(filled / 4) * 100}%` }} />
       </div>
       {ROUNDS.map((label, i) => {
         const isActive = i === round && !showingClue;
         const isDone = i < filled;
-        
         return (
-          <div key={i} title={label} className={`${styles.progressDot} ${isDone ? styles.progressDone : ""} ${isActive ? styles.progressActive : ""}`}>
+          <div
+            key={i}
+            title={label}
+            className={`${styles.progressDot} ${isDone ? styles.progressDone : ""} ${isActive ? styles.progressActive : ""}`}
+          >
             {isActive ? (
               <div style={{ width: "100%", height: "100%", transform: "scale(1.2)" }}>
                 <GoldenOrb />
@@ -1064,16 +918,16 @@ function PyHuntOrb({ size = 120, label = "Initialising PyHunt…", sublabel = ""
         @keyframes ph-pulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.15); } }
         @keyframes ph-float { 0%,100% { transform:translateY(0px); } 50% { transform:translateY(-9px); } }
       `}</style>
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, userSelect:"none" }}>
-        <div style={{ animation:"ph-float 3s ease-in-out infinite", position:"relative", width:s*1.8, height:s*1.8, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ position:"absolute", width:s*1.7, height:s*1.7, borderRadius:"50%", background:"radial-gradient(circle, rgba(100,60,255,0.22) 0%, rgba(60,0,160,0.1) 45%, transparent 70%)", animation:"ph-pulse 2.4s ease-in-out infinite", pointerEvents:"none" }} />
-          <div style={{ position:"absolute", width:s*1.65, height:s*1.65, borderRadius:"50%", border:"1.5px solid rgba(140,80,255,0.35)", animation:"ph-ring-a 4s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
-          <div style={{ position:"absolute", width:s*1.35, height:s*1.35, borderRadius:"50%", border:"1px solid rgba(80,160,255,0.3)", animation:"ph-ring-b 6s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
-          <div style={{ position:"absolute", width:s*1.1, height:s*1.1, borderRadius:"50%", border:"1px dashed rgba(200,100,255,0.2)", animation:"ph-ring-c 9s linear infinite", transformStyle:"preserve-3d" as React.CSSProperties["transformStyle"] }} />
-          <div style={{ position:"relative", width:s, height:s, borderRadius:"50%", perspective:s*3, perspectiveOrigin:"50% 50%" }}>
-            <div style={{ width:"100%", height:"100%", borderRadius:"50%", background:"radial-gradient(circle at 35% 35%, rgba(180,100,255,0.9) 0%, rgba(80,40,200,0.85) 30%, rgba(20,10,80,0.95) 65%, rgba(40,20,120,1) 100%)", animation:"ph-spin 5s linear infinite", willChange:"transform", boxShadow:`0 0 ${s*0.3}px rgba(120,60,255,0.6), 0 0 ${s*0.6}px rgba(80,40,200,0.25), inset 0 0 ${s*0.2}px rgba(200,150,255,0.3)` }}>
-              <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:0.55, borderRadius:"50%" }}>
-                <path d="M30 70 Q20 50 35 35 Q50 20 65 35 Q80 50 65 65 Q50 80 35 65" fill="none" stroke="rgba(255,220,100,0.7)" strokeWidth="5" strokeLinecap="round"/>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, userSelect: "none" }}>
+        <div style={{ animation: "ph-float 3s ease-in-out infinite", position: "relative", width: s * 1.8, height: s * 1.8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", width: s * 1.7, height: s * 1.7, borderRadius: "50%", background: "radial-gradient(circle, rgba(100,60,255,0.22) 0%, rgba(60,0,160,0.1) 45%, transparent 70%)", animation: "ph-pulse 2.4s ease-in-out infinite", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: s * 1.65, height: s * 1.65, borderRadius: "50%", border: "1.5px solid rgba(140,80,255,0.35)", animation: "ph-ring-a 4s linear infinite", transformStyle: "preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position: "absolute", width: s * 1.35, height: s * 1.35, borderRadius: "50%", border: "1px solid rgba(80,160,255,0.3)", animation: "ph-ring-b 6s linear infinite", transformStyle: "preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position: "absolute", width: s * 1.1, height: s * 1.1, borderRadius: "50%", border: "1px dashed rgba(200,100,255,0.2)", animation: "ph-ring-c 9s linear infinite", transformStyle: "preserve-3d" as React.CSSProperties["transformStyle"] }} />
+          <div style={{ position: "relative", width: s, height: s, borderRadius: "50%", perspective: s * 3, perspectiveOrigin: "50% 50%" }}>
+            <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, rgba(180,100,255,0.9) 0%, rgba(80,40,200,0.85) 30%, rgba(20,10,80,0.95) 65%, rgba(40,20,120,1) 100%)", animation: "ph-spin 5s linear infinite", willChange: "transform", boxShadow: `0 0 ${s * 0.3}px rgba(120,60,255,0.6), 0 0 ${s * 0.6}px rgba(80,40,200,0.25), inset 0 0 ${s * 0.2}px rgba(200,150,255,0.3)` }}>
+              <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.55, borderRadius: "50%" }}>
+                <path d="M30 70 Q20 50 35 35 Q50 20 65 35 Q80 50 65 65 Q50 80 35 65" fill="none" stroke="rgba(255,220,100,0.7)" strokeWidth="5" strokeLinecap="round" />
                 <circle cx="30" cy="70" r="6" fill="rgba(255,220,80,0.8)" />
                 <circle cx="28" cy="68" r="1.5" fill="#1a0a30" />
                 <text x="18" y="28" fontSize="12" fill="rgba(180,220,255,0.6)" fontFamily="monospace" fontWeight="bold">&lt;/&gt;</text>
@@ -1081,9 +935,9 @@ function PyHuntOrb({ size = 120, label = "Initialising PyHunt…", sublabel = ""
             </div>
           </div>
         </div>
-        <div style={{ textAlign:"center" }}>
-          <div style={{ color:"#c0a8ff", fontSize:15, fontWeight:700, letterSpacing:"0.06em", textShadow:"0 0 12px rgba(120,60,255,0.6)" }}>{label}</div>
-          {sublabel && <div style={{ color:"#6040a0", fontSize:12, marginTop:4 }}>{sublabel}</div>}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ color: "#c0a8ff", fontSize: 15, fontWeight: 700, letterSpacing: "0.06em", textShadow: "0 0 12px rgba(120,60,255,0.6)" }}>{label}</div>
+          {sublabel && <div style={{ color: "#6040a0", fontSize: 12, marginTop: 4 }}>{sublabel}</div>}
         </div>
       </div>
     </>
@@ -1093,62 +947,51 @@ function PyHuntOrb({ size = 120, label = "Initialising PyHunt…", sublabel = ""
 export default function PyHuntPage() {
   const router = useRouter();
   const [cfg, setCfg] = useState<PyHuntConfig>(DEFAULT_CONFIG);
-  const [round, setRound] = useState(0);           // 0–4 = active round
+  const [round, setRound] = useState(0);           // 0–3 = active round (4 rounds total)
   const [showingClue, setShowingClue] = useState(false);
   const [finished, setFinished] = useState(false);
   const [terminated, setTerminated] = useState(false);
   const [studentName, setStudentName] = useState("Student");
-  const [turtleImage, setTurtleImage] = useState("");
-  
+
   // Stats tracking
   const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0 });
   const [warningCount, setWarningCount] = useState(0);
-  const [showWarning, setShowWarning] = useState(false);
   const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
   const [studentId, setStudentId] = useState("");
-  const lastWarningTimeRef = useRef(0);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
   useEffect(() => {
-    // Show loading orb — extend to 3s to ensure config loads before game starts
     setPyhuntLoading(true);
     const t = setTimeout(() => setPyhuntLoading(false), 3000);
 
-    // 1. Always clear stale config cache — students must get fresh config from backend
     if (typeof window !== "undefined") {
       localStorage.removeItem("nexus_pyhunt_config_v2");
     }
 
-    // 2. Fetch fresh config from backend FIRST, then release loading state
     loadPyHuntConfigAsync().then(c => {
       setCfg(c);
-      console.log("[PyHunt] Config loaded:", c.mcqQuestions?.length, "MCQ questions, clue[0]:", c.clues?.[0]?.unlockCode);
     }).catch(e => {
-      console.error("[PyHunt] Config load failed, using DEFAULT (LIBRARY42 may be wrong!):", e);
+      console.error("[PyHunt] Config load failed:", e);
     });
-    
-    try { 
-      const examStudent = sessionStorage.getItem("exam_student"); const examStudentData = examStudent ? JSON.parse(examStudent) : {};
+
+    try {
+      const examStudent = sessionStorage.getItem("exam_student");
+      const examStudentData = examStudent ? JSON.parse(examStudent) : {};
       const n = examStudentData.name || null;
       const sid = examStudentData.id || null;
-      const sessionStudent = JSON.parse(sessionStorage.getItem("exam_student") || "{}");
-
-      if (n) setStudentName(n); 
-      else if (sessionStudent.name) setStudentName(sessionStudent.name);
-
+      if (n) setStudentName(n);
       if (sid) setStudentId(sid);
-      else if (sessionStudent.id) setStudentId(sessionStudent.id);
-      
-      const effectiveId = sid || sessionStudent.id;
+
+      const effectiveId = sid || examStudentData.id;
       if (effectiveId) {
         supabase.from("pyhunt_progress")
-          .select("warnings, turtle_image, current_round, status")
+          .select("warnings, current_round, status")
           .eq("student_id", effectiveId)
           .maybeSingle()
           .then(({ data }: { data: any }) => {
@@ -1160,41 +1003,20 @@ export default function PyHuntPage() {
                 return;
               }
               setWarningCount(data.warnings || 0);
-              if (data.turtle_image) setTurtleImage(data.turtle_image);
-              // Optionally restore round if they refreshed
               if (data.current_round && data.current_round.startsWith("Round")) {
-                 const r = parseInt(data.current_round.replace("Round ", ""));
-                 if (!isNaN(r)) setRound(r - 1);
+                const r = parseInt(data.current_round.replace("Round ", ""));
+                if (!isNaN(r)) setRound(Math.min(r - 1, 3));
               }
             }
           });
       }
     } catch {}
 
-    // 2. Subscribe to Supabase Realtime for instant push updates when admin saves
     const channel = supabase
-      .channel('pyhunt-realtime-config')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'exam_config', filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
-        (payload: any) => {
-          console.log("[PyHunt] Realtime config update received — re-fetching from backend");
-          // Re-fetch from backend (not from payload) to ensure RLS-safe, consistent data
-          loadPyHuntConfigAsync().then(fresh => {
-            setCfg(fresh);
-            console.log("[PyHunt] Config hot-reloaded from backend after realtime event");
-          }).catch(e => {
-            // Fallback: parse payload directly
-            if (payload.new && (payload.new as any).category) {
-              try {
-                const parsed = JSON.parse((payload.new as any).category);
-                localStorage.setItem("nexus_pyhunt_config_v2", JSON.stringify(parsed));
-                setCfg(parseCfg(parsed));
-              } catch (err) {
-                console.error("[PyHunt] Failed to parse realtime payload", err);
-              }
-            }
-          });
+      .channel("pyhunt-realtime-config")
+      .on("postgres_changes", { event: "*", schema: "public", table: "exam_config", filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
+        () => {
+          loadPyHuntConfigAsync().then(fresh => setCfg(fresh)).catch(() => {});
         }
       )
       .subscribe();
@@ -1205,143 +1027,110 @@ export default function PyHuntPage() {
     };
   }, []);
 
-  // ── Track Progress to Supabase ──
+  // Track Progress to Supabase
   useEffect(() => {
     const updateProgress = async () => {
       try {
-        const examStudent2 = sessionStorage.getItem("exam_student"); 
-        const studentId = examStudent2 ? JSON.parse(examStudent2).id : "anonymous";
+        const examStudent2 = sessionStorage.getItem("exam_student");
+        const sid = examStudent2 ? JSON.parse(examStudent2).id : "anonymous";
         const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
-        
-        // Important: Fetch the latest image from state
-        // If it's empty, try to get it from local storage as a last resort
-        const imgToSend = turtleImage || localStorage.getItem("nexus_turtle_temp");
         const token = sessionStorage.getItem("exam_token") || "";
-        console.log(`[PyHunt] Syncing progress for: ${studentId} (Round: ${currentRound})`);
         if (!token) return;
-
         await fetch("/api/exam/pyhunt/sync-progress", {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({
             current_round: currentRound,
-            turtle_image: imgToSend || undefined,
-            finished: finished,
-            terminated: terminated,
+            finished,
+            terminated,
             warning_count: warningCount,
-            last_violation: lastViolation || undefined
-          })
+            last_violation: lastViolation || undefined,
+          }),
         });
-      } catch (err) {
-        console.error("Failed to update progress:", err);
-      }
+      } catch {}
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation, turtleImage, studentName]);
+  }, [round, finished, terminated, warningCount, lastViolation]);
 
-  // ── Violation Handling ──
   // Fullscreen Watcher
   useEffect(() => {
-    const handleFsChange = () => {
-      const fs = !!document.fullscreenElement;
-      setIsFullscreen(fs);
-    };
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
   const enterFullscreen = useCallback(() => {
-    const el = document.documentElement;
     if (!document.fullscreenElement) {
-      el.requestFullscreen()
-        .then(() => {
-          console.log("[PyHunt] Fullscreen entered successfully");
-          setIsFullscreen(true);
-        })
-        .catch((err) => {
-          console.warn("[PyHunt] Fullscreen blocked:", err.message);
-        });
+      document.documentElement.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => {});
     }
   }, []);
 
-  // Fullscreen is requested by the gate button click (user gesture required).
-  // Do not attempt requestFullscreen() in useEffect — browser blocks it.
-  // The isFullscreen gate handles re-entry when fullscreen is lost.
-
-  // ── Auto-Redirect Timer ──
+  // Auto-Redirect Timer
   useEffect(() => {
     if (!finished) return;
-    
     const interval = setInterval(() => {
       setResultTimerSeconds(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          router.replace("/dashboard?tab=History");
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(interval); router.replace("/dashboard?tab=History"); return 0; }
         return prev - 1;
       });
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [finished, router]);
 
-  // ── Proctoring Restrictions ──
-  // Grace period ref: violations ignored for 8 seconds after mount (fullscreen dialog causes blur)
+  // Grace period
   const gracePeriodRef = useRef(true);
   useEffect(() => {
-    // Give 1.5 seconds before proctoring starts (fullscreen dialog grace)
-    const graceTimer = setTimeout(() => { gracePeriodRef.current = false; }, 1500);
-    return () => clearTimeout(graceTimer);
+    const t = setTimeout(() => { gracePeriodRef.current = false; }, 8000);
+    return () => clearTimeout(t);
   }, []);
 
-    // Active fullscreen enforcement is handled by AntiCheat component.
-  // PyHunt does not independently re-enter fullscreen to avoid browser errors.
-
-  const handleRoundComplete = (dataUrl?: string) => {
-    if (dataUrl) {
-      setTurtleImage(dataUrl);
-      localStorage.setItem("nexus_turtle_temp", dataUrl);
+  // Round complete → show clue (rounds 0–2) OR finish congratulations (round 3)
+  const handleRoundComplete = useCallback(() => {
+    if (round === 3) {
+      // Round 4 done → show final clue → then congratulations
+      setShowingClue(true);
+    } else {
+      setShowingClue(true);
     }
-    setShowingClue(true);
-  };
+  }, [round]);
 
-  const handleUnlock = () => {
-    if (round >= 4) { 
+  // Clue unlocked → next round or finish
+  const handleUnlock = useCallback(() => {
+    setShowingClue(false);
+    if (round === 3) {
+      // After round 4 clue → final congratulations screen
       const duration = Math.floor((Date.now() - startTime) / 60000);
       setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: warningCount });
-      setFinished(true); 
-      return; 
+      setFinished(true);
+    } else {
+      setRound(r => r + 1);
     }
-    setShowingClue(false);
-    setRound(r => r + 1);
-  };
+  }, [round, startTime, totalWrongs, warningCount]);
 
-  if (pyhuntLoading) return (
-    <div style={{
-      position:"fixed", inset:0, zIndex:9999,
-      background:"radial-gradient(ellipse at 50% 40%, #0d0820 0%, #06040e 100%)",
-      display:"flex", alignItems:"center", justifyContent:"center",
-    }}>
-      <div style={{ position:"absolute", inset:0, pointerEvents:"none", backgroundImage:["radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.4), transparent)","radial-gradient(1px 1px at 35% 65%, rgba(255,255,255,0.3), transparent)","radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,0.35), transparent)","radial-gradient(1px 1px at 88% 75%, rgba(255,255,255,0.25), transparent)"].join(",") }} />
-      <PyHuntOrb size={120} label="Initialising PyHunt…" sublabel="Decrypting round data" />
-    </div>
-  );
+  if (pyhuntLoading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.stars} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+          <PyHuntOrb label="Initialising PyHunt…" sublabel="Loading your Python adventure…" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
 
-      <AntiCheat 
+      <AntiCheat
         sessionId={sessionStorage.getItem("exam_student") ? JSON.parse(sessionStorage.getItem("exam_student")!).id : "pyhunt"}
         authToken={sessionStorage.getItem("exam_token") || ""}
         studentId={studentId || "PYHUNT_GUEST"}
         studentName={studentName || "PyHunter"}
-        isSubmitted={finished} 
+        isSubmitted={finished}
         extraMetadata={{ pyhunt: true }}
         onAutoSubmit={() => {
           setWarningCount(3);
@@ -1353,16 +1142,57 @@ export default function PyHuntPage() {
         }}
         onViolation={(type, meta) => {
           setLastViolation(type);
-          if (meta && typeof meta.strike === 'number') {
-            setWarningCount(meta.strike);
-          } else {
-            setWarningCount(prev => Math.min(prev + 1, 3));
-          }
+          if (meta && typeof meta.strike === "number") setWarningCount(meta.strike);
+          else setWarningCount(prev => Math.min(prev + 1, 3));
         }}
         initialWarningCount={warningCount}
       >
         {finished ? (
-          <FinishScreen message={cfg.finishMessage} stats={finishStats as any} timerSeconds={resultTimerSeconds} terminated={terminated} />
+          /* ── Finished: show congratulations if not terminated ── */
+          terminated ? (
+            <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} terminated />
+          ) : (
+            /* ── Final Congratulations — Round 5 is OFFLINE ── */
+            <div className={styles.finishScreen} style={{ border: "2px solid #ffd700", background: "rgba(255,215,0,0.04)", boxShadow: "0 0 60px rgba(255,215,0,0.15)" }}>
+              <div className={styles.finishEmoji}>🎉</div>
+              <div className={styles.finishTitle} style={{ color: "#ffd700", textShadow: "0 0 24px rgba(255,215,0,0.5)" }}>
+                CONGRATULATIONS!
+              </div>
+              <div style={{ fontSize: 18, color: "#e2e8f0", textAlign: "center", marginBottom: 12, fontWeight: 600 }}>
+                You have successfully completed all 4 Online Rounds of PyHunt!
+              </div>
+              <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 16, padding: "20px 28px", maxWidth: 480, textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🏆</div>
+                <div style={{ fontSize: 16, color: "#ffd700", fontWeight: 700, marginBottom: 8 }}>
+                  You can now enter the Final Round!
+                </div>
+                <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6 }}>
+                  The <strong style={{ color: "#fff" }}>Final Round (Round 5)</strong> will be conducted <strong style={{ color: "#fff" }}>offline</strong> by your facilitator.<br />
+                  Please show this screen to your facilitator to confirm your completion.
+                </div>
+              </div>
+              <div className={styles.statsCard}>
+                <div className={styles.statItem}>
+                  <div className={styles.statValue}>{finishStats.minutes}m</div>
+                  <div className={styles.statLabel}>Total Time</div>
+                </div>
+                <div className={styles.statItem}>
+                  <div className={styles.statValue}>{finishStats.wrongs}</div>
+                  <div className={styles.statLabel}>Wrong Attempts</div>
+                </div>
+                <div className={styles.statItem}>
+                  <div className={styles.statValue}>{finishStats.warnings}/3</div>
+                  <div className={styles.statLabel}>Warnings</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+                <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard?tab=History")}>
+                  ← Back to Dashboard
+                </button>
+                <div style={{ fontSize: 12, opacity: 0.5 }}>Auto-redirecting in {resultTimerSeconds}s…</div>
+              </div>
+            </div>
+          )
         ) : !isFullscreen ? (
           <div className={styles.fsOverlay}>
             <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(40, 215, 214, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", padding: "40px", borderRadius: "24px" }}>
@@ -1394,7 +1224,6 @@ export default function PyHuntPage() {
                 </div>
               </div>
               <ProgressBar round={round} showingClue={showingClue} />
-            
               <div className={styles.headerRight}>
                 <div className={styles.statsBadge}>
                   <span className={styles.statLabel}>Tries:</span>
@@ -1411,12 +1240,49 @@ export default function PyHuntPage() {
                 <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
               )}
 
-              {/* ROUNDS */}
-              {!showingClue && round === 0 && <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-              {!showingClue && round === 1 && <RoundJumble problem={cfg.jumbleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-              {!showingClue && round === 2 && <RoundCoding problem={cfg.round3} roundNum={3} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-              {!showingClue && round === 3 && <RoundCoding problem={cfg.round4} roundNum={4} onComplete={handleRoundComplete} onWrong={recordWrong} />}
-              {!showingClue && round === 4 && <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />}
+              {/* ROUND 1 — MCQ */}
+              {!showingClue && round === 0 && (
+                <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />
+              )}
+
+              {/* ROUND 2 — DUAL JUMBLE (Part A + Part B) with compiler */}
+              {!showingClue && round === 1 && (
+                <RoundJumbleDual
+                  problemA={cfg.jumbleProblem}
+                  problemB={cfg.jumbleProblem2 || cfg.jumbleProblem}
+                  onComplete={handleRoundComplete}
+                  onWrong={recordWrong}
+                />
+              )}
+
+              {/* ROUND 3 — DUAL CODING (Part A + Part B) */}
+              {!showingClue && round === 2 && (
+                <RoundCodingDual
+                  problemA={cfg.round3}
+                  problemB={cfg.round3b || cfg.round3}
+                  roundNum={3}
+                  onComplete={handleRoundComplete}
+                  onWrong={recordWrong}
+                />
+              )}
+
+              {/* ROUND 4 — SINGLE CODING (then clue → congratulations) */}
+              {!showingClue && round === 3 && (
+                <RoundCoding
+                  problem={cfg.round4}
+                  roundNum={4}
+                  partLabel=""
+                  onComplete={handleRoundComplete}
+                  onWrong={recordWrong}
+                  showNextPartOnPass={false}
+                />
+              )}
+
+              {/* ROUND 5 — TURTLE — COMMENTED OUT: conducted offline
+              {!showingClue && round === 4 && (
+                <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />
+              )}
+              */}
             </main>
           </>
         )}
@@ -1424,9 +1290,3 @@ export default function PyHuntPage() {
     </div>
   );
 }
-
-
-
-
-
-
