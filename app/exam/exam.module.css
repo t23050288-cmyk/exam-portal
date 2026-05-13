@@ -940,3 +940,32 @@
     grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)) !important;
   }
 }
+
+
+/* ── Mobile Exam Complete Fix ───────────────────────────── */
+@media (max-width: 768px) {
+  .actionsRow {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+    padding: 12px !important;
+    position: sticky;
+    bottom: 0;
+    background: rgba(10, 10, 20, 0.95);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    z-index: 100;
+  }
+  .actionsRow button {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 12px 8px !important;
+    font-size: 11px !important;
+  }
+  .prevBtn, .nextBtn, .flagBtn, .finishBtn {
+    padding: 11px 10px !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+  }
+}
