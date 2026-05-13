@@ -88,7 +88,7 @@ async def login(request: LoginRequest):
     try:
         result = (
             db.table("students")
-            .select("id, usn, email, name, branch, password_hash, is_active_session, current_token")
+            .select("id, usn, email, name, branch, password_hash, is_active_session, current_token, is_banned")
             .eq("usn", request.usn.strip().upper())
             .limit(1)
             .execute()
@@ -127,6 +127,13 @@ async def login(request: LoginRequest):
         exam_status_data = None
     else:
         student = result.data[0]
+
+        # ── 2b. Check if student is banned ──────────────────────────────────
+        if student.get("is_banned"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been suspended. Please contact the administrator.",
+            )
 
         # ── 3. Password check (CPU-only, no DB) ─────────────────────────────
         if not verify_password(request.password, student["password_hash"]):
