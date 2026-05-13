@@ -25,7 +25,6 @@ interface PyHuntConfig {
   round3: CodingProblem;
   round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
-  finalMcqQuestions: MCQQuestion[]; // Round 5
   clues: ClueConfig[];
   finishMessage: string;
 }
@@ -40,15 +39,11 @@ const DEFAULT: PyHuntConfig = {
   round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
   round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
   round4: { title:"FizzBuzz Remix (Round 4)", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
-  finalMcqQuestions: [
-    { id:"f1", question:"Final challenge: Which data structure uses LIFO?", options:[{label:"A",text:"Queue"},{label:"B",text:"Stack"},{label:"C",text:"Heap"},{label:"D",text:"Tree"}], correct:"B", explanation:"Stacks use Last-In First-Out logic." },
-  ],
   clues: [
     { clueText:"🗝️ Round 1 Complete! Find your next code in the Library.", unlockCode:"LIBRARY" },
     { clueText:"🗝️ Round 2 Complete! Find your next code in Lab-2.", unlockCode:"LAB2" },
     { clueText:"🗝️ Round 3 Complete! Find your next code in Locker 301.", unlockCode:"LOCKER301" },
-    { clueText:"🗝️ Round 4 Complete! Find your next code near the Final Terminal.", unlockCode:"FINAL_TERM" },
-    { clueText:"🎉 ALL TRIALS COMPLETE! Congratulations!", unlockCode:"" },
+    { clueText:"🗝️ Round 4 Complete! Hunt Over! Enter code to see your Results.", unlockCode:"FINISH" },
   ],
   finishMessage:"🏆 Congratulations! You've conquered PyHunt!",
 };
@@ -109,10 +104,9 @@ const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"jumble",   label:"Round 2 Jumble",icon:"🔀" },
   { id:"round3",   label:"Round 3 Code",  icon:"🐍" },
   { id:"round4",   label:"Round 4 Code",  icon:"🔢" },
-  { id:"finalmcq", label:"Round 5 MCQ",  icon:"🏁" },
   { id:"status",   label:"Live Status",   icon:"📡" },
 ];
-const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)", "Round 5 (Final MCQ)"];
+const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)"];
 
 export default function PyHuntAdminTab() {
   const [cfg, setCfg] = useState<PyHuntConfig>(DEFAULT);
@@ -202,7 +196,7 @@ export default function PyHuntAdminTab() {
                 placeholder="e.g. 🗝️ Head to the library, look for the book with a red spine..."
               />
 
-              {i < 4 && (
+              {i < 3 && (
                 <>
                   <label style={$.lbl}>Unlock Code (student must type this to proceed)</label>
                   <input
@@ -220,7 +214,7 @@ export default function PyHuntAdminTab() {
           ))}
 
           <div style={$.card}>
-            <label style={$.lbl}>🏆 Finish Message (shown after all 5 rounds)</label>
+            <label style={$.lbl}>🏆 Finish Message (shown after all rounds)</label>
             <textarea
               style={{...$.ta, minHeight:60}}
               value={cfg.finishMessage}

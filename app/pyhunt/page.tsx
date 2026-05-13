@@ -30,14 +30,10 @@ interface ClueConfig {
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
-  jumbleProblem2?: JumbleProblem;  // Round 2 Part 2
   round3: CodingProblem;
-  round3b?: CodingProblem;         // Round 3 Part 2
+  round3b?: CodingProblem;         // Round 3 Part 2 (Dual)
   round4: CodingProblem;
-  round4b?: CodingProblem;         // Round 4 Part 2
-  turtleProblem: TurtleProblem;    // kept for config compat
-  clues: ClueConfig[];             // 5 entries (rounds 0-4)
-  finalMcqQuestions?: MCQQuestion[]; // Round 5
+  clues: ClueConfig[];             // 4 entries (rounds 0-3)
   finishMessage: string;
 }
 
@@ -53,22 +49,14 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     { id: "q5", question: "Which operator is used for floor division?", options: [{ label: "A", text: "/" }, { label: "B", text: "//" }, { label: "C", text: "%" }, { label: "D", text: "**" }], correct: "B", explanation: "// is the floor division operator." },
   ],
   jumbleProblem: { title: "Fibonacci Logic (Part 1)", description: "Reorder the lines to correctly implement a recursive Fibonacci function that prints the 7th number (13).", lines: ["def fib(n):", "    if n <= 1:", "        return n", "    return fib(n-1) + fib(n-2)", "", "print(fib(7))"] },
-  jumbleProblem2: { title: "List Slicing (Part 2)", description: "Reorder the lines to reverse a list and print the first 3 elements.", lines: ["data = [1, 2, 3, 4, 5]", "data.reverse()", "print(data[:3])"] },
   round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
   round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
-  round4: { title: "Factorial Mastery (Part 1)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
-  round4b: { title: "The Final Sieve (Part 2)", description: "Write a function `is_prime(n)` that returns True if n is prime.", starterCode: "def is_prime(n: int) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "17", expected: "True" }, { input: "15", expected: "False" }] },
-  turtleProblem: { title: "Turtle Art", description: "Offline Round.", starterCode: "" },
+  round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
   clues: [
     { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" },
     { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
     { clueText: "🗝️ Round 3 Complete! Check Locker 301.", unlockCode: "ROUND3" },
-    { clueText: "🗝️ Round 4 Complete! Locate the Final MCQ Terminal.", unlockCode: "FINAL_MCQ" },
-    { clueText: "🗝️ Round 5 Complete! You have finished all trials.", unlockCode: "CONGRATS" },
-  ],
-  finalMcqQuestions: [
-    { id: "f1", question: "Which of the following is NOT a built-in Python type?", options: [{ label: "A", text: "dict" }, { label: "B", text: "set" }, { label: "C", text: "array" }, { label: "D", text: "tuple" }], correct: "C", explanation: "Python has 'list' and 'tuple' built-in, but 'array' requires importing the array module or using numpy." },
-    { id: "f2", question: "What is the complexity of searching an element in a balanced BST?", options: [{ label: "A", text: "O(1)" }, { label: "B", text: "O(log n)" }, { label: "C", text: "O(n)" }, { label: "D", text: "O(n log n)" }], correct: "B", explanation: "Balanced binary search trees offer O(log n) search time." },
+    { clueText: "🗝️ Round 4 Complete! Hunt Finished! Search near the main entrance for your final results.", unlockCode: "FINISH" },
   ],
   finishMessage: "Congratulations! You have completed the ultimate Python trial.",
 };
@@ -82,14 +70,10 @@ function parseCfg(parsed: any): PyHuntConfig {
   return {
     mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
     jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
-    jumbleProblem2: parsed.jumbleProblem2 || DEFAULT_CONFIG.jumbleProblem2,
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
     round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
-    round4b: parsed.round4b || DEFAULT_CONFIG.round4b,
-    turtleProblem: parsed.turtleProblem || DEFAULT_CONFIG.turtleProblem,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
-    finalMcqQuestions: parsed.finalMcqQuestions || DEFAULT_CONFIG.finalMcqQuestions,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
 }
@@ -822,7 +806,7 @@ function RoundCodingDual({
 /* ═══════════════════════════════════════════════
    FINISH SCREEN
 ═══════════════════════════════════════════════ */
-function FinishScreen({ message, stats, timerSeconds, terminated, studentName }: { message: string; stats: { minutes: number; wrongs: number; warnings: number; finalMcqScore?: string; finalMcqTime?: string }; timerSeconds: number; terminated?: boolean; studentName: string }) {
+function FinishScreen({ message, stats, timerSeconds, terminated, studentName }: { message: string; stats: { minutes: number; wrongs: number; warnings: number; round1Score?: string; round1Time?: string }; timerSeconds: number; terminated?: boolean; studentName: string }) {
   const router = useRouter();
 
   if (terminated) {
@@ -846,18 +830,18 @@ function FinishScreen({ message, stats, timerSeconds, terminated, studentName }:
       </div>
       <p style={{ color: "#28D7D6", fontSize: 16, fontWeight: 700, marginBottom: 32, opacity: 0.8 }}>{message}</p>
 
-      <div className={styles.statsCard}>
+      <div className={styles.statsCard} style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <div className={styles.statItem} style={{ border: "1px solid rgba(251, 191, 36, 0.2)", background: "rgba(251, 191, 36, 0.03)" }}>
+          <div className={styles.statValue} style={{ color: "#fbbf24" }}>{stats.round1Score || "0/0"}</div>
+          <div className={styles.statLabel}>Round 1 MCQ Score</div>
+        </div>
+        <div className={styles.statItem}>
+          <div className={styles.statValue}>{stats.round1Time || "0s"}</div>
+          <div className={styles.statLabel}>MCQ Completion Time</div>
+        </div>
         <div className={styles.statItem}>
           <div className={styles.statValue}>{stats.minutes}m</div>
-          <div className={styles.statLabel}>Total Time</div>
-        </div>
-        <div className={styles.statItem} style={{ border: "1px solid rgba(251, 191, 36, 0.2)", background: "rgba(251, 191, 36, 0.03)" }}>
-          <div className={styles.statValue} style={{ color: "#fbbf24" }}>{stats.finalMcqScore || "0/0"}</div>
-          <div className={styles.statLabel}>Final MCQ Score</div>
-        </div>
-        <div className={styles.statItem}>
-          <div className={styles.statValue}>{stats.finalMcqTime || "0s"}</div>
-          <div className={styles.statLabel}>Final Round Time</div>
+          <div className={styles.statLabel}>Total Time (4 Rounds)</div>
         </div>
         <div className={styles.statItem}>
           <div className={styles.statValue}>{stats.wrongs}</div>
@@ -866,10 +850,14 @@ function FinishScreen({ message, stats, timerSeconds, terminated, studentName }:
       </div>
 
       <div style={{ marginTop: 40, width: "100%", maxWidth: 600, textAlign: "left", background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: "20px 24px" }}>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: 800, letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" }}>Security Validation</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: 800, letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" }}>Participant Details</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Student Name:</span>
+          <span style={{ color: "#fff", fontWeight: 700 }}>{studentName}</span>
+        </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Integrity Warnings:</span>
-          <span style={{ color: stats.warnings > 0 ? "#f87171" : "#10b981", fontWeight: 900, fontSize: 18 }}>{stats.warnings} / 3</span>
+          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Security Warnings:</span>
+          <span style={{ color: stats.warnings > 0 ? "#f87171" : "#10b981", fontWeight: 900 }}>{stats.warnings} / 3</span>
         </div>
       </div>
 
@@ -893,12 +881,12 @@ function FinishScreen({ message, stats, timerSeconds, terminated, studentName }:
    PROGRESS BAR  (4 rounds only — Round 5 is offline)
 ═══════════════════════════════════════════════ */
 function ProgressBar({ round, showingClue }: { round: number; showingClue: boolean }) {
-  const ROUNDS = ["MCQ 1", "Jumble", "Coding 1", "Coding 2", "Final MCQ"];
+  const ROUNDS = ["MCQ 1", "Jumble", "Coding 1", "Coding 2"];
   const filled = showingClue ? round + 1 : round;
   return (
     <div className={styles.progressWrap}>
       <div className={styles.progressLine}>
-        <div className={styles.progressLineFill} style={{ width: `${(filled / 5) * 100}%` }} />
+        <div className={styles.progressLineFill} style={{ width: `${(filled / 4) * 100}%` }} />
       </div>
       {ROUNDS.map((label, i) => {
         const isActive = i === round && !showingClue;
@@ -978,8 +966,8 @@ export default function PyHuntPage() {
   // Stats tracking
   const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
-  const [finishStats, setFinishStats] = useState<{ minutes: number; wrongs: number; warnings: number; finalMcqScore?: string; finalMcqTime?: string }>({ minutes: 0, wrongs: 0, warnings: 0 });
-  const [finalMcqStartTime, setFinalMcqStartTime] = useState<number | null>(null);
+  const [finishStats, setFinishStats] = useState<{ minutes: number; wrongs: number; warnings: number; round1Score?: string; round1Time?: string }>({ minutes: 0, wrongs: 0, warnings: 0 });
+  const [mcqStartTime, setMcqStartTime] = useState(Date.now());
   const [warningCount, setWarningCount] = useState(0);
   const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1109,42 +1097,39 @@ export default function PyHuntPage() {
     return () => clearTimeout(t);
   }, []);
 
-  // Round complete → show clue (rounds 0–3) OR finish congratulations (round 4)
+  // Round complete → show clue (rounds 0–3)
   const handleRoundComplete = useCallback((mcqScore?: string) => {
-    if (round === 4 && mcqScore) {
-      // Final Round MCQ complete!
-      const totalDuration = Math.floor((Date.now() - startTime) / 60000);
-      const mcqTimeMs = Date.now() - (finalMcqStartTime || Date.now());
-      const mcqMinutes = Math.floor(mcqTimeMs / 60000);
-      const mcqSeconds = Math.floor((mcqTimeMs % 60000) / 1000);
-      
-      setFinishStats({ 
-        minutes: totalDuration, 
-        wrongs: totalWrongs, 
-        warnings: warningCount,
-        finalMcqScore: mcqScore,
-        finalMcqTime: `${mcqMinutes}m ${mcqSeconds}s`
-      });
-      setFinished(true);
-    } else {
-      setShowingClue(true);
-      if (round === 3) {
-        // Start timing the final MCQ round
-        setFinalMcqStartTime(Date.now());
-      }
+    if (round === 0 && mcqScore) {
+      // Round 1 MCQ complete!
+      const timeMs = Date.now() - mcqStartTime;
+      const m = Math.floor(timeMs / 60000);
+      const s = Math.floor((timeMs % 60000) / 1000);
+      setFinishStats(prev => ({
+        ...prev,
+        round1Score: mcqScore,
+        round1Time: `${m}m ${s}s`
+      }));
     }
-  }, [round, startTime, totalWrongs, warningCount, finalMcqStartTime]);
+    setShowingClue(true);
+  }, [round, mcqStartTime]);
 
   // Clue unlocked → next round or finish
   const handleUnlock = useCallback(() => {
     setShowingClue(false);
-    if (round === 4) {
-      // Should not happen as round 4 (index) completion handles finish
+    if (round === 3) {
+      // Round 4 complete -> Finish!
+      const totalDuration = Math.floor((Date.now() - startTime) / 60000);
+      setFinishStats(prev => ({
+        ...prev,
+        minutes: totalDuration,
+        wrongs: totalWrongs,
+        warnings: warningCount
+      }));
       setFinished(true);
     } else {
       setRound(r => r + 1);
     }
-  }, [round]);
+  }, [round, startTime, totalWrongs, warningCount]);
 
   if (pyhuntLoading) {
     return (
@@ -1186,13 +1171,13 @@ export default function PyHuntPage() {
       >
         {finished ? (
           /* ── Finished: show congratulations if not terminated ── */
-          terminated ? (
-            <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} terminated studentName={studentName} />
-          ) : (
-            <div className={styles.finishScreen} style={{ border: "2px solid #ffd700", background: "rgba(255,215,0,0.04)", boxShadow: "0 0 60px rgba(255,215,0,0.15)" }}>
-              <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} studentName={studentName} />
-            </div>
-          )
+          <FinishScreen 
+            message={cfg.finishMessage} 
+            stats={finishStats} 
+            timerSeconds={resultTimerSeconds} 
+            terminated={terminated} 
+            studentName={studentName} 
+          />
         ) : !isFullscreen ? (
           <div className={styles.fsOverlay}>
             <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.95)", border: "1px solid rgba(40, 215, 214, 0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", padding: "40px", borderRadius: "24px" }}>
@@ -1275,15 +1260,7 @@ export default function PyHuntPage() {
                 />
               )}
 
-              {/* ROUND 5 — FINAL MCQ */}
-              {!showingClue && round === 4 && (
-                <RoundMCQ 
-                  questions={cfg.finalMcqQuestions || cfg.mcqQuestions} 
-                  onComplete={(score) => handleRoundComplete(score)} 
-                  onWrong={recordWrong} 
-                  isFinal 
-                />
-              )}
+              {/* Round 4 Complete → Final results are triggered via handleUnlock */}
             </main>
           </>
         )}
