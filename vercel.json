@@ -16,11 +16,11 @@
   "routes": [
     {
       "src": "/api/admin/students/([^/]+)/ban",
-      "dest": "/api/admin/students/$1/ban"
+      "dest": "python_api/index.py"
     },
     {
       "src": "/api/exam/history/([^/]+)",
-      "dest": "/api/exam/history/$1"
+      "dest": "python_api/index.py"
     },
     {
       "src": "/api/exam/(.*)",
