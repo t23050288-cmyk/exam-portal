@@ -599,14 +599,43 @@ export default function ExamPage() {
                 key={activeQuestion.id} question={activeQuestion} questionNumber={activeQuestionIndex + 1} totalQuestions={questions.length} selectedAnswer={answers[activeQuestion.id]} savedCode={codeAnswers[activeQuestion.id]?.code} onSelect={handleSelect} onCodeSubmit={handleCodeSubmit} isSubmitted={isSubmitted}
               >
                 <div className={styles.actionsRow}>
-                  {activeQuestionIndex < questions.length - 1 ? (
-                    <button type="button" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)", color: "#fff", border: "none", padding: "16px 36px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(6, 182, 212, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}>NEXT QUESTION →</button>
-                  ) : (
-                    <button type="button" style={{ background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", border: "none", padding: "16px 48px", borderRadius: "16px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: "0 8px 25px rgba(16, 185, 129, 0.3)", transition: "all 0.3s ease", letterSpacing: "0.08em", textTransform: "uppercase" }} onClick={() => setConfirmSubmit(true)}>FINISH & SUBMIT 🚀</button>
-                  )}
-                  <button type="button" style={{ background: flagged.has(activeQuestionIndex) ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)", border: flagged.has(activeQuestionIndex) ? "2px solid #eab308" : "1px solid rgba(255,255,255,0.15)", color: flagged.has(activeQuestionIndex) ? "#eab308" : "var(--text-primary)", padding: "16px 28px", borderRadius: "16px", fontWeight: 800, fontSize: "14px", cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", alignItems: "center", gap: 10, letterSpacing: "0.05em", textTransform: "uppercase" }} onClick={toggleFlag}>
+                  {/* Row 1: PREV + NEXT (or SUBMIT) */}
+                  <div className={styles.navBtnRow}>
+                    {activeQuestionIndex > 0 && (
+                      <button
+                        type="button"
+                        className={styles.prevBtn}
+                        onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
+                      >
+                        ← PREV
+                      </button>
+                    )}
+                    {activeQuestionIndex < questions.length - 1 ? (
+                      <button
+                        type="button"
+                        className={styles.nextBtn}
+                        onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                      >
+                        NEXT →
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.finishBtn}
+                        onClick={() => setConfirmSubmit(true)}
+                      >
+                        FINISH & SUBMIT 🚀
+                      </button>
+                    )}
+                  </div>
+                  {/* Row 2: Flag button */}
+                  <button
+                    type="button"
+                    className={`${styles.flagBtn} ${flagged.has(activeQuestionIndex) ? styles.flagBtnActive : ""}`}
+                    onClick={toggleFlag}
+                  >
                     <span>{flagged.has(activeQuestionIndex) ? "🚩" : "🏳️"}</span>
-                    {flagged.has(activeQuestionIndex) ? "FLAG" : "MARK AS FLAG"}
+                    {flagged.has(activeQuestionIndex) ? "FLAGGED" : "MARK AS FLAG"}
                   </button>
                 </div>
               </QuestionCard>
