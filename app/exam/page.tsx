@@ -481,7 +481,7 @@ export default function ExamPage() {
   if (isSubmitted && submitResult) {
     const pct = submitResult.total_marks > 0 ? Math.round((submitResult.score / submitResult.total_marks) * 100) : 0;
     const correct = submitResult.correct_count ?? 0;
-    const wrong = (submitResult.total_questions ?? questions.length) - correct;
+    const wrong = questions.length - correct;
     const startIso = sessionStorage.getItem("exam_start_time") || new Date().toISOString();
     const timeTakenSec = Math.floor((Date.now() - new Date(startIso).getTime()) / 1000);
     const mm = String(Math.floor(timeTakenSec / 60)).padStart(2, "0");
