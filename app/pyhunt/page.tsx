@@ -30,11 +30,12 @@ interface ClueConfig {
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
-  jumbleProblem2?: JumbleProblem;  // Round 2 Part B
+  jumbleProblem2?: JumbleProblem;  // Round 2 Part 2
   round3: CodingProblem;
-  round3b?: CodingProblem;         // Round 3 Part B
+  round3b?: CodingProblem;         // Round 3 Part 2
   round4: CodingProblem;
-  turtleProblem: TurtleProblem;   // kept for config compat; Round 5 is offline
+  round4b?: CodingProblem;         // Round 4 Part 2
+  turtleProblem: TurtleProblem;    // kept for config compat; Round 5 is offline
   clues: ClueConfig[];             // 4 entries (rounds 0-3); clue[3] shown after Round 4
   finishMessage: string;
 }
@@ -44,52 +45,26 @@ interface PyHuntConfig {
 ═══════════════════════════════════════════════ */
 const DEFAULT_CONFIG: PyHuntConfig = {
   mcqQuestions: [
-    { id:"q1", question:"What is the output of: print(type([]).__name__)?", options:[{label:"A",text:"list"},{label:"B",text:"array"},{label:"C",text:"List"},{label:"D",text:"tuple"}], correct:"A", explanation:"type([]) → <class 'list'>, .__name__ → 'list'." },
-    { id:"q2", question:"Which keyword defines a generator function in Python?", options:[{label:"A",text:"return"},{label:"B",text:"async"},{label:"C",text:"yield"},{label:"D",text:"lambda"}], correct:"C", explanation:"yield makes a function a generator." },
-    { id:"q3", question:"What does list(range(2, 10, 3)) produce?", options:[{label:"A",text:"[2, 5, 8]"},{label:"B",text:"[2, 4, 6, 8]"},{label:"C",text:"[3, 6, 9]"},{label:"D",text:"[2, 5, 8, 11]"}], correct:"A", explanation:"range(2,10,3) → 2, 5, 8." },
-    { id:"q4", question:"What is the result of 'hello'[::-1]?", options:[{label:"A",text:"hello"},{label:"B",text:"olleh"},{label:"C",text:"Error"},{label:"D",text:"h"}], correct:"B", explanation:"[::-1] reverses the string." },
-    { id:"q5", question:"Which of these creates a set in Python?", options:[{label:"A",text:"{}"},{label:"B",text:"set()"},{label:"C",text:"[]"},{label:"D",text:"()"}], correct:"B", explanation:"{} creates an empty dict. set() creates an empty set." },
+    { id: "q1", question: "What is the output of print(2**3**2)?", options: [{ label: "A", text: "64" }, { label: "B", text: "512" }, { label: "C", text: "81" }, { label: "D", text: "4096" }], correct: "B", explanation: "Exponentiation is right-associative: 2**(3**2) = 2**9 = 512." },
+    { id: "q2", question: "Which of these is a valid Python set?", options: [{ label: "A", text: "{1, 2, [3]}" }, { label: "B", text: "{1, 2, {3}}" }, { label: "C", text: "{1, 2, (3,)}" }, { label: "D", text: "{'a': 1}" }], correct: "C", explanation: "Sets only accept hashable (immutable) elements. Tuples are hashable; lists and sets are not." },
+    { id: "q3", question: "What does 'pass' do in Python?", options: [{ label: "A", text: "Exits the function" }, { label: "B", text: "Skips the current loop iteration" }, { label: "C", text: "Does nothing; it's a null operation" }, { label: "D", text: "Clears the memory" }], correct: "C", explanation: "pass is a placeholder that does nothing." },
+    { id: "q4", question: "What is the result of 'abc' * 2?", options: [{ label: "A", text: "abcabc" }, { label: "B", text: "abc2" }, { label: "C", text: "Error" }, { label: "D", text: "aabbcc" }], correct: "A", explanation: "String multiplication repeats the string." },
+    { id: "q5", question: "Which operator is used for floor division?", options: [{ label: "A", text: "/" }, { label: "B", text: "//" }, { label: "C", text: "%" }, { label: "D", text: "**" }], correct: "B", explanation: "// is the floor division operator." },
   ],
-  jumbleProblem: {
-    title:"Fix the Fibonacci!",
-    description:"The lines of a Fibonacci function have been jumbled. Drag them into the correct order so the function prints 13.",
-    lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"],
-  },
-  round3: {
-    title:"Palindrome Checker",
-    description:"Write a function `is_palindrome(s: str) -> bool` that returns True if the string is a palindrome (case-insensitive, ignore spaces).",
-    starterCode:"def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n\nprint(is_palindrome(\"racecar\"))   # True\nprint(is_palindrome(\"Hello\"))     # False\n",
-    testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"},{input:"A man a plan a canal Panama",expected:"True"},{input:"abcba",expected:"True"}],
-  },
-  round4: {
-    title:"FizzBuzz Remix",
-    description:"Write a function `fizzbuzz(n: int) -> list` that returns a list of strings 1 to n. Multiples of 3 → 'Fizz', 5 → 'Buzz', both → 'FizzBuzz'.",
-    starterCode:"def fizzbuzz(n: int) -> list:\n    # Your code here\n    pass\n\nresult = fizzbuzz(15)\nprint(result)\n",
-    testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"},{input:"15",expected:"['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']"}],
-  },
-  jumbleProblem2: {
-    title: "Fix the Bubble Sort!",
-    description: "The lines of a Bubble Sort function have been jumbled. Drag them into the correct order so the list is sorted correctly.",
-    lines: ["def bubble_sort(arr):", "    n = len(arr)", "    for i in range(n):", "        for j in range(0, n-i-1):", "            if arr[j] > arr[j+1]:", "                arr[j], arr[j+1] = arr[j+1], arr[j]", "    return arr", "", "print(bubble_sort([64, 34, 25, 12, 22, 11, 90]))"],
-  },
-  round3b: {
-    title: "Count Vowels",
-    description: "Write a function `count_vowels(s: str) -> int` that counts the number of vowels (a, e, i, o, u — case-insensitive) in the string.",
-    starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n\nprint(count_vowels(\"hello\"))   # 2\nprint(count_vowels(\"Python\"))  # 1\n",
-    testCases: [{input: "hello", expected: "2"}, {input: "Python", expected: "1"}, {input: "aeiou", expected: "5"}, {input: "xyz", expected: "0"}],
-  },
-  turtleProblem: {
-    title: "Final Challenge: Sketch the Star (Offline)",
-    description: "Use the turtle module to recreate the star shown below. A 5-pointed star has an internal angle of 144 degrees.",
-    starterCode: "import turtle\nt = turtle.Turtle()\n",
-  },
-  clues:[
-    { clueText:"🗝️ Round 1 Complete! ROUND 1 COMPLETE", unlockCode:"LIBRARY" },
-    { clueText:"🗝️ Round 2 Complete! GOOD JOB — NOW FOR ROUND 3!", unlockCode:"LAB2CO" },
-    { clueText:"🗝️ Round 3 Complete! Proceed to Round 4.", unlockCode:"ROUND3CODE" },
-    { clueText:"🗝️ Round 4 Complete! You are ready for the Final Round. Show this screen to your facilitator!", unlockCode:"ROUND4CODE" },
+  jumbleProblem: { title: "Fibonacci Logic (Part 1)", description: "Reorder the lines to correctly implement a recursive Fibonacci function that prints the 7th number (13).", lines: ["def fib(n):", "    if n <= 1:", "        return n", "    return fib(n-1) + fib(n-2)", "", "print(fib(7))"] },
+  jumbleProblem2: { title: "List Slicing (Part 2)", description: "Reorder the lines to reverse a list and print the first 3 elements.", lines: ["data = [1, 2, 3, 4, 5]", "data.reverse()", "print(data[:3])"] },
+  round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
+  round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
+  round4: { title: "Factorial Mastery (Part 1)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
+  round4b: { title: "The Final Sieve (Part 2)", description: "Write a function `is_prime(n)` that returns True if n is prime.", starterCode: "def is_prime(n: int) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "17", expected: "True" }, { input: "15", expected: "False" }] },
+  turtleProblem: { title: "Turtle Art", description: "Offline Round.", starterCode: "" },
+  clues: [
+    { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" },
+    { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
+    { clueText: "🗝️ Round 3 Complete! Check Locker 301.", unlockCode: "ROUND3" },
+    { clueText: "🗝️ Round 4 Complete! You have finished the online trials. Go to your facilitator for the Final Code.", unlockCode: "FINALIST" },
   ],
-  finishMessage:"🏆 Congratulations! You've conquered PyHunt! You are a true Python treasure hunter. Show this screen to your facilitator!",
+  finishMessage: "Congratulations on completing 4 rounds! You are now a FINALIST! Please report to your facilitator.",
 };
 
 /* ═══════════════════════════════════════════════
@@ -105,6 +80,7 @@ function parseCfg(parsed: any): PyHuntConfig {
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
     round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
+    round4b: parsed.round4b || DEFAULT_CONFIG.round4b,
     turtleProblem: parsed.turtleProblem || DEFAULT_CONFIG.turtleProblem,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
@@ -668,7 +644,7 @@ function JumblePart({
   );
 
   return (
-    <div className={styles.roundWrap}>
+      <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
         <span className={styles.roundTag}>Round 2 · Code Jumble · {partLabel}</span>
         {!ready && <span className={styles.loadingTag}>⟳ Loading Python…</span>}
@@ -760,7 +736,7 @@ function RoundJumbleDual({
   return part === 0 ? (
     <JumblePart
       problem={problemA}
-      partLabel="Part A"
+      partLabel="Part 1"
       partIndex={0}
       runCode={runCode}
       ready={ready}
@@ -770,7 +746,7 @@ function RoundJumbleDual({
   ) : (
     <JumblePart
       problem={problemB}
-      partLabel="Part B"
+      partLabel="Part 2"
       partIndex={1}
       runCode={runCode}
       ready={ready}
@@ -802,7 +778,7 @@ function RoundCodingDual({
     <RoundCoding
       problem={problemA}
       roundNum={roundNum}
-      partLabel="Part A"
+      partLabel="Part 1"
       onComplete={() => setPart(1)}
       onWrong={onWrong}
       showNextPartOnPass
@@ -811,7 +787,7 @@ function RoundCodingDual({
     <RoundCoding
       problem={problemB}
       roundNum={roundNum}
-      partLabel="Part B"
+      partLabel="Part 2"
       onComplete={onComplete}
       onWrong={onWrong}
       showNextPartOnPass={false}
@@ -1159,16 +1135,16 @@ export default function PyHuntPage() {
                 CONGRATULATIONS!
               </div>
               <div style={{ fontSize: 18, color: "#e2e8f0", textAlign: "center", marginBottom: 12, fontWeight: 600 }}>
-                You have successfully completed all 4 Online Rounds of PyHunt!
+                Congratulations on completing 4 rounds! You are now a FINALIST!
               </div>
               <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 16, padding: "20px 28px", maxWidth: 480, textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>🏆</div>
                 <div style={{ fontSize: 16, color: "#ffd700", fontWeight: 700, marginBottom: 8 }}>
-                  You can now enter the Final Round!
+                  Final Round Qualifications Secured
                 </div>
                 <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6 }}>
-                  The <strong style={{ color: "#fff" }}>Final Round (Round 5)</strong> will be conducted <strong style={{ color: "#fff" }}>offline</strong> by your facilitator.<br />
-                  Please show this screen to your facilitator to confirm your completion.
+                  You have cleared the online trials. The <strong style={{ color: "#fff" }}>Final Round (Round 5)</strong> is a physical challenge conducted by your facilitator.<br />
+                  Please show this screen to claim your Finalist badge.
                 </div>
               </div>
               <div className={styles.statsCard}>
@@ -1266,15 +1242,14 @@ export default function PyHuntPage() {
                 />
               )}
 
-              {/* ROUND 4 — SINGLE CODING (then clue → congratulations) */}
+              {/* ROUND 4 — DUAL CODING (Part 1 + Part 2) */}
               {!showingClue && round === 3 && (
-                <RoundCoding
-                  problem={cfg.round4}
+                <RoundCodingDual
+                  problemA={cfg.round4}
+                  problemB={cfg.round4b || cfg.round4}
                   roundNum={4}
-                  partLabel=""
                   onComplete={handleRoundComplete}
                   onWrong={recordWrong}
-                  showNextPartOnPass={false}
                 />
               )}
 

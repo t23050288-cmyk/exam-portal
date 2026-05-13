@@ -22,8 +22,11 @@ interface TurtleProblem { title: string; description: string; starterCode: strin
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
+  jumbleProblem2: JumbleProblem; // Round 2 Part 2
   round3: CodingProblem;
+  round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
+  round4b: CodingProblem;       // Round 4 Part 2
   turtleProblem: TurtleProblem;
   clues: ClueConfig[];
   finishMessage: string;
@@ -35,9 +38,12 @@ const DEFAULT: PyHuntConfig = {
     { id:"q1", question:"What is the output of: print(type([]).__name__)?", options:[{label:"A",text:"list"},{label:"B",text:"array"},{label:"C",text:"List"},{label:"D",text:"tuple"}], correct:"A", explanation:"type([]) → <class 'list'>, .__name__ → 'list'." },
     { id:"q2", question:"Which keyword defines a generator function?", options:[{label:"A",text:"return"},{label:"B",text:"async"},{label:"C",text:"yield"},{label:"D",text:"lambda"}], correct:"C", explanation:"yield makes a function a generator." },
   ],
-  jumbleProblem: { title:"Fix the Fibonacci!", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
-  round3: { title:"Palindrome Checker", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
-  round4: { title:"FizzBuzz Remix", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
+  jumbleProblem: { title:"Fibonacci! (Part 1)", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
+  jumbleProblem2: { title:"Bubble Sort! (Part 2)", description:"Drag lines into correct order.", lines:["def bubble_sort(arr):","    # ..."] },
+  round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
+  round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
+  round4: { title:"FizzBuzz Remix (Part 1)", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
+  round4b: { title:"Prime Sieve (Part 2)", description:"Write is_prime(n) → bool", starterCode:"def is_prime(n: int) -> bool:\n    pass\n", testCases:[{input:"7",expected:"True"}] },
   turtleProblem: { title: "Final Challenge: Sketch the Star", description: "Use the turtle module to recreate the star shown below. A 5-pointed star has an internal angle of 144 degrees.", starterCode: "import turtle\nt = turtle.Turtle()\n" },
   clues: [
     { clueText:"🗝️ Round 1 Complete! Head to the Library — find the book with a red spine on shelf 2. Page 42 has a sticky note with your code.", unlockCode:"LIBRARY42" },
@@ -46,7 +52,7 @@ const DEFAULT: PyHuntConfig = {
     { clueText:"🗝️ Round 4 Complete! Return to the starting room — check under the facilitator's desk for an envelope.", unlockCode:"FINALENV" },
     { clueText:"🎉 ALL ROUNDS COMPLETE! Show this screen to your facilitator to claim your prize!", unlockCode:"" },
   ],
-  finishMessage:"🏆 Congratulations! You've conquered PyHunt! You are a true Python treasure hunter!",
+  finishMessage:"🏆 Congratulations! You've conquered PyHunt! You are now a FINALIST! Show this screen to your facilitator.",
 };
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
@@ -139,11 +145,11 @@ export default function PyHuntAdminTab() {
   const delMCQ = (i: number) => { setCfg(c=>({...c,mcqQuestions:c.mcqQuestions.filter((_,j)=>j!==i)})); setEditIdx(null); };
 
   /* ─ TC helpers ─ */
-  const setTC = (r: "round3"|"round4", i: number, f: "input"|"expected", v: string) =>
+  const setTC = (r: "round3"|"round3b"|"round4"|"round4b", i: number, f: "input"|"expected", v: string) =>
     setCfg(c => { const tcs=[...c[r].testCases]; tcs[i]={...tcs[i],[f]:v}; return {...c,[r]:{...c[r],testCases:tcs}}; });
-  const addTC = (r: "round3"|"round4") =>
+  const addTC = (r: "round3"|"round3b"|"round4"|"round4b") =>
     setCfg(c=>({...c,[r]:{...c[r],testCases:[...c[r].testCases,{input:"",expected:""}]}}));
-  const delTC = (r: "round3"|"round4", i: number) =>
+  const delTC = (r: "round3"|"round3b"|"round4"|"round4b", i: number) =>
     setCfg(c=>({...c,[r]:{...c[r],testCases:c[r].testCases.filter((_,j)=>j!==i)}}));
 
   /* ─ Clue helpers ─ */
@@ -277,58 +283,81 @@ export default function PyHuntAdminTab() {
 
       {/* ══ JUMBLE TAB ══ */}
       {sub==="jumble" && (
-        <div style={$.card}>
-          <div style={{...$.cardTitle}}>Round 2 — Code Jumble</div>
-          <label style={$.lbl}>Title</label>
-          <input style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
-          <label style={$.lbl}>Description</label>
-          <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
-          <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
-          <textarea
-            style={{...$.ta,minHeight:180}}
-            value={cfg.jumbleProblem.lines.join("\n")}
-            onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
-          />
-          <div style={$.info}>Students will drag these lines into order. They submit when they think it matches the correct sequence.</div>
-        </div>
+        <>
+          <div style={$.card}>
+            <div style={{...$.cardTitle}}>Round 2 — Code Jumble (Part 1)</div>
+            <label style={$.lbl}>Title</label>
+            <input style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
+            <label style={$.lbl}>Description</label>
+            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
+            <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
+            <textarea
+              style={{...$.ta,minHeight:180}}
+              value={cfg.jumbleProblem.lines.join("\n")}
+              onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
+            />
+          </div>
+
+          <div style={$.card}>
+            <div style={{...$.cardTitle}}>Round 2 — Code Jumble (Part 2)</div>
+            <label style={$.lbl}>Title</label>
+            <input style={$.inp} value={cfg.jumbleProblem2.title} onChange={e=>setCfg(c=>({...c,jumbleProblem2:{...c.jumbleProblem2,title:e.target.value}}))} />
+            <label style={$.lbl}>Description</label>
+            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem2.description} onChange={e=>setCfg(c=>({...c,jumbleProblem2:{...c.jumbleProblem2,description:e.target.value}}))} />
+            <label style={$.lbl}>Code Lines</label>
+            <textarea
+              style={{...$.ta,minHeight:180}}
+              value={cfg.jumbleProblem2.lines.join("\n")}
+              onChange={e=>setCfg(c=>({...c,jumbleProblem2:{...c.jumbleProblem2,lines:e.target.value.split("\n")}}))}
+            />
+          </div>
+        </>
       )}
 
       {/* ══ ROUND 3 / 4 CODING ══ */}
       {(sub==="round3"||sub==="round4") && (() => {
-        const rk = sub as "round3"|"round4";
+        const rk1 = sub as "round3"|"round4";
+        const rk2 = sub==="round3" ? "round3b" : "round4b";
         const rn = sub==="round3"?3:4;
+        
         return (
           <div>
+            {/* Part 1 */}
             <div style={$.card}>
-              <div style={{...$.cardTitle}}>Round {rn} — Problem Statement</div>
+              <div style={{...$.cardTitle}}>Round {rn} — Problem 1</div>
               <label style={$.lbl}>Title</label>
-              <input style={$.inp} value={cfg[rk].title} onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],title:e.target.value}}))} />
+              <input style={$.inp} value={cfg[rk1].title} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],title:e.target.value}}))} />
               <label style={$.lbl}>Description</label>
-              <textarea style={{...$.ta,minHeight:80}} value={cfg[rk].description} onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
+              <textarea style={{...$.ta,minHeight:80}} value={cfg[rk1].description} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],description:e.target.value}}))} />
               <label style={$.lbl}>Starter Code</label>
-              <textarea style={{...$.ta,minHeight:200}} value={cfg[rk].starterCode} onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],starterCode:e.target.value}}))} />
-            </div>
-            <div style={$.card}>
-              <div style={{...$.cardTitle}}>
-                <span>Test Cases</span>
-                <button style={$.btnAdd} onClick={()=>addTC(rk)}>+ Add Test</button>
-              </div>
-              <div style={{...$.info}}>
-                Each test runs the student's code with the input piped to stdin, and compares output to expected. Input is the text passed to the function; expected is the exact stdout output.
-              </div>
-              {cfg[rk].testCases.map((tc,i)=>(
+              <textarea style={{...$.ta,minHeight:150}} value={cfg[rk1].starterCode} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],starterCode:e.target.value}}))} />
+              
+              <div style={{...$.cardTitle, marginTop: 24}}>Test Cases (Part 1) <button style={$.btnAdd} onClick={()=>addTC(rk1)}>+ Add Test</button></div>
+              {cfg[rk1].testCases.map((tc,i)=>(
                 <div key={i} style={$.row}>
-                  <div style={{flex:1}}>
-                    <label style={$.lbl}>Input (stdin / argument)</label>
-                    <input style={{...$.inp,margin:0}} value={tc.input} onChange={e=>setTC(rk,i,"input",e.target.value)} placeholder="e.g. racecar" />
-                  </div>
-                  <div style={{flex:1}}>
-                    <label style={$.lbl}>Expected Output (exact)</label>
-                    <input style={{...$.inp,margin:0}} value={tc.expected} onChange={e=>setTC(rk,i,"expected",e.target.value)} placeholder="e.g. True" />
-                  </div>
-                  <div style={{paddingTop:24}}>
-                    <button style={$.btnDel} onClick={()=>delTC(rk,i)}>✕</button>
-                  </div>
+                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.input} onChange={e=>setTC(rk1,i,"input",e.target.value)} placeholder="Input" /></div>
+                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.expected} onChange={e=>setTC(rk1,i,"expected",e.target.value)} placeholder="Expected" /></div>
+                  <button style={$.btnDel} onClick={()=>delTC(rk1,i)}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Part 2 */}
+            <div style={$.card}>
+              <div style={{...$.cardTitle, color: "#a78bfa"}}>Round {rn} — Problem 2</div>
+              <label style={$.lbl}>Title</label>
+              <input style={$.inp} value={cfg[rk2].title} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],title:e.target.value}}))} />
+              <label style={$.lbl}>Description</label>
+              <textarea style={{...$.ta,minHeight:80}} value={cfg[rk2].description} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],description:e.target.value}}))} />
+              <label style={$.lbl}>Starter Code</label>
+              <textarea style={{...$.ta,minHeight:150}} value={cfg[rk2].starterCode} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],starterCode:e.target.value}}))} />
+              
+              <div style={{...$.cardTitle, marginTop: 24, color: "#a78bfa"}}>Test Cases (Part 2) <button style={{...$.btnAdd, color: "#a78bfa", borderColor: "rgba(167,139,250,0.3)"}} onClick={()=>addTC(rk2)}>+ Add Test</button></div>
+              {cfg[rk2].testCases.map((tc,i)=>(
+                <div key={i} style={$.row}>
+                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.input} onChange={e=>setTC(rk2,i,"input",e.target.value)} placeholder="Input" /></div>
+                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.expected} onChange={e=>setTC(rk2,i,"expected",e.target.value)} placeholder="Expected" /></div>
+                  <button style={$.btnDel} onClick={()=>delTC(rk2,i)}>✕</button>
                 </div>
               ))}
             </div>
