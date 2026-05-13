@@ -335,75 +335,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem; onComplete: () => void; onWrong: () => void }) {
-  const correct = problem.lines;
-  const [lines, setLines] = useState<string[]>(() => shuffle(correct));
-  const [dragging, setDragging] = useState<number|null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
-  const [attempts, setAttempts] = useState(0);
 
-  const handleDragStart = (i: number) => setDragging(i);
-  const handleDrop = (i: number) => {
-    if (dragging === null || dragging === i) return;
-    const next = [...lines];
-    [next[dragging], next[i]] = [next[i], next[dragging]];
-    setLines(next);
-    setDragging(null);
-  };
-  const handleSubmit = () => {
-    const ok = lines.join("\n") === correct.join("\n");
-    setSubmitted(true); setIsCorrect(ok);
-    if (!ok) { setAttempts(a=>a+1); onWrong(); }
-  };
-  const handleRetry = () => { setSubmitted(false); setIsCorrect(false); setLines(shuffle(correct)); };
-
-  if (submitted && isCorrect) return (
-    <div className={styles.roundDone}>
-      <div className={styles.doneIcon}>🔀</div>
-      <h2>Round 2 Complete!</h2>
-      <p className={styles.scoreText}>You unscrambled the code correctly!</p>
-      <button className={styles.primaryBtn} onClick={onComplete}>Get Clue →</button>
-    </div>
-  );
-
-  return (
-    <div className={styles.roundWrap}>
-      <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round 2 · Code Jumble</span>
-      </div>
-      <div className={styles.questionCard}>
-        <div className={styles.problemTitle}>{problem.title}</div>
-        <div className={styles.problemDesc}>{problem.description}</div>
-        <div className={styles.jumbleBoard}>
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              className={`${styles.jumbleLine} ${dragging===i?styles.jumbleDragging:""}`}
-              draggable
-              onDragStart={() => handleDragStart(i)}
-              onDragOver={e => e.preventDefault()}
-              onDrop={() => handleDrop(i)}
-            >
-              <span className={styles.lineNum}>{i+1}</span>
-              <code>{line || "​"}</code>
-              <span className={styles.dragHandle}>⠿</span>
-            </div>
-          ))}
-        </div>
-        {submitted && !isCorrect && (
-          <div className={styles.wrongMsg}>❌ Not quite — the logic isn't right yet. Try reordering!</div>
-        )}
-        <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
-          {submitted && !isCorrect && <button className={styles.secondaryBtn} onClick={handleRetry}>🔄 Reset</button>}
-          <button className={styles.primaryBtn} onClick={submitted&&!isCorrect?handleRetry:handleSubmit}>
-            {submitted&&!isCorrect?"Try Again":"✓ Submit Order"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════
    ROUND 3 & 4 — CODING
