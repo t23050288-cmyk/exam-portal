@@ -68,6 +68,35 @@ try:
         app.include_router(r.router, prefix="/api")
 
 
+
+    @app.post("/api/admin/run-migrations")
+    async def run_migrations(request: Request):
+        """Run pending DB migrations. Admin-only."""
+        from core.config import get_settings as _gs
+        secret = request.headers.get("x-admin-secret", "")
+        cfg = _gs()
+        admin_secret = getattr(cfg, "admin_secret", None) or os.environ.get("NEXT_PUBLIC_ADMIN_SECRET", "rudranshsarvam")
+        if secret.strip() != admin_secret.strip():
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+        
+        results = []
+        try:
+            from db.supabase_client import execute_sql
+            migrations = [
+                ("v7_is_banned", "ALTER TABLE students ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE"),
+                ("v7_exams_completed", "ALTER TABLE students ADD COLUMN IF NOT EXISTS exams_completed INTEGER DEFAULT 0"),
+            ]
+            for name, sql in migrations:
+                try:
+                    execute_sql(sql)
+                    results.append({"migration": name, "status": "ok"})
+                except Exception as e:
+                    results.append({"migration": name, "status": "error", "detail": str(e)})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e), "results": results})
+        
+        return {"status": "done", "results": results}
+
     # Cron
     @app.get("/api/cron/evict")
     async def cron_evict():
