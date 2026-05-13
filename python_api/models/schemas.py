@@ -229,6 +229,8 @@ class StudentStatus(BaseModel):
     last_active: Optional[str] = None
     submitted_at: Optional[str] = None
     started_at: Optional[str] = None
+    is_banned: bool = False
+    exams_completed: int = 0
 
 
 class StudentCreate(BaseModel):
