@@ -149,7 +149,7 @@ async def login(request: LoginRequest):
                     db.table("questions")
                     .select("id", count="exact")
                     .eq("exam_name", title)
-                    .eq("branch", current_branch)
+                    .ilike("branch", f"%{current_branch.upper()}%")
                     .execute()
                 )
                 if q_check.count and q_check.count > 0:
@@ -170,7 +170,7 @@ async def login(request: LoginRequest):
 
     # Calculate how many questions actually exist (always verify exact count)
     try:
-        q_count = db.table("questions").select("id", count="exact").eq("branch", current_branch).eq("exam_name", current_exam_title).execute()
+        q_count = db.table("questions").select("id", count="exact").ilike("branch", f"%{current_branch.upper()}%").eq("exam_name", current_exam_title).execute()
         if q_count.count and q_count.count > 0:
             current_total_questions = q_count.count
     except Exception as e:

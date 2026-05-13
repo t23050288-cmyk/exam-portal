@@ -126,38 +126,43 @@ export default function OrbitalControlPage() {
   const [violationCount, setViolationCount] = useState(0);
   const [availableExams, setAvailableExams] = useState<string[]>([]);
 
+  const [selectedTitle, setSelectedTitle] = useState<string>("");
+
+  const applyConfigData = useCallback((data: any, title: string) => {
+    const mappedData: any = { ...data };
+    if (data.scheduled_start) {
+      const d = new Date(data.scheduled_start);
+      mappedData.schedule_start_date = d.toISOString().split("T")[0];
+      mappedData.schedule_start_time = d.toTimeString().slice(0, 5);
+      mappedData.enable_schedule = true;
+    } else {
+      mappedData.schedule_start_date = "";
+      mappedData.schedule_start_time = "";
+      mappedData.enable_schedule = false;
+    }
+    if (data.scheduled_end) {
+      const d = new Date(data.scheduled_end);
+      mappedData.schedule_end_date = d.toISOString().split("T")[0];
+      mappedData.schedule_end_time = d.toTimeString().slice(0, 5);
+    } else {
+      mappedData.schedule_end_date = "";
+      mappedData.schedule_end_time = "";
+    }
+    setConfig({ ...defaultConfig, ...mappedData, exam_title: title });
+  }, []);
+
   const fetchConfig = useCallback(async (targetTitle?: string) => {
     try {
-      const titleParam = targetTitle || config.exam_title;
-      const data = await fetchExamConfig(targetTitle || config.exam_title);
-      if (data) {
-        const mappedData = { ...data };
-        if (data.scheduled_start) {
-          const d = new Date(data.scheduled_start);
-          mappedData.schedule_start_date = d.toISOString().split("T")[0];
-          mappedData.schedule_start_time = d.toTimeString().slice(0, 5);
-          mappedData.enable_schedule = true;
-        } else {
-          mappedData.schedule_start_date = "";
-          mappedData.schedule_start_time = "";
-          mappedData.enable_schedule = false;
-        }
-        if (data.scheduled_end) {
-          const d = new Date(data.scheduled_end);
-          mappedData.schedule_end_date = d.toISOString().split("T")[0];
-          mappedData.schedule_end_time = d.toTimeString().slice(0, 5);
-        } else {
-          mappedData.schedule_end_date = "";
-          mappedData.schedule_end_time = "";
-        }
-        setConfig((prev) => ({ ...defaultConfig, ...mappedData, exam_title: targetTitle || config.exam_title }));
-      }
+      const title = targetTitle || selectedTitle;
+      if (!title) { setLoading(false); return; }
+      const data = await fetchExamConfig(title);
+      if (data) applyConfigData(data, title);
     } catch {
       // ignore — backend may not have config endpoint yet
     } finally {
       setLoading(false);
     }
-  }, [config.exam_title]);
+  }, [selectedTitle, applyConfigData]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -171,7 +176,17 @@ export default function OrbitalControlPage() {
       questionsArray.forEach((q: any) => {
         if (q.exam_name) nameSet.add(q.exam_name);
       });
-      setAvailableExams(nameSet.size > 0 ? Array.from(nameSet) : ["ExamGuard Assessment"]);
+      const examList = nameSet.size > 0 ? Array.from(nameSet) : ["ExamGuard Assessment"];
+      setAvailableExams(examList);
+      // Auto-select first exam if nothing selected yet
+      setSelectedTitle(prev => {
+        if (!prev && examList.length > 0) {
+          fetchConfig(examList[0]);
+          setConfig(c => ({ ...c, exam_title: examList[0] }));
+          return examList[0];
+        }
+        return prev;
+      });
 
       const students = Array.isArray(sData) ? sData : [];
       setStudentCount(students.length);
@@ -248,6 +263,8 @@ export default function OrbitalControlPage() {
       setConfig((prev) => ({ ...prev, ...mappedData }));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
+      // Re-fetch from backend to confirm persisted state
+      setTimeout(() => fetchConfig(config.exam_title), 500);
     } catch (e: any) {
       alert(e.message || "Failed to save configuration");
     } finally {
@@ -361,8 +378,9 @@ export default function OrbitalControlPage() {
                     value={config.exam_title}
                     onChange={(e) => {
                       const newTitle = e.target.value;
+                      setSelectedTitle(newTitle);
                       setConfig(c => ({ ...c, exam_title: newTitle }));
-                      fetchConfig(newTitle); // Weightlessly shift horizons
+                      fetchConfig(newTitle);
                     }}
                   >
                     <option value="" disabled>Select quiz...</option>
@@ -599,7 +617,12 @@ export default function OrbitalControlPage() {
               <select
                 className={styles.settingsSelect}
                 value={config.exam_title}
-                onChange={(e) => setConfig((c) => ({ ...c, exam_title: e.target.value }))}
+                onChange={(e) => {
+                  const t = e.target.value;
+                  setSelectedTitle(t);
+                  setConfig(c => ({ ...c, exam_title: t }));
+                  fetchConfig(t);
+                }}
               >
                 <option value="" disabled>Select exam...</option>
                 {availableExams.map(name => <option key={name} value={name}>{name}</option>)}

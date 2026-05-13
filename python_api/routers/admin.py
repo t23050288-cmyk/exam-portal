@@ -61,19 +61,7 @@ async def create_question(request: QuestionCreate, _: bool = Depends(verify_admi
     try:
         db = get_supabase()
         data = request.model_dump()
-        # Strip empty-string URL fields to avoid DB errors if column doesn't exist
-        for url_field in ("audio_url", "image_url"):
-            if url_field in data and not data[url_field]:
-                del data[url_field]
-        
-        try:
-            result = db.table("questions").insert(data).execute()
-        except Exception as col_err:
-            if "audio_url" in str(col_err):
-                data.pop("audio_url", None)
-                result = db.table("questions").insert(data).execute()
-            else:
-                raise
+        result = db.table("questions").insert(data).execute()
 
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to insert question - no data returned")
@@ -88,20 +76,7 @@ async def update_question(question_id: str, request: QuestionUpdate, _: bool = D
     try:
         db = get_supabase()
         update_data = {k: v for k, v in request.model_dump().items() if v is not None}
-        # Strip empty-string values for optional URL fields to avoid DB errors
-        for url_field in ("audio_url", "image_url"):
-            if url_field in update_data and update_data[url_field] == "":
-                del update_data[url_field]
-        
-        try:
-            result = db.table("questions").update(update_data).eq("id", question_id).execute()
-        except Exception as col_err:
-            if "audio_url" in str(col_err):
-                # Column doesn't exist in DB — remove it and retry
-                update_data.pop("audio_url", None)
-                result = db.table("questions").update(update_data).eq("id", question_id).execute()
-            else:
-                raise
+        result = db.table("questions").update(update_data).eq("id", question_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update question - no data returned")
@@ -220,38 +195,38 @@ async def admin_sign_upload(_: bool = Depends(verify_admin)):
 async def get_all_students(_: bool = Depends(verify_admin)):
     try:
         db = get_supabase()
-        # Query students table and join exam_status (left join via select)
-        result = db.table("students").select("id, usn, email, name, branch, exam_status(status, warnings, last_active, submitted_at, started_at)").execute()
+        # Fetch ALL students regardless of exam_status
+        students_result = db.table("students").select("id, usn, email, name, branch").execute()
+        # Fetch all exam_status records
+        status_result = db.table("exam_status").select("*").execute()
+
+        # Build lookup map: student_id -> exam_status row
+        status_map = {}
+        for r in (status_result.data or []):
+            status_map[r["student_id"]] = r
 
         rows = []
-        if result.data:
-            for r in result.data:
-                # result.data[0]['exam_status'] is a list in Supabase JS/Python client when using select with foreign key
-                status_list = r.get("exam_status")
-                
-                # If there are multiple exam statuses (unlikely in current schema but possible), 
-                # we pick the first one or default.
-                status_data = status_list[0] if isinstance(status_list, list) and len(status_list) > 0 else (status_list or {})
-
-                rows.append(StudentStatus(
-                    student_id=r["id"],
-                    usn=r.get("usn", "UNKNOWN"),
-                    name=r.get("name", "UNKNOWN"),
-                    email=r.get("email"),
-                    branch=r.get("branch", "CS"),
-                    status=status_data.get("status", "not_started"),
-                    warnings=status_data.get("warnings", 0),
-                    last_active=status_data.get("last_active"),
-                    submitted_at=status_data.get("submitted_at"),
-                    started_at=status_data.get("started_at")
-                ))
+        for s in (students_result.data or []):
+            sid = s["id"]
+            es = status_map.get(sid, {})
+            rows.append(StudentStatus(
+                student_id=sid,
+                usn=s.get("usn", "UNKNOWN"),
+                name=s.get("name", "UNKNOWN"),
+                email=s.get("email"),
+                branch=s.get("branch", "CS"),
+                status=es.get("status", "not_started"),
+                warnings=es.get("warnings", 0),
+                last_active=es.get("last_active"),
+                submitted_at=es.get("submitted_at"),
+                started_at=es.get("started_at"),
+            ))
         return rows
     except Exception as e:
         print(f"CRITICAL get_all_students: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @router.post("/students")
-
 async def create_student(request: StudentCreate, _: bool = Depends(verify_admin)):
     db = get_supabase()
     existing = db.table("students").select("id").eq("usn", request.usn.upper()).execute()
@@ -365,12 +340,12 @@ async def force_submit_student(student_id: str, _: bool = Depends(verify_admin))
     """Admin tool to force submission of a student session using current saved answers."""
     db = get_supabase()
     
-    student_res = db.table("students").select("branch").eq("id", student_id).maybe_single().execute()
+    student_res = db.table("students").select("branch").eq("id", student_id).single().execute()
     if not student_res.data:
         raise HTTPException(status_code=404, detail="Student not found")
     branch = student_res.data["branch"]
 
-    results_res = db.table("exam_results").select("answers").eq("student_id", student_id).maybe_single().execute()
+    results_res = db.table("exam_results").select("answers").eq("student_id", student_id).single().execute()
     answers = results_res.data.get("answers") or {} if results_res.data else {}
     
     qs_res = db.table("questions").select("id, correct_answer, marks").eq("branch", branch).execute()
@@ -682,65 +657,6 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
     except Exception as e:
         print(f"save_pyhunt_config error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/pyhunt/progress/reset")
-async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
-    """Reset a student's PyHunt progress to Round 1."""
-
-    db = get_supabase()
-    try:
-        db.table("pyhunt_progress").update({
-            "current_round": "Round 1",
-            "status": "active",
-            "warnings": 0,
-            "last_violation": None,
-            "turtle_image": None
-        }).eq("student_id", student_id).execute()
-        return {"ok": True}
-    except Exception as e:
-        print(f"reset_pyhunt_progress error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/pyhunt/status")
-async def get_pyhunt_status(_: bool = Depends(verify_admin)):
-    """Fetch all student PyHunt progress with student details."""
-    db = get_supabase()
-    try:
-        # Join with students table to get name and USN
-        # Supabase PostgREST join syntax: select('*, students(name, usn)')
-        result = db.table("pyhunt_progress").select("*, students(name, usn)").order("last_active", desc=True).execute()
-        
-        # Flatten the data for frontend convenience
-        flattened = []
-        for row in (result.data or []):
-            # student might be a dict or a list depending on relation config
-            student = row.get("students")
-            if isinstance(student, list) and len(student) > 0:
-                student = student[0]
-            elif not isinstance(student, dict):
-                student = {}
-
-            flattened.append({
-                **row,
-                "student_name": student.get("name") or row.get("student_id", "Unknown"),
-                "student_usn": student.get("usn") or "Anonymous",
-            })
-        return flattened
-    except Exception as e:
-        print(f"get_pyhunt_status error: {e}")
-        return []
-        raise HTTPException(500, str(e))
-
-@router.delete("/pyhunt/progress/{student_id}")
-async def delete_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
-    """Remove a student from the PyHunt progress table."""
-    db = get_supabase()
-    try:
-        db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
-        return {"ok": True}
-    except Exception as e:
-        print(f"delete_pyhunt_progress error: {e}")
-        raise HTTPException(500, str(e))
 
 
 # ── Orbital Node Management (Folder CRUD) ─────────────────────

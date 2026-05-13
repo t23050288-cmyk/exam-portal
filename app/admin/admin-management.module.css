@@ -552,3 +552,88 @@ select.input option {
   }
 }
 
+
+/* ── Edit Question Modal Enhancements ── */
+.optionsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.optionsGrid .input {
+  margin-bottom: 0;
+}
+
+.threeColRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.threeColRow .formGroup {
+  margin-bottom: 0;
+}
+
+.uploadBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  border: 2px dashed rgba(139, 92, 246, 0.35);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 12px;
+  text-align: center;
+}
+
+.uploadBox:hover {
+  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(139, 92, 246, 0.07);
+}
+
+.uploadBoxIcon {
+  font-size: 32px;
+  margin-bottom: 6px;
+  opacity: 0.6;
+}
+
+.uploadBoxLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mediaAssetRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.mediaAssetTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 600px) {
+  .threeColRow {
+    grid-template-columns: 1fr 1fr;
+  }
+  .optionsGrid {
+    grid-template-columns: 1fr;
+  }
+  .mediaAssetRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -559,46 +559,38 @@ export default function ExamPage() {
 
       <main className={styles.main}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--panel-glass)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", padding: "16px 28px", borderRadius: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", border: "1px solid var(--rim-metal)" }}>
-             <h1 style={{ margin: 0, fontSize: "20px", color: "var(--text-primary)", fontWeight: 700 }}>{examTitle || "Online Assessment"}</h1>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* ── Exam info bar — responsive for mobile ── */}
+          <div className={styles.examInfoBar}>
+            <div className={styles.examInfoTop}>
+              <h1 className={styles.examInfoTitle}>{examTitle || "Online Assessment"}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: 6,
+                background: "rgba(16, 185, 129, 0.08)",
+                border: "1px solid rgba(16, 185, 129, 0.25)",
+                borderRadius: 10, padding: "5px 10px",
+                color: "#10b981", fontSize: 10, fontWeight: 800,
+                letterSpacing: "0.05em", flexShrink: 0 }}>
+                <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                  background: "#10b981", animation: "pulseGlow 2s infinite", boxShadow: "0 0 8px #10b981" }} />
+                SECURE
+              </div>
+            </div>
+            <div className={styles.examInfoBottom}>
+              {!isSubmitted && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 6,
-                  background: "rgba(16, 185, 129, 0.08)",
-                  border: "1px solid rgba(16, 185, 129, 0.25)",
-                  borderRadius: 12, padding: "6px 14px",
-                  color: "#10b981", fontSize: 11, fontWeight: 800,
-                  boxShadow: "0 0 20px rgba(16, 185, 129, 0.15)",
-                  letterSpacing: "0.05em",
-                  textShadow: "0 0 10px rgba(16, 185, 129, 0.3)"
-                }}>
-                  <span style={{
-                    display: "inline-block", width: 8, height: 8,
-                    borderRadius: "50%", background: "#10b981",
-                    marginRight: 6, animation: "pulseGlow 2s infinite cubic-bezier(0.4, 0, 0.6, 1)",
-                    boxShadow: "0 0 12px #10b981"
-                  }} />
-                  SECURE SESSION ACTIVE
+                  background: warningCount >= 2 ? "rgba(239,68,68,0.12)" : warningCount === 1 ? "rgba(245,158,11,0.1)" : "transparent",
+                  border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.4)" : warningCount === 1 ? "rgba(245,158,11,0.3)" : "transparent"}`,
+                  borderRadius: 8, padding: "4px 8px",
+                  color: warningCount >= 2 ? "#f87171" : warningCount === 1 ? "#fbbf24" : "rgba(148,163,184,0.5)",
+                  fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+                  <span>{warningCount >= 2 ? "🔴" : warningCount === 1 ? "🟠" : "🛡️"}</span>
+                  {warningCount}/3
                 </div>
-                {!isSubmitted && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    background: warningCount >= 2 ? "rgba(239,68,68,0.12)" : warningCount === 1 ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${warningCount >= 2 ? "rgba(239,68,68,0.4)" : warningCount === 1 ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.1)"}`,
-                    borderRadius: 12, padding: "6px 16px",
-                    color: warningCount >= 2 ? "#f87171" : warningCount === 1 ? "#fbbf24" : "rgba(148,163,184,0.6)",
-                    fontWeight: 800, fontSize: 13, transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-                    backdropFilter: "blur(4px)",
-                    boxShadow: warningCount > 0 ? `0 0 15px ${warningCount >= 2 ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.15)"}` : "none"
-                  }}>
-                    <span style={{ fontSize: 14 }}>{warningCount >= 2 ? "🔴" : warningCount === 1 ? "🟠" : "🛡️"}</span>
-                    {warningCount}/3 PROCTOR WARNINGS
-                  </div>
-                )}
-                {student && (
-                  <ExamTimer startTime={student.examStartTime || new Date().toISOString()} durationMinutes={student.examDurationMinutes || 20} onExpire={handleAutoSubmit} />
-                )}
-              </div>
+              )}
+              {student && (
+                <ExamTimer startTime={student.examStartTime || new Date().toISOString()} durationMinutes={student.examDurationMinutes || 20} onExpire={handleAutoSubmit} />
+              )}
+            </div>
           </div>
 
           <div className={styles.questionList}>
@@ -620,6 +612,30 @@ export default function ExamPage() {
               </QuestionCard>
             )}
           </div>
+
+          {/* ── Mobile sticky bottom bar: progress + submit (fullscreen only) ── */}
+          {isFullscreen && !isSubmitted && (
+            <div className={styles.mobileBottomBar}>
+              <div className={styles.mobileProgress}>
+                <span className={styles.mobileProgressText}>
+                  {answeredCount} / {questions.length} answered
+                </span>
+                <div className={styles.mobileProgressTrack}>
+                  <div
+                    className={styles.mobileProgressFill}
+                    style={{ width: `${questions.length > 0 ? (answeredCount / questions.length) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              <button
+                className={styles.mobileSubmitBtn}
+                onClick={() => setConfirmSubmit(true)}
+                disabled={submitting}
+              >
+                {submitting ? "..." : `SUBMIT (${answeredCount}/${questions.length})`}
+              </button>
+            </div>
+          )}
         </div>
         <aside className={styles.sidebar}>
           <div className={styles.sideCard}>

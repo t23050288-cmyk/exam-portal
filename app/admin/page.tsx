@@ -1597,38 +1597,83 @@ function QuestionsTab() {
 
       {showModal && (
         <div className={adminStyles.modalOverlay} onClick={() => setShowModal(false)}>
-          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <h3>{editing ? "Edit Question" : "Add Question"}</h3>
+
+            {/* Question Text */}
             <div className={adminStyles.formGroup}>
               <label>Question Text</label>
-              <textarea className={adminStyles.input} value={formData.text} onChange={(e) => setFormData({ ...formData, text: e.target.value })} rows={3} />
+              <textarea
+                className={adminStyles.input}
+                value={formData.text}
+                onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                rows={3}
+                placeholder="Enter question text here..."
+              />
             </div>
+
+            {/* Options - 2x2 grid */}
             <div className={adminStyles.formGroup}>
               <label>Options</label>
-              {formData.options.map((opt, i) => (
-                <input key={i} className={adminStyles.input} placeholder={`Option ${String.fromCharCode(65 + i)}`} value={opt}
-                  onChange={(e) => { const n = [...formData.options]; n[i] = e.target.value; setFormData({ ...formData, options: n }); }} />
-              ))}
+              <div className={adminStyles.optionsGrid}>
+                {formData.options.map((opt, i) => (
+                  <input
+                    key={i}
+                    className={adminStyles.input}
+                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                    value={opt}
+                    onChange={(e) => {
+                      const n = [...formData.options];
+                      n[i] = e.target.value;
+                      setFormData({ ...formData, options: n });
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className={adminStyles.formRow}>
+
+            {/* Row: Order Index | Marks | Correct Answer */}
+            <div className={adminStyles.threeColRow}>
               <div className={adminStyles.formGroup}>
                 <label>Order Index</label>
-                <input type="number" className={adminStyles.input} value={formData.order_index} onChange={(e) => setFormData({ ...formData, order_index: +e.target.value })} />
+                <input
+                  type="number"
+                  className={adminStyles.input}
+                  value={formData.order_index}
+                  onChange={(e) => setFormData({ ...formData, order_index: +e.target.value })}
+                />
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Marks</label>
-                <input type="number" className={adminStyles.input} value={formData.marks} onChange={(e) => setFormData({ ...formData, marks: +e.target.value })} />
+                <input
+                  type="number"
+                  className={adminStyles.input}
+                  value={formData.marks}
+                  onChange={(e) => setFormData({ ...formData, marks: +e.target.value })}
+                />
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Correct Answer</label>
-                <select className={adminStyles.input} value={formData.correct_answer} onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}>
-                  <option value="">Select correct option…</option>
-                  {formData.options.map((_, i) => <option key={i} value={String.fromCharCode(65 + i)}>Option {String.fromCharCode(65 + i)}</option>)}
+                <select
+                  className={adminStyles.input}
+                  value={formData.correct_answer}
+                  onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
+                >
+                  <option value="">Select...</option>
+                  {formData.options.map((_, i) => (
+                    <option key={i} value={String.fromCharCode(65 + i)}>
+                      Option {String.fromCharCode(65 + i)}
+                    </option>
+                  ))}
                 </select>
               </div>
+            </div>
+
+            {/* Row: Exam Identity | Branch | Category */}
+            <div className={adminStyles.threeColRow}>
               <div className={adminStyles.formGroup}>
                 <label>Exam Identity (Anchor)</label>
-                <select 
+                <select
                   className={adminStyles.input}
                   value={Array.from(new Set(questions.map(q => q.exam_name))).includes(formData.exam_name) ? formData.exam_name : "NEW_IDENTITY"}
                   onChange={(e) => {
@@ -1644,13 +1689,13 @@ function QuestionsTab() {
                   {Array.from(new Set(questions.map(q => q.exam_name))).filter(Boolean).sort().map(name => (
                     <option key={name} value={name}>{name}</option>
                   ))}
-                  <option value="NEW_IDENTITY">+ Add New Identity</option>
+                  <option value="NEW_IDENTITY">+ Add New</option>
                 </select>
                 {(formData.exam_name === "" || !Array.from(new Set(questions.map(q => q.exam_name))).includes(formData.exam_name)) && (
                   <input
                     type="text"
                     className={adminStyles.input}
-                    placeholder="Enter New Identity Name..."
+                    placeholder="New identity name..."
                     style={{ marginTop: 8 }}
                     value={formData.exam_name}
                     onChange={(e) => setFormData({ ...formData, exam_name: e.target.value })}
@@ -1659,42 +1704,61 @@ function QuestionsTab() {
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Branch</label>
-                <select className={adminStyles.input} value={formData.branch} onChange={(e) => setFormData({ ...formData, branch: e.target.value })}>
-                  {ALL_BRANCH_DATA.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <select
+                  className={adminStyles.input}
+                  value={formData.branch}
+                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                >
+                  {ALL_BRANCH_DATA.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
                 </select>
               </div>
               <div className={adminStyles.formGroup}>
                 <label>Category</label>
-                <select className={adminStyles.input} value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
-                  <option value="Aptitude">Aptitude</option>
-                  <option value="Programming">Programming</option>
-                  <option value="Others">Others</option>
+                <select
+                  className={adminStyles.input}
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                >
+                  <option value="Aptitude">📐 Aptitude</option>
+                  <option value="Programming">💻 Programming</option>
+                  <option value="Others">🌟 Other</option>
                 </select>
               </div>
             </div>
 
-            <div className={adminStyles.formGroup} style={{ marginTop: 16 }}>
+            {/* Media Assets: Image + Audio side by side */}
+            <div className={adminStyles.formGroup}>
               <label>Media Assets</label>
-              <div className={adminStyles.mediaSplit}>
-                {/* Image Section */}
-                <div className={adminStyles.mediaBox}>
-                  <div className={adminStyles.mediaLabel}>Image (Photo)</div>
+              <div className={adminStyles.mediaAssetRow}>
+                {/* Image Asset */}
+                <div>
+                  <div className={adminStyles.mediaAssetTitle}>📷 Image Asset (Optional)</div>
                   {formData.image_url ? (
-                    <div className={adminStyles.imagePreviewContainer} style={{ height: 120 }}>
-                      <img src={formData.image_url} alt="Question" className={adminStyles.imagePreview} style={{ maxHeight: 120 }} />
-                      <button 
-                        className={adminStyles.removeImageBtn}
-                        onClick={() => setFormData({ ...formData, image_url: "" })}
-                        title="Remove Image"
+                    <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", height: 110, background: "rgba(0,0,0,0.3)" }}>
+                      <img
+                        src={formData.image_url}
+                        alt="Question"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                      <button
                         type="button"
-                        style={{ width: 20, height: 20, fontSize: 14 }}
+                        onClick={() => setFormData({ ...formData, image_url: "" })}
+                        style={{
+                          position: "absolute", top: 6, right: 6,
+                          background: "rgba(239,68,68,0.85)", color: "#fff",
+                          border: "none", borderRadius: "50%", width: 22, height: 22,
+                          fontSize: 13, cursor: "pointer", display: "flex",
+                          alignItems: "center", justifyContent: "center"
+                        }}
                       >×</button>
                     </div>
                   ) : (
-                    <div className={adminStyles.uploadZone}>
-                      <input 
-                        type="file" 
-                        id="question-image-upload" 
+                    <>
+                      <input
+                        type="file"
+                        id="q-img-upload"
                         style={{ display: "none" }}
                         accept="image/*"
                         onChange={async (e) => {
@@ -1706,34 +1770,43 @@ function QuestionsTab() {
                           } catch (err: any) {
                             alert(`Image upload failed: ${err.message}`);
                           }
+                          e.target.value = "";
                         }}
                       />
-                      <label htmlFor="question-image-upload" style={{ cursor: "pointer", display: "block", padding: "12px", textAlign: "center" }}>
-                        <div style={{ fontSize: 20, marginBottom: 4 }}>🖼️</div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Upload Photo</div>
+                      <label htmlFor="q-img-upload" className={adminStyles.uploadBox}>
+                        <div className={adminStyles.uploadBoxIcon}>🖼️</div>
+                        <div className={adminStyles.uploadBoxLabel}>Upload Image</div>
                       </label>
-                    </div>
+                    </>
                   )}
                 </div>
 
-                {/* Audio Section */}
-                <div className={adminStyles.mediaBox}>
-                  <div className={adminStyles.mediaLabel}>Audio (Music)</div>
+                {/* Audio Asset */}
+                <div>
+                  <div className={adminStyles.mediaAssetTitle}>🎵 Audio Asset (Optional)</div>
                   {(formData as any).audio_url ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px", background: "rgba(255,255,255,0.05)", borderRadius: 8, height: 120, justifyContent: "center" }}>
-                      <audio src={(formData as any).audio_url} controls style={{ width: "100%", height: 32 }} />
+                    <div style={{
+                      display: "flex", flexDirection: "column", gap: 8,
+                      padding: "12px", background: "rgba(139,92,246,0.08)",
+                      borderRadius: 12, border: "1px solid rgba(139,92,246,0.2)", height: 110,
+                      justifyContent: "center"
+                    }}>
+                      <audio src={(formData as any).audio_url} controls style={{ width: "100%" }} />
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, audio_url: "" } as any)}
-                        className="btn btn-outline btn-sm"
-                        style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.3)", fontSize: 11 }}
+                        style={{
+                          background: "rgba(239,68,68,0.15)", color: "#f87171",
+                          border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8,
+                          fontSize: 11, padding: "4px 8px", cursor: "pointer"
+                        }}
                       >Remove Audio</button>
                     </div>
                   ) : (
-                    <div className={adminStyles.uploadZone}>
-                      <input 
-                        type="file" 
-                        id="question-audio-upload" 
+                    <>
+                      <input
+                        type="file"
+                        id="q-audio-upload"
                         style={{ display: "none" }}
                         accept="audio/*"
                         onChange={async (e) => {
@@ -1745,20 +1818,28 @@ function QuestionsTab() {
                           } catch (err: any) {
                             alert(`Audio upload failed: ${err.message}`);
                           }
+                          e.target.value = "";
                         }}
                       />
-                      <label htmlFor="question-audio-upload" style={{ cursor: "pointer", display: "block", padding: "12px", textAlign: "center" }}>
-                        <div style={{ fontSize: 20, marginBottom: 4 }}>🎵</div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Upload Audio</div>
+                      <label htmlFor="q-audio-upload" className={adminStyles.uploadBox}>
+                        <div className={adminStyles.uploadBoxIcon}>🎵</div>
+                        <div className={adminStyles.uploadBoxLabel}>Upload Audio</div>
                       </label>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
             </div>
+
             <div className={adminStyles.modalActions}>
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={!formData.text || !formData.correct_answer || formData.options.some((o) => !o)}>Save</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={!formData.text || !formData.correct_answer || formData.options.some((o) => !o)}
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>

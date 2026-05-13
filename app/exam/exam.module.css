@@ -686,3 +686,135 @@
   border-top: 1px solid var(--rim-metal);
 }
 
+/* ── Responsive Exam Info Bar ── */
+.examInfoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel-glass);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  padding: 16px 28px;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 1px solid var(--rim-metal);
+  gap: 12px;
+}
+
+.examInfoTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.examInfoTitle {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.examInfoBottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Mobile sticky bottom bar ── */
+.mobileBottomBar {
+  display: none;
+}
+
+/* ── Dashboard history mobile fix ── */
+@media (max-width: 768px) {
+  .examInfoBar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    border-radius: 14px;
+    gap: 8px;
+  }
+
+  .examInfoTop {
+    justify-content: space-between;
+  }
+
+  .examInfoTitle {
+    font-size: 15px;
+  }
+
+  .examInfoBottom {
+    justify-content: space-between;
+  }
+
+  /* Mobile bottom sticky bar */
+  .mobileBottomBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(10, 10, 20, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 10px 14px;
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+    border-radius: 0 0 14px 14px;
+  }
+
+  .mobileProgress {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .mobileProgressText {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(148, 163, 184, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mobileProgressTrack {
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .mobileProgressFill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #06b6d4);
+    border-radius: 10px;
+    transition: width 0.4s ease;
+  }
+
+  .mobileSubmitBtn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-weight: 900;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .mobileSubmitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
