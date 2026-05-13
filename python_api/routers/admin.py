@@ -708,11 +708,11 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
         progress_res = db.table("pyhunt_progress").select("*").order("last_active", desc=True).execute()
         # Fetch all students for name/USN mapping
         students_res = db.table("students").select("id, usn, name").execute()
-        student_map = {s["id"]: s for s in (students_res.data or [])}
+        student_map = {str(s["id"]): s for s in (students_res.data or [])}
         
         rows = []
         for p in (progress_res.data or []):
-            sid = p.get("student_id")
+            sid = str(p.get("student_id", ""))
             s = student_map.get(sid, {})
             rows.append({
                 **p,

@@ -34,6 +34,7 @@ interface PyHuntConfig {
   round3: CodingProblem;
   round3b?: CodingProblem;         // Round 3 Part 2 (Dual)
   round4: CodingProblem;
+  round4UnlockCode: string;        // Code to finish Round 4
   clues: ClueConfig[];             // 4 entries (rounds 0-3)
   finishMessage: string;
 }
@@ -54,6 +55,7 @@ const DEFAULT_CONFIG: PyHuntConfig = {
   round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
   round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
   round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
+  round4UnlockCode: "FINISH",
   clues: [
     { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" },
     { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
@@ -76,6 +78,7 @@ function parseCfg(parsed: any): PyHuntConfig {
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
     round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
+    round4UnlockCode: parsed.round4UnlockCode || DEFAULT_CONFIG.round4UnlockCode,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
@@ -678,6 +681,7 @@ function RoundJumbleDual({
 
   return part === 0 ? (
     <JumblePart
+      key="part1"
       problem={problemA}
       partLabel="Part 1"
       partIndex={0}
@@ -688,6 +692,7 @@ function RoundJumbleDual({
     />
   ) : (
     <JumblePart
+      key="part2"
       problem={problemB}
       partLabel="Part 2"
       partIndex={1}
@@ -719,6 +724,7 @@ function RoundCodingDual({
 
   return part === 0 ? (
     <RoundCoding
+      key="part1"
       problem={problemA}
       roundNum={roundNum}
       partLabel="Part 1"
@@ -728,6 +734,7 @@ function RoundCodingDual({
     />
   ) : (
     <RoundCoding
+      key="part2"
       problem={problemB}
       roundNum={roundNum}
       partLabel="Part 2"

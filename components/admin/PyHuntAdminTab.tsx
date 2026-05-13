@@ -26,6 +26,7 @@ interface PyHuntConfig {
   round3: CodingProblem;
   round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
+  round4UnlockCode: string;
   clues: ClueConfig[];
   finishMessage: string;
 }
@@ -47,7 +48,8 @@ const DEFAULT: PyHuntConfig = {
     { clueText:"🗝️ Round 3 Complete! Find your next code in Locker 301.", unlockCode:"LOCKER301" },
     { clueText:"🗝️ Round 4 Complete! Hunt Over! Enter code to see your Results.", unlockCode:"FINISH" },
   ],
-  finishMessage:"🏆 Congratulations! You've conquered PyHunt!",
+  round4UnlockCode: "FINISH",
+  finishMessage:"🏆 Congratulations on completion of 4th round! Now proceed to the 5th offline round.",
 };
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
@@ -185,12 +187,6 @@ export default function PyHuntAdminTab() {
                   <span style={{color:"#7090b0",marginRight:8}}>After</span>
                   {ROUND_NAMES[i]}
                 </span>
-                {clue.unlockCode
-                  ? <span style={$.codeBadge}>🔒 CODE: {clue.unlockCode}</span>
-                  : <span style={$.clueBadge}>🔓 No code (final)</span>
-                }
-              </div>
-
               <label style={$.lbl}>Clue Text (shown to student after round)</label>
               <textarea
                 style={{...$.ta, minHeight:72}}
@@ -199,20 +195,16 @@ export default function PyHuntAdminTab() {
                 placeholder="e.g. 🗝️ Head to the library, look for the book with a red spine..."
               />
 
-              {i < 3 && (
-                <>
-                  <label style={$.lbl}>Unlock Code (student must type this to proceed)</label>
-                  <input
-                    style={$.inp}
-                    value={clue.unlockCode}
-                    onChange={e=>setClue(i,"unlockCode",e.target.value.toUpperCase())}
-                    placeholder="e.g. PYTHON42 (case-insensitive)"
-                  />
-                  <div style={{...$.info, marginBottom:0}}>
-                    💡 Tip: Use a short memorable word. Students enter it case-insensitively.
-                  </div>
-                </>
-              )}
+              <label style={$.lbl}>Unlock Code (student must type this to proceed)</label>
+              <input
+                style={$.inp}
+                value={clue.unlockCode}
+                onChange={e=>setClue(i,"unlockCode",e.target.value.toUpperCase())}
+                placeholder="e.g. PYTHON42 (case-insensitive)"
+              />
+              <div style={{...$.info, marginBottom:0}}>
+                💡 Tip: Use a short memorable word. Students enter it case-insensitively.
+              </div>
             </div>
           ))}
 
@@ -363,12 +355,12 @@ export default function PyHuntAdminTab() {
 
       {/* ══ LIVE STATUS TAB ══ */}
       {sub==="status" && <LiveStatusView />}
-      {sub==="marks" && <MarksView />}
+      {sub==="marks" && <MarksView cfg={cfg} />}
     </div>
   );
 }
 
-function MarksView() {
+function MarksView({ cfg }: { cfg: PyHuntConfig }) {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -421,7 +413,7 @@ function MarksView() {
                 </td>
                 <td style={{padding:"12px 8px"}}>
                   <span style={{...$.clueBadge, background:"rgba(0,220,255,0.05)", color:"#00dcff"}}>
-                    {s.round1_score || "0"} / 5
+                    {s.round1_score || "0"} / {cfg.mcqQuestions.length}
                   </span>
                 </td>
                 <td style={{padding:"12px 8px", fontWeight: 700}}>{s.round1_time || "-"}</td>

@@ -42,7 +42,7 @@ const NAV_ITEMS = [
   { id: "Aptitude", icon: "◎", label: "Aptitude Test" },
   { id: "Programming", icon: "◇", label: "Programming" },
   { id: "Others", icon: "◉", label: "Other Quiz" },
-  { id: "Events", icon: "⚡", label: "Events" },
+  { id: "PyHunt", icon: "🐍", label: "PyHunt" },
   { id: "Profile", icon: "👤", label: "Profile" },
   { id: "History", icon: "⌛", label: "History" },
 ];
@@ -603,7 +603,7 @@ export default function DashboardPage() {
               </div>
             )}
             
-            {activeNav !== "Home" && !["Profile", "Events", "History"].includes(activeNav) && (
+            {activeNav !== "Home" && !["Profile", "PyHunt", "History"].includes(activeNav) && (
               <div className={styles.cardsGrid}>
                  {filteredExams.length > 0 ? (
                     filteredExams.map((exam: any) => (
@@ -619,13 +619,13 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* EVENTS */}
-            {activeNav === "Events" && (
+            {/* PYHUNT (EVENTS) */}
+            {activeNav === "PyHunt" && (
               <div className={styles.pyhuntSection}>
                 <div className={styles.pyhuntCard}>
                   <div className={styles.pyhuntEmoji}>🐍</div>
-                  <h2 className={styles.pyhuntTitle}>PyHunt</h2>
-                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 4 rounds of challenges to find hidden clues!</p>
+                  <h2 className={styles.pyhuntTitle}>PyHunt 2024</h2>
+                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 4 rounds of code challenges to unlock the final offline showdown.</p>
                   
                   <div className={styles.pyhuntAuth}>
                     <input 
@@ -800,54 +800,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* INSIGHTS */}
-            {activeNav === "Insights" && (
-              <div className={styles.insightsSection}>
-                <div className={styles.insightsGrid}>
-                  <div className={styles.insightCard}>
-                    <h3>Full Performance</h3>
-                    <div className={styles.stat}>
-                      <span className={styles.label}>Average Score</span>
-                      <span className={styles.value}>{avgScore}%</span>
-                    </div>
-                  </div>
-                  <div className={`${styles.mountainCard} ${performanceLocked ? styles.locked : ""}`}>
-                     {performanceLocked && (
-                       <div className={styles.lockOverlay}>
-                         <div className={styles.lockIcon}>🔒</div>
-                         <div className={styles.lockMsg}>Data Unlocks after 3 Exams</div>
-                         <p style={{ fontSize: '11px', opacity: 0.6, marginTop: '8px', textAlign: 'center' }}>
-                           Complete {3 - completedCount} more assessment{3 - completedCount === 1 ? "" : "s"} to view insights
-                         </p>
-                       </div>
-                     )}
-                     <div className={styles.mountainHeader}>
-                        <span className={styles.label}>Performance Analytics (Last 5)</span>
-                        <span className={styles.value}>{completedCount} Completed</span>
-                     </div>
-                     <div className={styles.barGraphContainer} style={{ marginTop: '2.5rem', height: '180px' }}>
-                        {lastFive.length > 0 ? lastFive.map((data, i) => (
-                          <div key={i} className={styles.barWrapper}>
-                            <div className={styles.barValue}>{data.percentage}%</div>
-                            <motion.div 
-                              initial={{ height: 0 }}
-                              animate={{ height: `${data.percentage}%` }}
-                              className={styles.bar}
-                              style={{ 
-                                background: i % 2 === 0 ? 'var(--nexus-cyan-grad)' : 'var(--accent-warm-grad)',
-                                boxShadow: i % 2 === 0 ? '0 0 15px rgba(40, 215, 214, 0.3)' : '0 0 15px rgba(255, 154, 76, 0.3)'
-                              }}
-                            />
-                            <div className={styles.barLabel}>{data.name}</div>
-                          </div>
-                        )) : (
-                          <div className={styles.emptyMsg}>Take your first exam to see insights!</div>
-                        )}
-                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </main>
       </div>
