@@ -248,7 +248,10 @@ async def ban_student(student_id: str, _: bool = Depends(verify_admin)):
         db.table("exam_status").update({"status": "submitted", "submitted_at": "now()"}).eq("student_id", student_id).eq("status", "active").execute()
         return {"success": True, "student_id": student_id, "banned": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        err = str(e)
+        if "is_banned" in err and "does not exist" in err:
+            raise HTTPException(status_code=400, detail="Database error: 'is_banned' column is missing. Please run the SQL migration in 'supabase/migration_v7_ban_column.sql' in your Supabase SQL Editor.")
+        raise HTTPException(status_code=500, detail=err)
 
 @router.delete("/students/{student_id}/ban")
 async def unban_student(student_id: str, _: bool = Depends(verify_admin)):
@@ -258,7 +261,10 @@ async def unban_student(student_id: str, _: bool = Depends(verify_admin)):
         db.table("students").update({"is_banned": False}).eq("id", student_id).execute()
         return {"success": True, "student_id": student_id, "banned": False}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        err = str(e)
+        if "is_banned" in err and "does not exist" in err:
+            raise HTTPException(status_code=400, detail="Database error: 'is_banned' column is missing. Please run the SQL migration in 'supabase/migration_v7_ban_column.sql' in your Supabase SQL Editor.")
+        raise HTTPException(status_code=500, detail=err)
 
 @router.post("/students")
 async def create_student(request: StudentCreate, _: bool = Depends(verify_admin)):

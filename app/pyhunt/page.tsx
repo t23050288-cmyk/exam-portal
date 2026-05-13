@@ -35,8 +35,9 @@ interface PyHuntConfig {
   round3b?: CodingProblem;         // Round 3 Part 2
   round4: CodingProblem;
   round4b?: CodingProblem;         // Round 4 Part 2
-  turtleProblem: TurtleProblem;    // kept for config compat; Round 5 is offline
-  clues: ClueConfig[];             // 4 entries (rounds 0-3); clue[3] shown after Round 4
+  turtleProblem: TurtleProblem;    // kept for config compat
+  clues: ClueConfig[];             // 5 entries (rounds 0-4)
+  finalMcqQuestions?: MCQQuestion[]; // Round 5
   finishMessage: string;
 }
 
@@ -62,9 +63,14 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" },
     { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
     { clueText: "🗝️ Round 3 Complete! Check Locker 301.", unlockCode: "ROUND3" },
-    { clueText: "🗝️ Round 4 Complete! You have finished the online trials. Go to your facilitator for the Final Code.", unlockCode: "FINALIST" },
+    { clueText: "🗝️ Round 4 Complete! Locate the Final MCQ Terminal.", unlockCode: "FINAL_MCQ" },
+    { clueText: "🗝️ Round 5 Complete! You have finished all trials.", unlockCode: "CONGRATS" },
   ],
-  finishMessage: "Congratulations on completing 4 rounds! You are now a FINALIST! Please report to your facilitator.",
+  finalMcqQuestions: [
+    { id: "f1", question: "Which of the following is NOT a built-in Python type?", options: [{ label: "A", text: "dict" }, { label: "B", text: "set" }, { label: "C", text: "array" }, { label: "D", text: "tuple" }], correct: "C", explanation: "Python has 'list' and 'tuple' built-in, but 'array' requires importing the array module or using numpy." },
+    { id: "f2", question: "What is the complexity of searching an element in a balanced BST?", options: [{ label: "A", text: "O(1)" }, { label: "B", text: "O(log n)" }, { label: "C", text: "O(n)" }, { label: "D", text: "O(n log n)" }], correct: "B", explanation: "Balanced binary search trees offer O(log n) search time." },
+  ],
+  finishMessage: "Congratulations! You have completed the ultimate Python trial.",
 };
 
 /* ═══════════════════════════════════════════════
@@ -83,6 +89,7 @@ function parseCfg(parsed: any): PyHuntConfig {
     round4b: parsed.round4b || DEFAULT_CONFIG.round4b,
     turtleProblem: parsed.turtleProblem || DEFAULT_CONFIG.turtleProblem,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
+    finalMcqQuestions: parsed.finalMcqQuestions || DEFAULT_CONFIG.finalMcqQuestions,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
 }
@@ -269,7 +276,7 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
 /* ═══════════════════════════════════════════════
    ROUND 1 — MCQ
 ═══════════════════════════════════════════════ */
-function RoundMCQ({ questions, onComplete, onWrong }: { questions: MCQQuestion[]; onComplete: () => void; onWrong: () => void }) {
+function RoundMCQ({ questions, onComplete, onWrong, isFinal = false }: { questions: MCQQuestion[]; onComplete: (score?: string) => void; onWrong: () => void; isFinal?: boolean }) {
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<string|null>(null);
   const [checked, setChecked] = useState(false);
@@ -289,16 +296,18 @@ function RoundMCQ({ questions, onComplete, onWrong }: { questions: MCQQuestion[]
   if (done) return (
     <div className={styles.roundDone}>
       <div className={styles.doneIcon}>✅</div>
-      <h2>Round 1 Complete!</h2>
+      <h2>{isFinal ? "Final Round Complete!" : "Round 1 Complete!"}</h2>
       <p className={styles.scoreText}>You scored <strong>{score}/{questions.length}</strong></p>
-      <button className={styles.primaryBtn} onClick={onComplete}>Get Clue →</button>
+      <button className={styles.primaryBtn} onClick={() => onComplete(`${score}/${questions.length}`)}>
+        {isFinal ? "Finish PyHunt →" : "Get Clue →"}
+      </button>
     </div>
   );
 
   return (
     <div className={styles.roundWrap}>
       <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round 1 · MCQ</span>
+        <span className={styles.roundTag}>{isFinal ? "Final Round" : "Round 1"} · MCQ</span>
         <span className={styles.questionCount}>Q {idx+1} / {questions.length}</span>
       </div>
       <div className={styles.questionCard}>
@@ -322,7 +331,7 @@ function RoundMCQ({ questions, onComplete, onWrong }: { questions: MCQQuestion[]
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
           {!checked
             ? <button className={styles.primaryBtn} onClick={handleCheck} disabled={!selected}>Check Answer</button>
-            : <button className={styles.primaryBtn} onClick={handleNext}>{idx+1<questions.length?"Next →":"Finish Round 1 →"}</button>
+            : <button className={styles.primaryBtn} onClick={handleNext}>{idx+1<questions.length? "Next →" : (isFinal ? "Finish Round 5 →" : "Finish Round 1 →")}</button>
           }
         </div>
       </div>
@@ -719,6 +728,21 @@ function JumblePart({
   );
 }
 
+function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem; onComplete: () => void; onWrong: () => void }) {
+  const { ready, runCode } = usePyodide();
+  return (
+    <JumblePart
+      problem={problem}
+      partLabel="Trial"
+      partIndex={1}
+      runCode={runCode}
+      ready={ready}
+      onPartComplete={onComplete}
+      onWrong={onWrong}
+    />
+  );
+}
+
 function RoundJumbleDual({
   problemA,
   problemB,
@@ -798,46 +822,68 @@ function RoundCodingDual({
 /* ═══════════════════════════════════════════════
    FINISH SCREEN
 ═══════════════════════════════════════════════ */
-function FinishScreen({ message, stats, timerSeconds, terminated }: { message: string; stats: { minutes: number; wrongs: number; warnings: number }; timerSeconds: number; terminated?: boolean }) {
+function FinishScreen({ message, stats, timerSeconds, terminated, studentName }: { message: string; stats: { minutes: number; wrongs: number; warnings: number; finalMcqScore?: string; finalMcqTime?: string }; timerSeconds: number; terminated?: boolean; studentName: string }) {
   const router = useRouter();
-  return (
-    <div className={styles.finishScreen} style={terminated ? { border: "2px solid #ef4444", background: "rgba(239, 68, 68, 0.05)", boxShadow: "0 0 40px rgba(239, 68, 68, 0.2)" } : {}}>
-      <div className={styles.finishEmoji}>{terminated ? "⛔" : "🏆"}</div>
-      <div className={styles.finishTitle} style={terminated ? { color: "#ef4444", textShadow: "0 0 20px rgba(239, 68, 68, 0.5)" } : {}}>
-        {terminated ? "SESSION TERMINATED" : "PYHUNT COMPLETE!"}
+
+  if (terminated) {
+    return (
+      <div className={styles.finishScreen} style={{ border: "2px solid #ef4444", background: "rgba(239, 68, 68, 0.05)", boxShadow: "0 0 40px rgba(239, 68, 68, 0.2)" }}>
+        <div className={styles.finishEmoji}>⛔</div>
+        <div className={styles.finishTitle} style={{ color: "#ef4444", textShadow: "0 0 20px rgba(239, 68, 68, 0.5)" }}>SESSION TERMINATED</div>
+        <div style={{ color: "#fff", fontSize: "1.2rem", fontWeight: 800, marginBottom: 12, opacity: 0.9 }}>{studentName.toUpperCase()}</div>
+        <p style={{ color: "#fca5a5", fontWeight: 600, maxWidth: 500, margin: "0 auto" }}>Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator.</p>
+        <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard")} style={{ marginTop: 32, background: "linear-gradient(135deg, #ef4444, #991b1b)" }}>← RETURN TO DASHBOARD</button>
       </div>
+    );
+  }
+
+  return (
+    <div className={styles.finishScreen}>
+      <div className={styles.finishEmoji}>🏆</div>
+      <div className={styles.finishTitle}>PYHUNT COMPLETE!</div>
+      <div style={{ color: "#fff", fontSize: "1.4rem", fontWeight: 900, marginBottom: 8, letterSpacing: "-0.01em" }}>
+        BRAVO, {studentName.toUpperCase()}!
+      </div>
+      <p style={{ color: "#28D7D6", fontSize: 16, fontWeight: 700, marginBottom: 32, opacity: 0.8 }}>{message}</p>
 
       <div className={styles.statsCard}>
         <div className={styles.statItem}>
           <div className={styles.statValue}>{stats.minutes}m</div>
           <div className={styles.statLabel}>Total Time</div>
         </div>
+        <div className={styles.statItem} style={{ border: "1px solid rgba(251, 191, 36, 0.2)", background: "rgba(251, 191, 36, 0.03)" }}>
+          <div className={styles.statValue} style={{ color: "#fbbf24" }}>{stats.finalMcqScore || "0/0"}</div>
+          <div className={styles.statLabel}>Final MCQ Score</div>
+        </div>
+        <div className={styles.statItem}>
+          <div className={styles.statValue}>{stats.finalMcqTime || "0s"}</div>
+          <div className={styles.statLabel}>Final Round Time</div>
+        </div>
         <div className={styles.statItem}>
           <div className={styles.statValue}>{stats.wrongs}</div>
           <div className={styles.statLabel}>Wrong Attempts</div>
         </div>
-        <div className={styles.statItem}>
-          <div className={styles.statValue} style={terminated ? { color: "#ef4444" } : {}}>{stats.warnings}/3</div>
-          <div className={styles.statLabel}>Warnings</div>
+      </div>
+
+      <div style={{ marginTop: 40, width: "100%", maxWidth: 600, textAlign: "left", background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: "20px 24px" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: 800, letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" }}>Security Validation</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Integrity Warnings:</span>
+          <span style={{ color: stats.warnings > 0 ? "#f87171" : "#10b981", fontWeight: 900, fontSize: 18 }}>{stats.warnings} / 3</span>
         </div>
       </div>
 
-      <div className={styles.finishSub} style={terminated ? { color: "#fca5a5", fontWeight: 600 } : {}}>
-        {terminated
-          ? "Your PyHunt session was automatically terminated due to excessive security violations. Please contact your facilitator."
-          : message}
+      <div style={{ marginTop: 40, display: "flex", gap: 12, width: "100%", maxWidth: 600 }}>
+        <button className={styles.secondaryBtn} onClick={() => router.replace("/dashboard?tab=History")} style={{ flex: 1 }}>← GO TO HISTORY</button>
+        <button className={styles.primaryBtn} onClick={() => window.print()} style={{ flex: 1 }}>PRINT CERTIFICATE</button>
       </div>
-      <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-        <button
-          className={styles.primaryBtn}
-          onClick={() => router.replace("/dashboard?tab=History")}
-          style={terminated ? { background: "linear-gradient(135deg, #ef4444, #991b1b)" } : {}}
-        >
-          ← GO TO HISTORY DASHBOARD
-        </button>
-        <div style={{ fontSize: 12, opacity: 0.5 }}>
-          Auto-redirecting in {timerSeconds}s...
-        </div>
+
+      <div style={{ marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: 1, fontWeight: 700 }}>
+        NEXUS SECURE · VERIFIED COMPLETION · {new Date().toLocaleDateString()}
+      </div>
+      
+      <div style={{ marginTop: 16, fontSize: 12, opacity: 0.4 }}>
+        Redirecting to history in {timerSeconds}s...
       </div>
     </div>
   );
@@ -847,12 +893,12 @@ function FinishScreen({ message, stats, timerSeconds, terminated }: { message: s
    PROGRESS BAR  (4 rounds only — Round 5 is offline)
 ═══════════════════════════════════════════════ */
 function ProgressBar({ round, showingClue }: { round: number; showingClue: boolean }) {
-  const ROUNDS = ["MCQ", "Jumble", "Coding", "Final Code"];
+  const ROUNDS = ["MCQ 1", "Jumble", "Coding 1", "Coding 2", "Final MCQ"];
   const filled = showingClue ? round + 1 : round;
   return (
     <div className={styles.progressWrap}>
       <div className={styles.progressLine}>
-        <div className={styles.progressLineFill} style={{ width: `${(filled / 4) * 100}%` }} />
+        <div className={styles.progressLineFill} style={{ width: `${(filled / 5) * 100}%` }} />
       </div>
       {ROUNDS.map((label, i) => {
         const isActive = i === round && !showingClue;
@@ -923,7 +969,7 @@ function PyHuntOrb({ size = 120, label = "Initialising PyHunt…", sublabel = ""
 export default function PyHuntPage() {
   const router = useRouter();
   const [cfg, setCfg] = useState<PyHuntConfig>(DEFAULT_CONFIG);
-  const [round, setRound] = useState(0);           // 0–3 = active round (4 rounds total)
+  const [round, setRound] = useState(0);           // 0–4 = active round (5 rounds total)
   const [showingClue, setShowingClue] = useState(false);
   const [finished, setFinished] = useState(false);
   const [terminated, setTerminated] = useState(false);
@@ -932,7 +978,8 @@ export default function PyHuntPage() {
   // Stats tracking
   const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
-  const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0 });
+  const [finishStats, setFinishStats] = useState<{ minutes: number; wrongs: number; warnings: number; finalMcqScore?: string; finalMcqTime?: string }>({ minutes: 0, wrongs: 0, warnings: 0 });
+  const [finalMcqStartTime, setFinalMcqStartTime] = useState<number | null>(null);
   const [warningCount, setWarningCount] = useState(0);
   const [lastViolation, setLastViolation] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1062,28 +1109,42 @@ export default function PyHuntPage() {
     return () => clearTimeout(t);
   }, []);
 
-  // Round complete → show clue (rounds 0–2) OR finish congratulations (round 3)
-  const handleRoundComplete = useCallback(() => {
-    if (round === 3) {
-      // Round 4 done → show final clue → then congratulations
-      setShowingClue(true);
+  // Round complete → show clue (rounds 0–3) OR finish congratulations (round 4)
+  const handleRoundComplete = useCallback((mcqScore?: string) => {
+    if (round === 4 && mcqScore) {
+      // Final Round MCQ complete!
+      const totalDuration = Math.floor((Date.now() - startTime) / 60000);
+      const mcqTimeMs = Date.now() - (finalMcqStartTime || Date.now());
+      const mcqMinutes = Math.floor(mcqTimeMs / 60000);
+      const mcqSeconds = Math.floor((mcqTimeMs % 60000) / 1000);
+      
+      setFinishStats({ 
+        minutes: totalDuration, 
+        wrongs: totalWrongs, 
+        warnings: warningCount,
+        finalMcqScore: mcqScore,
+        finalMcqTime: `${mcqMinutes}m ${mcqSeconds}s`
+      });
+      setFinished(true);
     } else {
       setShowingClue(true);
+      if (round === 3) {
+        // Start timing the final MCQ round
+        setFinalMcqStartTime(Date.now());
+      }
     }
-  }, [round]);
+  }, [round, startTime, totalWrongs, warningCount, finalMcqStartTime]);
 
   // Clue unlocked → next round or finish
   const handleUnlock = useCallback(() => {
     setShowingClue(false);
-    if (round === 3) {
-      // After round 4 clue → final congratulations screen
-      const duration = Math.floor((Date.now() - startTime) / 60000);
-      setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: warningCount });
+    if (round === 4) {
+      // Should not happen as round 4 (index) completion handles finish
       setFinished(true);
     } else {
       setRound(r => r + 1);
     }
-  }, [round, startTime, totalWrongs, warningCount]);
+  }, [round]);
 
   if (pyhuntLoading) {
     return (
@@ -1126,47 +1187,10 @@ export default function PyHuntPage() {
         {finished ? (
           /* ── Finished: show congratulations if not terminated ── */
           terminated ? (
-            <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} terminated />
+            <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} terminated studentName={studentName} />
           ) : (
-            /* ── Final Congratulations — Round 5 is OFFLINE ── */
             <div className={styles.finishScreen} style={{ border: "2px solid #ffd700", background: "rgba(255,215,0,0.04)", boxShadow: "0 0 60px rgba(255,215,0,0.15)" }}>
-              <div className={styles.finishEmoji}>🎉</div>
-              <div className={styles.finishTitle} style={{ color: "#ffd700", textShadow: "0 0 24px rgba(255,215,0,0.5)" }}>
-                CONGRATULATIONS!
-              </div>
-              <div style={{ fontSize: 18, color: "#e2e8f0", textAlign: "center", marginBottom: 12, fontWeight: 600 }}>
-                Congratulations on completing 4 rounds! You are now a FINALIST!
-              </div>
-              <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 16, padding: "20px 28px", maxWidth: 480, textAlign: "center", marginBottom: 20 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>🏆</div>
-                <div style={{ fontSize: 16, color: "#ffd700", fontWeight: 700, marginBottom: 8 }}>
-                  Final Round Qualifications Secured
-                </div>
-                <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6 }}>
-                  You have cleared the online trials. The <strong style={{ color: "#fff" }}>Final Round (Round 5)</strong> is a physical challenge conducted by your facilitator.<br />
-                  Please show this screen to claim your Finalist badge.
-                </div>
-              </div>
-              <div className={styles.statsCard}>
-                <div className={styles.statItem}>
-                  <div className={styles.statValue}>{finishStats.minutes}m</div>
-                  <div className={styles.statLabel}>Total Time</div>
-                </div>
-                <div className={styles.statItem}>
-                  <div className={styles.statValue}>{finishStats.wrongs}</div>
-                  <div className={styles.statLabel}>Wrong Attempts</div>
-                </div>
-                <div className={styles.statItem}>
-                  <div className={styles.statValue}>{finishStats.warnings}/3</div>
-                  <div className={styles.statLabel}>Warnings</div>
-                </div>
-              </div>
-              <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-                <button className={styles.primaryBtn} onClick={() => router.replace("/dashboard?tab=History")}>
-                  ← Back to Dashboard
-                </button>
-                <div style={{ fontSize: 12, opacity: 0.5 }}>Auto-redirecting in {resultTimerSeconds}s…</div>
-              </div>
+              <FinishScreen message={cfg.finishMessage} stats={finishStats} timerSeconds={resultTimerSeconds} studentName={studentName} />
             </div>
           )
         ) : !isFullscreen ? (
@@ -1221,11 +1245,10 @@ export default function PyHuntPage() {
                 <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />
               )}
 
-              {/* ROUND 2 — DUAL JUMBLE (Part A + Part B) with compiler */}
+              {/* ROUND 2 — SINGLE JUMBLE */}
               {!showingClue && round === 1 && (
-                <RoundJumbleDual
-                  problemA={cfg.jumbleProblem}
-                  problemB={cfg.jumbleProblem2 || cfg.jumbleProblem}
+                <RoundJumble
+                  problem={cfg.jumbleProblem}
                   onComplete={handleRoundComplete}
                   onWrong={recordWrong}
                 />
@@ -1242,22 +1265,25 @@ export default function PyHuntPage() {
                 />
               )}
 
-              {/* ROUND 4 — DUAL CODING (Part 1 + Part 2) */}
+              {/* ROUND 4 — SINGLE CODING */}
               {!showingClue && round === 3 && (
-                <RoundCodingDual
-                  problemA={cfg.round4}
-                  problemB={cfg.round4b || cfg.round4}
+                <RoundCoding
+                  problem={cfg.round4}
                   roundNum={4}
                   onComplete={handleRoundComplete}
                   onWrong={recordWrong}
                 />
               )}
 
-              {/* ROUND 5 — TURTLE — COMMENTED OUT: conducted offline
+              {/* ROUND 5 — FINAL MCQ */}
               {!showingClue && round === 4 && (
-                <RoundTurtle problem={cfg.turtleProblem} onComplete={handleRoundComplete} onWrong={recordWrong} onDrawUpdate={(img) => setTurtleImage(img)} />
+                <RoundMCQ 
+                  questions={cfg.finalMcqQuestions || cfg.mcqQuestions} 
+                  onComplete={(score) => handleRoundComplete(score)} 
+                  onWrong={recordWrong} 
+                  isFinal 
+                />
               )}
-              */}
             </main>
           </>
         )}

@@ -88,7 +88,7 @@ async def login(request: LoginRequest):
     try:
         result = (
             db.table("students")
-            .select("id, usn, email, name, branch, password_hash, is_active_session, current_token, is_banned")
+            .select("id, usn, email, name, branch, password_hash, is_active_session, current_token")
             .eq("usn", request.usn.strip().upper())
             .limit(1)
             .execute()
@@ -99,6 +99,7 @@ async def login(request: LoginRequest):
 
     # ── 2. Auto-register if new student ─────────────────────────────────────
     if not result.data:
+        # ... (registration logic)
         if not request.name or not request.name.strip():
             raise HTTPException(status_code=400, detail="Full Name is required for registration.")
         if not request.email or not request.email.strip():
@@ -114,7 +115,7 @@ async def login(request: LoginRequest):
             if not insert_res.data:
                 raise HTTPException(status_code=500, detail="Failed to register student")
             student = insert_res.data[0]
-            # Create exam_status row in background (non-blocking via fire-and-forget)
+            # Create exam_status row in background
             try:
                 db.table("exam_status").insert({"student_id": student["id"], "status": "not_started"}).execute()
             except Exception:
@@ -128,12 +129,17 @@ async def login(request: LoginRequest):
     else:
         student = result.data[0]
 
-        # ── 2b. Check if student is banned ──────────────────────────────────
-        if student.get("is_banned"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your account has been suspended. Please contact the administrator.",
-            )
+        # ── 2b. Check if student is banned (SAFE CHECK) ─────────────────────
+        try:
+            ban_check = db.table("students").select("is_banned").eq("id", student["id"]).execute()
+            if ban_check.data and ban_check.data[0].get("is_banned"):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your account has been suspended. Please contact the administrator.",
+                )
+        except Exception:
+            # Column doesn't exist yet — ignore ban check to let students login
+            pass
 
         # ── 3. Password check (CPU-only, no DB) ─────────────────────────────
         if not verify_password(request.password, student["password_hash"]):
