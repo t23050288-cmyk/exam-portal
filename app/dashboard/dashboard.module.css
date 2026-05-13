@@ -57,8 +57,9 @@
 
 .cardsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  width: 100%;
 }
 
 /* Insights Section */
@@ -1100,4 +1101,138 @@
 .refreshBtn:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: translateY(-2px);
+}
+
+/* ── PyHunt Special Event Banner ─────────────────────────── */
+.pyhuntBanner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 10, 50, 0.95) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 20px;
+  padding: 28px 32px;
+  margin-bottom: 28px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.pyhuntBanner:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 60px rgba(99,102,241,0.25);
+  border-color: rgba(99,102,241,0.7);
+}
+.pyhuntBannerGlow {
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.pyhuntBannerLeft { flex: 1; position: relative; z-index: 1; }
+.pyhuntSpecialTag {
+  display: inline-block;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
+  color: #818cf8;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.pyhuntBannerTitle {
+  font-size: 22px; font-weight: 900;
+  color: #fff;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  display: flex; align-items: center; gap: 8px;
+}
+.pyhuntBannerDesc {
+  font-size: 13px; color: rgba(255,255,255,0.5);
+  margin: 0 0 18px;
+  max-width: 380px;
+}
+.pyhuntBannerBtn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  border: none; border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  box-shadow: 0 6px 20px rgba(99,102,241,0.35);
+}
+.pyhuntBannerBtn:hover { opacity: 0.9; transform: translateY(-1px); }
+.pyhuntBannerRight { position: relative; z-index: 1; }
+.pyhuntOrb {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #818cf8, #6366f1 50%, #4f46e5);
+  box-shadow: 0 0 40px rgba(99,102,241,0.5), 0 0 80px rgba(99,102,241,0.2);
+  animation: pyhunt-pulse 3s ease-in-out infinite;
+}
+@keyframes pyhunt-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(99,102,241,0.5); }
+  50% { transform: scale(1.08); box-shadow: 0 0 60px rgba(99,102,241,0.7); }
+}
+
+@media (max-width: 600px) {
+  .pyhuntBanner { padding: 20px; flex-direction: column; gap: 16px; }
+  .pyhuntBannerTitle { font-size: 17px; }
+  .pyhuntBannerRight { display: none; }
+  .pyhuntBannerDesc { font-size: 12px; }
+}
+
+
+/* ── Mobile Complete Fix ────────────────────────────────── */
+@media (max-width: 768px) {
+  .page {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .layout {
+    flex-direction: column;
+    padding: 0;
+    height: 100dvh;
+    gap: 0;
+    overflow: hidden;
+  }
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    height: calc(100dvh - 60px);
+    padding: 0 !important;
+    margin-top: 0 !important;
+  }
+  .content {
+    padding: 12px !important;
+    min-height: calc(100dvh - 60px);
+    overflow-y: auto;
+  }
+  .homeGrid {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  .examSection {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  .insightsSection {
+    width: 100% !important;
+    display: none; /* hide sidebar insights on mobile home */
+  }
+  .cardsGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .pyhuntBanner {
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+  }
+  .pyhuntBannerTitle { font-size: 16px !important; }
+  .pyhuntBannerRight { display: none !important; }
 }
