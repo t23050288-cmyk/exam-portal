@@ -479,52 +479,127 @@ export default function ExamPage() {
   }
 
   if (isSubmitted && submitResult) {
+    const pct = submitResult.total_marks > 0 ? Math.round((submitResult.score / submitResult.total_marks) * 100) : 0;
+    const correct = submitResult.correct_count ?? 0;
+    const wrong = (submitResult.total_questions ?? questions.length) - correct;
+    const startIso = sessionStorage.getItem("exam_start_time") || new Date().toISOString();
+    const timeTakenSec = Math.floor((Date.now() - new Date(startIso).getTime()) / 1000);
+    const mm = String(Math.floor(timeTakenSec / 60)).padStart(2, "0");
+    const ss = String(timeTakenSec % 60).padStart(2, "0");
+    const scoreColor = pct >= 80 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
+
     return (
-      <div className={styles.submittedWrapper}>
-        <div className={styles.stars} />
-        <div className={styles.successCapsule}>
-          <div className={styles.hourglassBg}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1">
-              <path d="M12 2v20M5 5l14 14M19 5L5 14" />
-            </svg>
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "radial-gradient(ellipse at 50% 30%, #0f172a 0%, #060b18 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'Inter', sans-serif",
+        padding: "20px",
+      }}>
+        {/* subtle star field */}
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+          {Array.from({ length: 60 }).map((_, i) => (
+            <div key={i} style={{
+              position: "absolute",
+              width: i % 5 === 0 ? 2 : 1,
+              height: i % 5 === 0 ? 2 : 1,
+              background: "rgba(255,255,255," + (0.2 + (i % 4) * 0.1) + ")",
+              borderRadius: "50%",
+              left: (i * 1.618 * 17) % 100 + "%",
+              top: (i * 2.718 * 13) % 100 + "%",
+            }} />
+          ))}
+        </div>
+
+        <div style={{
+          position: "relative",
+          width: "100%", maxWidth: 460,
+          background: "rgba(15, 23, 42, 0.85)",
+          backdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 24,
+          padding: "40px 32px",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+          textAlign: "center",
+          animation: "fadeInUp 0.5s ease forwards",
+        }}>
+          {/* Top badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
+            borderRadius: 999, padding: "4px 14px", marginBottom: 24,
+            fontSize: 12, fontWeight: 700, color: "#10b981", letterSpacing: 1,
+          }}>
+            ✓ EXAM SUBMITTED
           </div>
-          
-          <h1 className={styles.thankYouTitle}>THANK YOU</h1>
-          
-          <div className={styles.resultMetaRow}>
-            <div className={styles.subStatus}>
-              <span style={{ color: "#10b981" }}>●</span> Assessment Submitted
-            </div>
-            <div className={styles.answeredCount}>
-              {answeredCount} / {questions.length} Answered
+
+          {/* Score circle */}
+          <div style={{
+            width: 120, height: 120, borderRadius: "50%",
+            background: `conic-gradient(${scoreColor} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 8px",
+            boxShadow: `0 0 32px ${scoreColor}40`,
+            position: "relative",
+          }}>
+            <div style={{
+              width: 96, height: 96, borderRadius: "50%",
+              background: "#0f172a",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexDirection: "column",
+            }}>
+              <span style={{ fontSize: 26, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{pct}%</span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>SCORE</span>
             </div>
           </div>
 
-          <div className={styles.resultCard}>
-            <div className={styles.resultDetail}>
-              <span className={styles.detailValue}>
-                {submitResult.total_marks > 0 
-                  ? Math.round((submitResult.score / submitResult.total_marks) * 100) 
-                  : 0}%
-              </span>
-              <span className={styles.detailLabel}>Final Score</span>
-            </div>
-            <div className={styles.resultDetail}>
-              <span className={styles.detailValue}>{submitResult.correct_count ?? 0}</span>
-              <span className={styles.detailLabel}>Correct</span>
-            </div>
-            <div className={styles.resultDetail}>
-              <span className={styles.detailValue} style={{ color: warningCount >= 2 ? "#ef4444" : "#fff" }}>{warningCount}</span>
-              <span className={styles.detailLabel}>Warnings</span>
-            </div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: "16px 0 4px", letterSpacing: "-0.02em" }}>
+            Thank You!
+          </h2>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 28 }}>
+            Your assessment has been recorded.
+          </p>
+
+          {/* Stats row */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 28,
+          }}>
+            {[
+              { label: "Score", value: `${submitResult.score}/${submitResult.total_marks}`, color: scoreColor },
+              { label: "Correct", value: correct, color: "#10b981" },
+              { label: "Wrong", value: wrong, color: wrong > 0 ? "#ef4444" : "rgba(255,255,255,0.5)" },
+              { label: "Time", value: `${mm}:${ss}`, color: "#60a5fa" },
+            ].map((stat) => (
+              <div key={stat.label} style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 12, padding: "12px 8px",
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 3, fontWeight: 600, letterSpacing: 0.5 }}>{stat.label}</div>
+              </div>
+            ))}
           </div>
 
-          <button className={styles.viewResultBtn} onClick={() => router.replace("/dashboard?tab=History")}>
-            GO TO DASHBOARD
+          <button
+            onClick={() => router.replace("/dashboard?tab=History")}
+            style={{
+              width: "100%", padding: "14px",
+              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              border: "none", borderRadius: 12,
+              color: "#fff", fontSize: 14, fontWeight: 800,
+              cursor: "pointer", letterSpacing: 0.5,
+              boxShadow: "0 8px 24px rgba(59,130,246,0.35)",
+              transition: "transform 0.15s, box-shadow 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = "translateY(-2px)")}
+            onMouseLeave={e => (e.currentTarget.style.transform = "translateY(0)")}
+          >
+            VIEW MY RESULTS →
           </button>
-          
-          <div style={{ marginTop: 20, fontSize: "14px", opacity: 0.6, fontWeight: 500 }}>
-            Auto-redirecting in {resultTimerSeconds}s...
+
+          <div style={{ marginTop: 14, fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
+            Auto-redirecting in {resultTimerSeconds}s
           </div>
         </div>
       </div>
