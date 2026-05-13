@@ -187,6 +187,8 @@ export default function PyHuntAdminTab() {
                   <span style={{color:"#7090b0",marginRight:8}}>After</span>
                   {ROUND_NAMES[i]}
                 </span>
+              </div>
+
               <label style={$.lbl}>Clue Text (shown to student after round)</label>
               <textarea
                 style={{...$.ta, minHeight:72}}
