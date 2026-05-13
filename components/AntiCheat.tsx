@@ -29,7 +29,7 @@ export interface AntiCheatProps {
 }
 
 const MAX_STRIKES  = 3;
-const COOLDOWN_MS  = 800;   // grace window — prevents double-fire on FS dialog close
+const COOLDOWN_MS  = 2500;  // grace window — prevents double-fire on FS dialog close / mobile back button
 const REPORT_DELAY = 0;     // report to server immediately (non-blocking)
 
 export default function AntiCheat({
