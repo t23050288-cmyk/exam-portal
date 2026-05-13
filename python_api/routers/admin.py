@@ -198,7 +198,7 @@ async def get_all_students(_: bool = Depends(verify_admin)):
     try:
         db = get_supabase()
         # Fetch ALL students regardless of exam_status
-        students_result = db.table("students").select("id, usn, email, name, branch, is_banned").execute()
+        students_result = db.table("students").select("*").execute()
         # Fetch all exam_status records
         status_result = db.table("exam_status").select("*").execute()
         # Fetch completed exams count per student
