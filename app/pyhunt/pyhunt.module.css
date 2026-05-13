@@ -656,3 +656,57 @@
 
 
 
+
+/* ─── Dual Jumble + Compiler Layout ─── */
+.jumbleCompilerLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 16px;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .jumbleCompilerLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jumbleSide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.compilerSide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0,220,255,0.03);
+  border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.loadingTag {
+  font-size: 11px;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+
+.readyTag {
+  font-size: 11px;
+  color: #22c55e;
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
