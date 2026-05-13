@@ -60,6 +60,8 @@ interface StudentRow {
   status: "not_started" | "active" | "submitted";
   warnings: number;
   banned?: boolean;
+  is_banned?: boolean;
+  exams_completed?: number;
   last_active: string | null;
   submitted_at: string | null;
   started_at: string | null;
@@ -303,7 +305,10 @@ export default function AdminPage() {
         email: s.email,
         branch: s.branch || "CS",
         status: s.status,
-        warnings: s.warnings,
+        warnings: s.warnings || 0,
+        banned: s.is_banned || false,
+        is_banned: s.is_banned || false,
+        exams_completed: s.completed_exams || 0,
         last_active: s.last_active,
         submitted_at: s.submitted_at,
         started_at: s.started_at,
@@ -311,7 +316,7 @@ export default function AdminPage() {
       }));
       setStudents(rows);
       setLastUpdate(new Date());
-      const violations = rows.filter((s) => s.status === "active").reduce((a, s) => a + (s.warnings || 0), 0);
+      const violations = rows.reduce((a, s) => a + (s.warnings || 0), 0);
       setLiveStats({ answers: 0, violations, submittals: rows.filter((s) => s.status === "submitted").length });
     } catch (err) {
       console.error("[ADMIN] fetchStudents:", err);
@@ -375,21 +380,14 @@ export default function AdminPage() {
   };
 
   const handleBanStudent = async (s: StudentRow) => {
-    if (!confirm(`Ban ${s.name}? This will force-submit their exam and LOCK them out until you click Reset.`)) return;
+    if (!confirm(`Ban ${s.name}? This will LOCK them out of the portal. Reset to unban.`)) return;
     try {
-      // Force submit first
-      if (s.status === "active") {
-        await forceSubmitAdminStudent(s.student_id);
-      }
-      // Then mark as banned in Supabase students table
-      const { createClient } = await import("@supabase/supabase-js");
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      await sb.from("students").update({ is_banned: true }).eq("id", s.student_id);
+      await fetch(`/api/admin/students/${s.student_id}/ban`, {
+        method: "POST",
+        headers: { "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET || "rudranshsarvam" }
+      });
       await fetchStudents();
-      alert(`${s.name} has been banned and their exam force-submitted.`);
+      alert(`${s.name} has been banned.`);
     } catch (err: any) {
       alert("Ban failed: " + err.message);
     }
@@ -494,7 +492,7 @@ export default function AdminPage() {
     { id: "questions",   label: "Questions",   icon: "📋" },
     { id: "students",    label: "Students",    icon: "👥" },
     { id: "ingest",      label: "Harvester",   icon: "🌌" },
-    { id: "control",     label: "Control",     icon: "🛸" },
+    // { id: "control",     label: "Control",     icon: "🛸" },  // Commented out – not needed yet
     { id: "grading",     label: "Grading",     icon: "⚙️" },
     { id: "sos",         label: "SOS",         icon: "🆘" },
     { id: "pyhunt",      label: "PyHunt",      icon: "🐍" },
