@@ -89,6 +89,25 @@ def get_exam_history(current: dict = Depends(get_current_student)):
     except Exception as e:
         print(f"[EXAM] History fetch error: {e}")
         return {"results": []}
+
+
+@router.delete("/history/{result_id}")
+def delete_exam_result(result_id: str, current: dict = Depends(get_current_student)):
+    """Delete a student's own exam result by ID."""
+    db = get_supabase()
+    student_id = current["student_id"]
+    try:
+        # Ensure student can only delete their own result
+        check = db.table("exam_results").select("id").eq("id", result_id).eq("student_id", student_id).execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="Result not found or not yours")
+        db.table("exam_results").delete().eq("id", result_id).eq("student_id", student_id).execute()
+        return {"success": True, "deleted_id": result_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ── In-flight deduplication: only 1 DB fetch per exam at a time ─────────────
 _fetch_locks: dict = {}
 _fetch_lock_guard = __import__("threading").Lock()
