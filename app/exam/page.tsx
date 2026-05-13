@@ -187,20 +187,24 @@ export default function ExamPage() {
 
     setFinalTheme(FINAL_THEMES[Math.floor(Math.random() * FINAL_THEMES.length)]);
 
-    // ── Cache DISABLED (as per user request) ──────────────────
-    /*
-    const cached = loadQuestionsFromCache(quizTitle);
-    if (cached && cached.length > 0) {
-      console.log(`[EXAM] Loaded ${cached.length} questions from local cache.`);
-      setQuestions(cached as Question[]);
-      setLoadSource("cache");
-      setLoading(false);
-      enterFullscreen();
-      return () => window.removeEventListener("popstate", handlePopState);
+    // ── Session-level question cache (avoids re-fetching on hot reload) ──
+    const cacheKey = `exam_qs_${quizTitle}`;
+    const cachedRaw = sessionStorage.getItem(cacheKey);
+    if (cachedRaw) {
+      try {
+        const cachedQs = JSON.parse(cachedRaw);
+        if (Array.isArray(cachedQs) && cachedQs.length > 0) {
+          console.log(`[EXAM] Loaded ${cachedQs.length} questions from session cache.`);
+          setQuestions(cachedQs);
+          setLoadSource("cache");
+          setLoading(false);
+          return () => window.removeEventListener("popstate", handlePopState);
+        }
+      } catch { /* ignore parse error, fetch fresh */ }
     }
-    */
 
-    const jitterMs = Math.floor(Math.random() * 2000);
+    // Stagger concurrent students: random 0–4s jitter
+    const jitterMs = Math.floor(Math.random() * 4000);
     const timeoutId = setTimeout(() => {
       console.log(`[EXAM] Fetching questions for: ${quizTitle}`);
       fetchQuestions(quizTitle, Date.now())
@@ -218,6 +222,8 @@ export default function ExamPage() {
             setLoading(false);
             return;
           }
+          // Cache questions in session storage to avoid re-fetch
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(qsArr)); } catch { /* quota */ }
           setQuestions(qsArr);
           setLoadSource("network");
           setLoading(false);
@@ -279,8 +285,8 @@ export default function ExamPage() {
       }
     };
     checkConfig();
-    const jitter = Math.floor(Math.random() * 10000);
-    const id = setInterval(checkConfig, 15_000 + jitter);
+    const jitter = Math.floor(Math.random() * 15000);
+    const id = setInterval(checkConfig, 30_000 + jitter);
     return () => clearInterval(id);
   }, [examTitle, examDurationMinutes, marksPerQuestion]);
 

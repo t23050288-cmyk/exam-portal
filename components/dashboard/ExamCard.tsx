@@ -20,7 +20,7 @@ interface ExamCardProps {
 }
 
 export default function ExamCard({ exam, isUpcoming, timeUntil, onLaunch }: ExamCardProps) {
-  const schedDate = exam.scheduled_start ? new Date(exam.scheduled_start) : new Date();
+  const schedDate = exam.scheduled_start ? new Date(exam.scheduled_start) : null;
   
   return (
     <motion.div 
@@ -41,13 +41,15 @@ export default function ExamCard({ exam, isUpcoming, timeUntil, onLaunch }: Exam
       </div>
 
       <div className={styles.meta}>
-        <div className={styles.metaItem}>
-          <span className={styles.icon}>📅</span>
-          <span>{schedDate.toLocaleDateString()}</span>
-        </div>
+        {schedDate && (
+          <div className={styles.metaItem}>
+            <span className={styles.icon}>📅</span>
+            <span>{schedDate.toLocaleDateString()}</span>
+          </div>
+        )}
         <div className={styles.metaItem}>
           <span className={styles.icon}>🕐</span>
-          <span>{schedDate.toTimeString().slice(0, 5)} • {exam.duration_minutes} min</span>
+          <span>{schedDate ? schedDate.toTimeString().slice(0, 5) + " • " : ""}{exam.duration_minutes} min</span>
         </div>
         <div className={styles.metaItem}>
           <span className={styles.icon}>🎯</span>
