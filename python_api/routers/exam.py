@@ -2,6 +2,10 @@ from fastapi.responses import Response
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
 from datetime import datetime, timezone
 
+from core.question_cache import (
+    get_cached_questions, set_cached_questions,
+    get_cached_config, set_cached_config, invalidate_all
+)
 from models.schemas import (
     QuestionsResponse, QuestionOut, TestCaseOut,
     SaveAnswerRequest, SaveAnswerResponse,
@@ -18,30 +22,34 @@ router = APIRouter(prefix="/exam", tags=["exam"])
 
 
 def _check_exam_active(title: str):
-    """Raises 423 if the exam has been deactivated by admin."""
-    db = get_supabase()
+    """Raises 423 if the exam has been deactivated by admin.
+    Uses a 60-second cache to avoid hitting DB on every student request."""
+    cached = get_cached_config(title)
+    if cached is not None:
+        row = cached
+    else:
+        db = get_supabase()
+        try:
+            result = db.table("exam_config").select("is_active, scheduled_start").eq("exam_title", title).limit(1).execute()
+            row = result.data[0] if result.data else {}
+            set_cached_config(title, row)
+        except HTTPException:
+            raise
+        except Exception:
+            return  # If table doesn't exist yet, default to active
+
     try:
-        # FIX: Use 'title' column instead of 'exam_title'
-        result = db.table("exam_config").select("is_active, scheduled_start").eq("exam_title", title).limit(1).execute()
-        if result.data:
-            row = result.data[0]
-            if not row.get("is_active", True):
-                raise HTTPException(
-                    status_code=423,
-                    detail="exam_inactive",
-                )
-            scheduled = row.get("scheduled_start")
-            if scheduled:
-                start_dt = datetime.fromisoformat(scheduled.replace("Z", "+00:00"))
-                if start_dt > datetime.now(timezone.utc):
-                    raise HTTPException(
-                        status_code=425,
-                        detail=f"exam_scheduled:{scheduled}",
-                    )
+        if not row.get("is_active", True):
+            raise HTTPException(status_code=423, detail="exam_inactive")
+        scheduled = row.get("scheduled_start")
+        if scheduled:
+            start_dt = datetime.fromisoformat(scheduled.replace("Z", "+00:00"))
+            if start_dt > datetime.now(timezone.utc):
+                raise HTTPException(status_code=425, detail=f"exam_scheduled:{scheduled}")
     except HTTPException:
         raise
     except Exception:
-        pass  # If table doesn't exist yet, default to active
+        pass
 
 
 def update_last_active(student_id: str):
@@ -81,110 +89,67 @@ def get_exam_history(current: dict = Depends(get_current_student)):
     except Exception as e:
         print(f"[EXAM] History fetch error: {e}")
         return {"results": []}
-@router.get("/questions", response_model=QuestionsResponse)
-def get_questions(
-    title: str,
-    background_tasks: BackgroundTasks,
-    response: Response,
-    current: dict = Depends(get_current_student)
-):
+# ── In-flight deduplication: only 1 DB fetch per exam at a time ─────────────
+_fetch_locks: dict = {}
+_fetch_lock_guard = __import__("threading").Lock()
+
+def _get_fetch_lock(key: str) -> __import__("threading").Lock:
+    with _fetch_lock_guard:
+        if key not in _fetch_locks:
+            _fetch_locks[key] = __import__("threading").Lock()
+        return _fetch_locks[key]
+
+
+def _fetch_questions_from_db(title: str, branch: str) -> list:
     """
-    Return all questions for a specific exam title and branch.
+    Fetch + filter questions from Supabase.
+    Called AT MOST ONCE per (title, branch) per 5 minutes.
+    All other concurrent calls wait on the same lock and use the cached result.
     """
-    _check_exam_active(title)
-    # Questions are immutable during an exam session — cache privately in browser
-    # for 30 minutes. On refresh, student gets instant load from their own browser.
-    response.headers["Cache-Control"] = "private, max-age=1800, stale-while-revalidate=600"
     db = get_supabase()
+    result = (
+        db.table("questions")
+        .select("id, text, options, branch, order_index, marks, exam_name, image_url, audio_url, question_type, category")
+        .order("order_index")
+        .limit(500)
+        .execute()
+    )
+    all_questions = result.data or []
+    print(f"[EXAM] DB fetched {len(all_questions)} total questions.")
 
-    # Update last_active in background
-    background_tasks.add_task(update_last_active, current["student_id"])
+    student_branch_upper = branch.strip().upper()
+    title_norm = title.strip().lower()
 
-    try:
-        branch = current.get("branch", "CS")
-        # ── Branch-Only Matching (Python-side filtering) ──
-        # To avoid Supabase PostgREST URL encoding crashes with `%`, we fetch 
-        # questions and filter them securely in Python.
-        result = (
-            db.table("questions")
-            .select("id, text, options, branch, order_index, marks, exam_name, image_url, question_type, category")
-            .order("order_index")
-            .limit(500)
-            .execute()
-        )
-        
-        all_questions = result.data or []
-        print(f"[EXAM] DB fetched {len(all_questions)} questions from table.")
-        
-        filtered_data = []
-        student_branch_upper = branch.strip().upper()
-        
-        for q in all_questions:
-            q_branch = (q.get("branch") or "").strip()
-            q_exam = q.get("exam_name") or ""
-            
-            # ALWAYS parse spectral tag from text — it is the authoritative source
-            text = q.get("text", "")
-            if text.startswith("⟦EXAM:"):
-                end_idx = text.find("⟧")
-                if end_idx != -1:
-                    q_exam = text[6:end_idx].strip()
+    def exam_matches(q: dict) -> bool:
+        q_exam = q.get("exam_name") or ""
+        text = q.get("text", "")
+        if text.startswith("⟦EXAM:"):
+            idx = text.find("⟧")
+            if idx != -1:
+                q_exam = text[6:idx].strip()
+        qe = q_exam.strip().lower()
+        return (qe == title_norm
+                or qe.replace(" ", "") == title_norm.replace(" ", "")
+                or title_norm in qe or qe in title_norm)
 
-            # Normalize for comparison
-            title_norm = title.strip().lower()
-            q_exam_norm = q_exam.strip().lower()
-            
-            # Very loose matching: exactly equal, no spaces equal, or substring
-            exam_match = (
-                q_exam_norm == title_norm
-                or q_exam_norm.replace(" ", "") == title_norm.replace(" ", "")
-                or title_norm in q_exam_norm
-                or q_exam_norm in title_norm
-            )
-            if not exam_match:
-                continue
+    def branch_matches(q: dict) -> bool:
+        qb = (q.get("branch") or "").strip().upper()
+        if not qb:
+            return True
+        return (student_branch_upper == qb
+                or student_branch_upper in qb
+                or qb in student_branch_upper)
 
-            # Branch matching
-            if not q_branch:
-                filtered_data.append(q)
-                continue
+    filtered = [q for q in all_questions if exam_matches(q) and branch_matches(q)]
 
-            q_branch_upper = q_branch.upper()
-            branch_match = (
-                student_branch_upper == q_branch_upper
-                or student_branch_upper in q_branch_upper
-                or q_branch_upper in student_branch_upper
-            )
-            if branch_match:
-                filtered_data.append(q)
+    # Fallback: branch-agnostic if nothing matched
+    if not filtered:
+        print(f"[EXAM] Branch fallback for title='{title}' branch='{branch}'")
+        filtered = [q for q in all_questions if exam_matches(q)]
 
-        # Fallback: ignore branch if nothing matched
-        if not filtered_data:
-            print(f"[EXAM] Fallback: No branch match for '{branch}'. Retrying with just title='{title}'.")
-            for q in all_questions:
-                q_exam = q.get("exam_name") or ""
-                text = q.get("text", "")
-                if text.startswith("⟦EXAM:"):
-                    end_idx = text.find("⟧")
-                    if end_idx != -1:
-                        q_exam = text[6:end_idx].strip()
-                
-                qe = q_exam.strip().lower()
-                tn = title.strip().lower()
-                if qe == tn or qe.replace(" ", "") == tn.replace(" ", "") or tn in qe or qe in tn:
-                    filtered_data.append(q)
-        
-        print(f"[EXAM] Final filtered count for '{title}' (branch: {branch}): {len(filtered_data)}")
-                
-    except Exception as e:
-        print(f"[EXAM] CRITICAL DB Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return QuestionsResponse(questions=[], total=0)
-
-    # Fetch code_questions data for code-type questions
-    code_q_ids = [q["id"] for q in filtered_data if q.get("question_type") == "code"]
-    code_q_map = {}
+    # Attach code_questions data
+    code_q_ids = [q["id"] for q in filtered if q.get("question_type") == "code"]
+    code_q_map: dict = {}
     if code_q_ids:
         try:
             cq_result = db.table("code_questions").select("*").in_("question_id", code_q_ids).execute()
@@ -194,7 +159,7 @@ def get_questions(
             print(f"[EXAM] code_questions fetch error: {e}")
 
     questions = []
-    for q in filtered_data:
+    for q in filtered:
         qtype = q.get("question_type", "mcq")
         cq = code_q_map.get(q["id"]) if qtype == "code" else None
         test_cases = None
@@ -217,7 +182,60 @@ def get_questions(
             test_cases=test_cases,
         ))
 
-    return QuestionsResponse(questions=questions, total=len(questions))
+    print(f"[EXAM] Cached {len(questions)} questions for title='{title}' branch='{branch}'")
+    return questions
+
+
+@router.get("/questions", response_model=QuestionsResponse)
+def get_questions(
+    title: str,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    current: dict = Depends(get_current_student)
+):
+    """
+    Return questions for a specific exam. 
+    Server-side TTL cache (5 min) + in-flight deduplication ensures
+    100 concurrent students generate exactly 1 DB query.
+    """
+    _check_exam_active(title)
+
+    # Tell the browser to cache the response privately for 30 min
+    response.headers["Cache-Control"] = "private, max-age=1800, stale-while-revalidate=600"
+
+    # Update last_active in background (non-blocking)
+    background_tasks.add_task(update_last_active, current["student_id"])
+
+    branch = current.get("branch", "CS")
+
+    # ── 1. Try in-process cache first ──────────────────────────────────────
+    cached = get_cached_questions(title, branch)
+    if cached is not None:
+        print(f"[EXAM] Cache HIT for title='{title}' branch='{branch}' ({len(cached)} qs)")
+        return QuestionsResponse(questions=cached, total=len(cached))
+
+    # ── 2. Only ONE thread fetches from DB; others wait on the same lock ───
+    lock_key = f"{title.strip().lower()}::{branch.strip().upper()}"
+    fetch_lock = _get_fetch_lock(lock_key)
+
+    with fetch_lock:
+        # Double-check after acquiring lock (another thread may have populated cache)
+        cached = get_cached_questions(title, branch)
+        if cached is not None:
+            print(f"[EXAM] Cache HIT (post-lock) for title='{title}' branch='{branch}'")
+            return QuestionsResponse(questions=cached, total=len(cached))
+
+        # ── 3. Actual DB fetch ────────────────────────────────────────────
+        try:
+            questions = _fetch_questions_from_db(title, branch)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            print(f"[EXAM] CRITICAL DB Error: {e}")
+            return QuestionsResponse(questions=[], total=0)
+
+        is_fallback = len(questions) == 0
+        set_cached_questions(title, branch, questions, is_fallback=is_fallback)
+        return QuestionsResponse(questions=questions, total=len(questions))
 
 @router.get("/test-branch")
 def test_branch(branch: str):

@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 import io
 import xlsxwriter
 
+from core.question_cache import invalidate_all, invalidate_exam, cache_stats
+
 router = APIRouter(prefix="/admin", tags=["admin management"])
 settings = get_settings()
 
@@ -1032,3 +1034,18 @@ async def csv_template(_=Depends(verify_admin)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=students_template.csv"},
     )
+
+@router.post("/cache/invalidate")
+async def invalidate_cache(exam_title: str = None, _: bool = Depends(verify_admin)):
+    """Force-invalidate the server-side question cache. Use after editing questions."""
+    if exam_title:
+        invalidate_exam(exam_title)
+        return {"status": "ok", "invalidated": exam_title}
+    else:
+        invalidate_all()
+        return {"status": "ok", "invalidated": "all"}
+
+@router.get("/cache/stats")
+async def get_cache_stats(_: bool = Depends(verify_admin)):
+    """View current question cache state."""
+    return cache_stats()

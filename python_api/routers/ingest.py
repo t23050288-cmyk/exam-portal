@@ -29,6 +29,8 @@ from core.config import get_settings
 
 logger = logging.getLogger("examguard.ingest")
 
+from core.question_cache import invalidate_all, invalidate_exam
+
 router = APIRouter(prefix="/admin/ingest", tags=["ingest"])
 
 
@@ -793,6 +795,13 @@ async def commit_questions(
         except Exception as config_err:
             logger.warning(f"Sync Config failed: {config_err}")
         
+        # Bust the server-side question cache so new questions are served immediately
+        try:
+            invalidate_all()
+            logger.info(f"Question cache invalidated after ingest of '{safe_exam_name}'")
+        except Exception as ce:
+            logger.warning(f"Cache invalidation failed (non-fatal): {ce}")
+
         return {
             "committed": inserted_count,
             "total": len(questions),
