@@ -432,6 +432,9 @@ class PyHuntProgressUpdate(BaseModel):
     terminated: bool = False
     warning_count: Optional[int] = None
     last_violation: Optional[str] = None
+    round1_score: Optional[str] = None
+    round1_time: Optional[str] = None
+    total_time: Optional[str] = None
 
 
 

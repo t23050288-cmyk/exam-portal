@@ -270,6 +270,12 @@ async def sync_pyhunt_progress(
             data["warnings"] = min(request.warning_count, 3)
         if request.last_violation:
             data["last_violation"] = request.last_violation
+        if request.round1_score:
+            data["round1_score"] = request.round1_score
+        if request.round1_time:
+            data["round1_time"] = request.round1_time
+        if request.total_time:
+            data["total_time"] = request.total_time
             
         print(f"[PyHuntSync] Syncing progress for student {student_id}: Round {request.current_round}, status {status}")
         db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()

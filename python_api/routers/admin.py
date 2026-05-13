@@ -699,6 +699,32 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/pyhunt/status")
+async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
+    """Admin endpoint to see all PyHunt student progress, joined with student identity."""
+    db = get_supabase()
+    try:
+        # Fetch all progress
+        progress_res = db.table("pyhunt_progress").select("*").order("last_active", desc=True).execute()
+        # Fetch all students for name/USN mapping
+        students_res = db.table("students").select("id, usn, name").execute()
+        student_map = {s["id"]: s for s in (students_res.data or [])}
+        
+        rows = []
+        for p in (progress_res.data or []):
+            sid = p.get("student_id")
+            s = student_map.get(sid, {})
+            rows.append({
+                **p,
+                "student_name": s.get("name", "Unknown"),
+                "student_usn": s.get("usn", "Unknown"),
+            })
+        return rows
+    except Exception as e:
+        print(f"get_pyhunt_status_admin error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Orbital Node Management (Folder CRUD) ─────────────────────
 
 @router.delete("/folders/{folder_name}")

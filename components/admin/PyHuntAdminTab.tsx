@@ -22,6 +22,7 @@ interface TurtleProblem { title: string; description: string; starterCode: strin
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
+  jumbleProblemB: JumbleProblem;
   round3: CodingProblem;
   round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
@@ -35,7 +36,8 @@ const DEFAULT: PyHuntConfig = {
     { id:"q1", question:"What is the output of: print(type([]).__name__)?", options:[{label:"A",text:"list"},{label:"B",text:"array"},{label:"C",text:"List"},{label:"D",text:"tuple"}], correct:"A", explanation:"type([]) → <class 'list'>, .__name__ → 'list'." },
     { id:"q2", question:"Which keyword defines a generator function?", options:[{label:"A",text:"return"},{label:"B",text:"async"},{label:"C",text:"yield"},{label:"D",text:"lambda"}], correct:"C", explanation:"yield makes a function a generator." },
   ],
-  jumbleProblem: { title:"Fibonacci! (Round 2)", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
+  jumbleProblem: { title:"Fibonacci! (Round 2 Part 1)", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
+  jumbleProblemB: { title:"Factorial! (Round 2 Part 2)", description:"Drag lines into correct order so the function prints 120.", lines:["def factorial(n):","    if n <= 1:","        return 1","    return n * factorial(n-1)","","print(factorial(5))  # should print 120"] },
   round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
   round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
   round4: { title:"FizzBuzz Remix (Round 4)", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
@@ -97,7 +99,7 @@ const $ = {
   info: { fontSize:13, color:"rgba(216, 234, 242, 0.5)", lineHeight:1.6, marginBottom:16 },
 };
 
-type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "status";
+type SubTab = "clues" | "mcq" | "jumble" | "round3" | "round4" | "status" | "marks";
 const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"clues",    label:"Clues & Codes", icon:"🗝️" },
   { id:"mcq",      label:"Round 1 MCQ",  icon:"📝" },
@@ -105,6 +107,7 @@ const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
   { id:"round3",   label:"Round 3 Code",  icon:"🐍" },
   { id:"round4",   label:"Round 4 Code",  icon:"🔢" },
   { id:"status",   label:"Live Status",   icon:"📡" },
+  { id:"marks",    label:"Final Marks",   icon:"📊" },
 ];
 const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)"];
 
@@ -275,18 +278,34 @@ export default function PyHuntAdminTab() {
 
       {/* ══ JUMBLE TAB ══ */}
       {sub==="jumble" && (
-        <div style={$.card}>
-          <div style={{...$.cardTitle}}>Round 2 — Code Jumble</div>
-          <label style={$.lbl}>Title</label>
-          <input style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
-          <label style={$.lbl}>Description</label>
-          <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
-          <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
-          <textarea
-            style={{...$.ta,minHeight:240}}
-            value={cfg.jumbleProblem.lines.join("\n")}
-            onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
-          />
+        <div>
+          <div style={$.card}>
+            <div style={{...$.cardTitle}}>Round 2 — Problem 1 (Part A)</div>
+            <label style={$.lbl}>Title</label>
+            <input style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
+            <label style={$.lbl}>Description</label>
+            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
+            <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
+            <textarea
+              style={{...$.ta,minHeight:180}}
+              value={cfg.jumbleProblem.lines.join("\n")}
+              onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
+            />
+          </div>
+
+          <div style={$.card}>
+            <div style={{...$.cardTitle, color: "#a78bfa"}}>Round 2 — Problem 2 (Part B)</div>
+            <label style={$.lbl}>Title</label>
+            <input style={$.inp} value={cfg.jumbleProblemB.title} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,title:e.target.value}}))} />
+            <label style={$.lbl}>Description</label>
+            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblemB.description} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,description:e.target.value}}))} />
+            <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
+            <textarea
+              style={{...$.ta,minHeight:180}}
+              value={cfg.jumbleProblemB.lines.join("\n")}
+              onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,lines:e.target.value.split("\n")}}))}
+            />
+          </div>
         </div>
       )}
 
@@ -342,11 +361,84 @@ export default function PyHuntAdminTab() {
         );
       })()}
 
-
-
       {/* ══ LIVE STATUS TAB ══ */}
-      {sub==="status" && (
-        <LiveStatusView />
+      {sub==="status" && <LiveStatusView />}
+      {sub==="marks" && <MarksView />}
+    </div>
+  );
+}
+
+function MarksView() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStatus = async () => {
+    try {
+      const data = await adminFetch<any[]>("/admin/pyhunt/status");
+      setStudents(data || []);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={$.card}>
+      <div style={$.cardTitle}>
+        <div style={{display:"flex", alignItems:"center", gap:10}}>
+          <span style={{fontSize: 20}}>📊</span>
+          <span>Final Marks Dashboard</span>
+        </div>
+        <button style={$.btnAdd} onClick={fetchStatus}>🔄 Refresh</button>
+      </div>
+
+      {loading && students.length === 0 ? (
+        <div style={$.info}>Loading performance metrics...</div>
+      ) : (
+        <table style={{width:"100%", borderCollapse:"collapse", color:"#c8daf0", fontSize:13}}>
+          <thead>
+            <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>MCQ SCORE</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>MCQ TIME</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>TOTAL TIME</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((s, i) => (
+              <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+                <td style={{padding:"12px 8px"}}>
+                  <div style={{fontWeight:700}}>{s.student_name}</div>
+                  <div style={{fontSize:10, opacity:0.6}}>{s.student_usn}</div>
+                </td>
+                <td style={{padding:"12px 8px"}}>
+                  <span style={{...$.clueBadge, background:"rgba(0,220,255,0.05)", color:"#00dcff"}}>
+                    {s.round1_score || "0"} / 5
+                  </span>
+                </td>
+                <td style={{padding:"12px 8px", fontWeight: 700}}>{s.round1_time || "-"}</td>
+                <td style={{padding:"12px 8px", color: "#f59e0b", fontWeight: 800}}>{s.total_time || "-"}</td>
+                <td style={{padding:"12px 8px"}}>
+                  <span style={{
+                    padding: "2px 8px", borderRadius: 4, fontSize: 10,
+                    background: s.status === "finished" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                    color: s.status === "finished" ? "#10b981" : "#f59e0b"
+                  }}>
+                    {s.status?.toUpperCase() || "ACTIVE"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

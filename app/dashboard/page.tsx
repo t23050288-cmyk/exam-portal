@@ -42,10 +42,9 @@ const NAV_ITEMS = [
   { id: "Aptitude", icon: "◎", label: "Aptitude Test" },
   { id: "Programming", icon: "◇", label: "Programming" },
   { id: "Others", icon: "◉", label: "Other Quiz" },
-  { id: "PyHunt", icon: "🐍", label: "PyHunt" },
+  { id: "Events", icon: "⚡", label: "Events" },
   { id: "Profile", icon: "👤", label: "Profile" },
   { id: "History", icon: "⌛", label: "History" },
-  { id: "Insights", icon: "⫏", label: "Skills Insights" },
 ];
 
 function getTimeUntil(dateStr: string | null) {
@@ -496,9 +495,8 @@ export default function DashboardPage() {
     switch (activeNav) {
       case "Home": return { title: "Upcoming Exams", sub: "View your scheduled assessments" };
       case "Profile": return { title: "Profile", sub: "View your candidate information" };
-      case "PyHunt": return { title: "PyHunt", sub: "System ready for authorization" };
+      case "Events": return { title: "Active Events", sub: "Special challenges and hackathons" };
       case "History": return { title: "History", sub: "Review your previous assessments" };
-      case "Insights": return { title: "Skills Insights", sub: "Track your performance" };
       case "Others": return { title: "Other Quiz", sub: "Explore additional assessments" };
       default: return { title: activeNav, sub: "System ready for authorization" };
     }
@@ -602,68 +600,15 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </section>
-
-                <section className={styles.insightsSection}>
-                   <div className={styles.insightsGrid}>
-                      <div className={styles.insightCard}>
-                        <h3>Quick Insights</h3>
-                        <div className={styles.stat}>
-                          <span className={styles.label}>Completed Exams</span>
-                          <span className={styles.value}>{completedCount}</span>
-                        </div>
-                      </div>
-                      <div className={`${styles.mountainCard} ${performanceLocked ? styles.locked : ""}`}>
-                        <div className={styles.mountainHeader}>
-                           <span className={styles.label}>Performance:</span>
-                           <span className={styles.value}>{!performanceLocked ? `${avgScore}% Rank` : "—"}</span>
-                        </div>
-                        {!performanceLocked ? (
-                          <div className={styles.barGraphContainer}>
-                            {lastFive.map((data, i) => (
-                              <div key={i} className={styles.barWrapper}>
-                                <div className={styles.barValue}>{data.percentage}%</div>
-                                <motion.div 
-                                  initial={{ height: 0 }}
-                                  animate={{ height: `${data.percentage}%` }}
-                                  className={styles.bar}
-                                />
-                                <div className={styles.barLabel}>{data.name.slice(0, 8)}..</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <div className={styles.mountainContainer}>
-                              <div className={styles.nebulaStar}>
-                                <div className={styles.starCore} />
-                                <div className={styles.starGlow} />
-                                <div className={styles.starRays} />
-                              </div>
-                            </div>
-                            <div className={styles.pedestal}>
-                              <div className={styles.pedestalTop} />
-                              <div className={styles.pedestalBase} />
-                            </div>
-                          </>
-                        )}
-                        {performanceLocked && (
-                          <div className={styles.lockOverlay}>
-                            <div className={styles.lockIcon}>📊</div>
-                            <div className={styles.lockMsg}>You get performance after 3 exams</div>
-                          </div>
-                        )}
-                      </div>
-                   </div>
-                </section>
               </div>
             )}
-
-            {activeNav !== "Home" && !["Profile", "Insights", "PyHunt", "History"].includes(activeNav) && (
+            
+            {activeNav !== "Home" && !["Profile", "Events", "History"].includes(activeNav) && (
               <div className={styles.cardsGrid}>
                  {filteredExams.length > 0 ? (
-                   filteredExams.map((exam: any) => (
-                      <ExamCard key={exam.id} exam={exam} onLaunch={() => handleLaunch(exam)} />
-                   ))
+                    filteredExams.map((exam: any) => (
+                       <ExamCard key={exam.id} exam={exam} onLaunch={() => handleLaunch(exam)} />
+                    ))
                  ) : (
                    <div className={styles.comingSoonCard}>
                      <div className={styles.comingSoonIcon}>🚀</div>
@@ -674,13 +619,13 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* PYHUNT */}
-            {activeNav === "PyHunt" && (
+            {/* EVENTS */}
+            {activeNav === "Events" && (
               <div className={styles.pyhuntSection}>
                 <div className={styles.pyhuntCard}>
                   <div className={styles.pyhuntEmoji}>🐍</div>
                   <h2 className={styles.pyhuntTitle}>PyHunt</h2>
-                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 5 rounds of challenges to find hidden clues!</p>
+                  <p className={styles.pyhuntDesc}>Python Treasure Hunt — Solve 4 rounds of challenges to find hidden clues!</p>
                   
                   <div className={styles.pyhuntAuth}>
                     <input 
@@ -692,39 +637,31 @@ export default function DashboardPage() {
                         setEnteredPyHuntCode(e.target.value.toUpperCase());
                         setPyHuntError(false);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const btn = e.currentTarget.closest("div")?.querySelector("button") as HTMLButtonElement | null;
-                          btn?.click();
-                        }
-                      }}
                     />
-            <button className={styles.startBtn} onClick={async () => {
-              if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
-                // Check termination before pushing
-                const token = sessionStorage.getItem("exam_token");
-                const res = await fetch(`/api/exam/pyhunt/status?_=${Date.now()}`, {
-                   headers: { "Authorization": `Bearer ${token}` }
-                });
-                const pyHuntStats = await res.json();
-                const myProgress = pyHuntStats.data;
-                
-                if (myProgress && myProgress.status === "TERMINATED") {
-                  setPyHuntError(true);
-                  alert("You have been terminated from PyHunt due to violations.");
-                  return;
-                }
-                router.push("/pyhunt");
-              } else {
-                setPyHuntError(true);
-              }
-            }}>🚀 Start PyHunt</button>
+                    <button className={styles.startBtn} onClick={async () => {
+                      if (enteredPyHuntCode === VALID_PYHUNT_CODE) {
+                        const token = sessionStorage.getItem("exam_token");
+                        const res = await fetch(`/api/exam/pyhunt/status?_=${Date.now()}`, {
+                           headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        const pyHuntStats = await res.json();
+                        const myProgress = pyHuntStats.data;
+                        
+                        if (myProgress && myProgress.status === "TERMINATED") {
+                          setPyHuntError(true);
+                          alert("You have been terminated from PyHunt due to violations.");
+                          return;
+                        }
+                        router.push("/pyhunt");
+                      } else {
+                        setPyHuntError(true);
+                      }
+                    }}>🚀 Start PyHunt</button>
                   </div>
                   {pyHuntError && <p className={styles.authError}>Invalid access code. Contact facilitator.</p>}
                 </div>
               </div>
             )}
-
             {/* PROFILE */}
             {activeNav === "Profile" && (
               <div className={styles.profileStack}>

@@ -30,6 +30,7 @@ interface ClueConfig {
 interface PyHuntConfig {
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
+  jumbleProblemB?: JumbleProblem;    // Round 2 Part 2
   round3: CodingProblem;
   round3b?: CodingProblem;         // Round 3 Part 2 (Dual)
   round4: CodingProblem;
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: PyHuntConfig = {
     { id: "q5", question: "Which operator is used for floor division?", options: [{ label: "A", text: "/" }, { label: "B", text: "//" }, { label: "C", text: "%" }, { label: "D", text: "**" }], correct: "B", explanation: "// is the floor division operator." },
   ],
   jumbleProblem: { title: "Fibonacci Logic (Part 1)", description: "Reorder the lines to correctly implement a recursive Fibonacci function that prints the 7th number (13).", lines: ["def fib(n):", "    if n <= 1:", "        return n", "    return fib(n-1) + fib(n-2)", "", "print(fib(7))"] },
+  jumbleProblemB: { title: "Factorial Logic (Part 2)", description: "Reorder the lines to correctly implement a recursive Factorial function that prints 5! (120).", lines: ["def fact(n):", "    if n <= 1:", "        return 1", "    return n * fact(n-1)", "", "print(fact(5))"] },
   round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
   round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
   round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
@@ -70,6 +72,7 @@ function parseCfg(parsed: any): PyHuntConfig {
   return {
     mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
     jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
+    jumbleProblemB: parsed.jumbleProblemB || DEFAULT_CONFIG.jumbleProblemB,
     round3: parsed.round3 || DEFAULT_CONFIG.round3,
     round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
@@ -760,7 +763,10 @@ function FinishScreen({ message, stats, timerSeconds, terminated, studentName }:
       <div style={{ color: "#fff", fontSize: "1.4rem", fontWeight: 900, marginBottom: 8, letterSpacing: "-0.01em" }}>
         BRAVO, {studentName.toUpperCase()}!
       </div>
-      <p style={{ color: "#28D7D6", fontSize: 16, fontWeight: 700, marginBottom: 32, opacity: 0.8 }}>{message}</p>
+      <p style={{ color: "#28D7D6", fontSize: 16, fontWeight: 700, marginBottom: 12, opacity: 0.8 }}>{message}</p>
+      <div style={{ background: "rgba(40, 215, 214, 0.1)", border: "1px solid rgba(40, 215, 214, 0.3)", padding: "12px 24px", borderRadius: "12px", color: "#28D7D6", fontWeight: 800, fontSize: "14px", marginBottom: 32, display: "inline-block" }}>
+        🎉 CONGRATULATIONS ON COMPLETING 4TH ROUND! NOW PROCEED TO 5TH ROUND (OFFLINE).
+      </div>
 
       <div className={styles.statsCard} style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
         <div className={styles.statItem} style={{ border: "1px solid rgba(251, 191, 36, 0.2)", background: "rgba(251, 191, 36, 0.03)" }}>
@@ -988,6 +994,9 @@ export default function PyHuntPage() {
             terminated,
             warning_count: warningCount,
             last_violation: lastViolation || undefined,
+            round1_score: finishStats.round1Score,
+            round1_time: finishStats.round1Time,
+            total_time: finished ? `${finishStats.minutes}m` : undefined,
           }),
         });
       } catch {}
@@ -1162,10 +1171,11 @@ export default function PyHuntPage() {
                 <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />
               )}
 
-              {/* ROUND 2 — SINGLE JUMBLE */}
+              {/* ROUND 2 — DUAL JUMBLE (Part A + Part B) */}
               {!showingClue && round === 1 && (
-                <RoundJumble
-                  problem={cfg.jumbleProblem}
+                <RoundJumbleDual
+                  problemA={cfg.jumbleProblem}
+                  problemB={cfg.jumbleProblemB || cfg.jumbleProblem}
                   onComplete={handleRoundComplete}
                   onWrong={recordWrong}
                 />
