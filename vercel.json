@@ -15,6 +15,14 @@
   ],
   "routes": [
     {
+      "src": "/api/admin/students/([^/]+)/ban",
+      "dest": "/api/admin/students/$1/ban"
+    },
+    {
+      "src": "/api/exam/history/([^/]+)",
+      "dest": "/api/exam/history/$1"
+    },
+    {
       "src": "/api/exam/(.*)",
       "dest": "python_api/index.py"
     },
