@@ -15,6 +15,18 @@
   ],
   "routes": [
     {
+      "src": "/api/health",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/docs",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
       "src": "/api/admin/students/([^/]+)/ban",
       "dest": "python_api/index.py"
     },
