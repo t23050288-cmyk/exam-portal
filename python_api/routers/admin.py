@@ -198,9 +198,15 @@ async def get_all_students(_: bool = Depends(verify_admin)):
     try:
         db = get_supabase()
         # Fetch ALL students regardless of exam_status
-        students_result = db.table("students").select("id, usn, email, name, branch").execute()
+        students_result = db.table("students").select("id, usn, email, name, branch, is_banned").execute()
         # Fetch all exam_status records
         status_result = db.table("exam_status").select("*").execute()
+        # Fetch completed exams count per student
+        results_result = db.table("exam_results").select("student_id").execute()
+        completed_map: dict = {}
+        for r in (results_result.data or []):
+            sid2 = r.get("student_id", "")
+            completed_map[sid2] = completed_map.get(sid2, 0) + 1
 
         # Build lookup map: student_id -> exam_status row
         status_map = {}
@@ -222,6 +228,8 @@ async def get_all_students(_: bool = Depends(verify_admin)):
                 last_active=es.get("last_active"),
                 submitted_at=es.get("submitted_at"),
                 started_at=es.get("started_at"),
+                is_banned=s.get("is_banned", False) or False,
+                exams_completed=completed_map.get(sid, 0),
             ))
         return rows
     except Exception as e:
