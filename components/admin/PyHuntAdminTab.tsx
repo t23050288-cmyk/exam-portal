@@ -578,6 +578,8 @@ function LiveStatusView() {
             <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT NAME</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>R1 SCORE</th>
+              <th style={{padding:"12px 8px", color:"#3a5578"}}>R1 TIME</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND STATUS</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>WARNINGS</th>
               <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
@@ -612,6 +614,12 @@ function LiveStatusView() {
                     }}>
                       {isFinished ? "✓" : (isTerminated ? "X" : roundNum)}
                     </span>
+                  </td>
+                  <td style={{padding:"12px 8px", fontWeight: 700, color: "#10b981"}}>
+                    {s.round1_score || "-"}
+                  </td>
+                  <td style={{padding:"12px 8px", fontSize: 11, opacity: 0.8}}>
+                    {s.round1_time || "-"}
                   </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{

@@ -66,6 +66,30 @@ export default function LeaderboardPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Rank", "Name", "USN", "Branch", "Score", "Total Marks", "Percentage", "Time Taken"];
+    const rows = filteredEntries.map(e => [
+      e.rank,
+      e.name.replace(/,/g, " "), // avoid csv comma issue
+      e.usn,
+      e.branch,
+      e.score,
+      e.total_marks,
+      e.percentage.toFixed(1) + "%",
+      formatTime(e.time_taken_seconds)
+    ]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leaderboard_${selectedExam}_${selectedBranch}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -151,6 +175,25 @@ export default function LeaderboardPage() {
             <option value="ALL">All Branches</option>
             {branches.map(br => <option key={br} value={br}>{br}</option>)}
           </select>
+
+          <button
+            onClick={handleExportCSV}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "1px solid rgba(16,185,129,0.4)",
+              background: "transparent",
+              color: "#10b981",
+              fontSize: 12,
+              cursor: "pointer",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 4
+            }}
+          >
+            📥 Export CSV
+          </button>
 
           <button
             onClick={handleDeleteAllLeaderboard}

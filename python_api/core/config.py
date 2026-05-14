@@ -21,12 +21,19 @@ class Settings(BaseSettings):
     # Admin
     admin_secret: str = "rudranshsarvam"
 
-    # AI — Inception Spectral Parser
-    inception_api_key: str = ""  # Set INCEPTION_API_KEY in .env to enable AI parsing
-    nvidia_api_key: str = ""     # Set NVIDIA_API_KEY in .env as fallback
+    # Admin — Inception Spectral Parser
+    inception_api_key: str = ""  
+    
+    # Student — Groq AI (Rounds 3 & 4)
+    groq_api_key: str = ""
+    
+    # Legacy/Proctor — NVIDIA NIM (optional fallback or generic chat)
+    nvidia_api_key: str = ""
 
     ai_model: str = "mercury-2"
     ai_base_url: str = "https://api.inceptionlabs.ai/v1"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    proctor_model: str = "deepseek-ai/deepseek-v4-flash"
     ai_thinking: bool = True
 
     # Exam

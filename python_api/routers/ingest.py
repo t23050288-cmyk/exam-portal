@@ -102,26 +102,20 @@ def _sanitize_text_for_ai(text: str) -> str:
 
 
 async def _call_inception_api(raw_text: str, chunk_index: int = 0) -> dict:
-    """Call AI API for AI-powered spectral parsing (Supports Inception and NVIDIA fallbacks)."""
+    """Call Inception AI API for AI-powered spectral parsing (Strictly Admin)."""
     settings = get_settings()
     
-    api_key = settings.inception_api_key or settings.nvidia_api_key
+    api_key = settings.inception_api_key
     if not api_key:
-        raise ValueError("Neither INCEPTION_API_KEY nor NVIDIA_API_KEY configured")
+        raise ValueError("INCEPTION_API_KEY not configured. Admin ingestion requires Inception AI.")
 
     # Sanitize text to remove any image references that could cause errors
     raw_text = _sanitize_text_for_ai(raw_text)
 
     prompt = _SPECTRAL_PROMPT.replace("{raw_text}", raw_text)
 
-    # Determine URL and Model based on which key we are using
-    if settings.inception_api_key:
-        url = f"{settings.ai_base_url}/chat/completions"
-        model = settings.ai_model
-    else:
-        # NVIDIA NIM Fallback (DeepSeek)
-        url = "https://integrate.api.nvidia.com/v1/chat/completions"
-        model = "deepseek-ai/deepseek-v3" # Robust JSON capability
+    url = f"{settings.ai_base_url}/chat/completions"
+    model = settings.ai_model
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -134,13 +128,11 @@ async def _call_inception_api(raw_text: str, chunk_index: int = 0) -> dict:
             {
                 "role": "system", 
                 "content": "You are a precise data extraction specialist. Output valid JSON only. "
-                           "Keep internal reasoning brief. "
                            "Focus on the provided snippet of text."
             },
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.1, # Lower temperature for extraction accuracy
-        "top_p": 0.95,
+        "temperature": 0.1,
         "max_tokens": 16384
     }
 
@@ -575,23 +567,22 @@ async def upload_and_parse(
         else:
             raw_text = data.decode("utf-8", errors="replace")
 
-        if settings.inception_api_key or settings.nvidia_api_key:
+        if settings.inception_api_key:
             try:
                 questions, warnings, ai_meta = await _spectral_parse_with_ai(raw_text)
                 ai_powered = True
-                provider = "Inception" if settings.inception_api_key else "NVIDIA (DeepSeek)"
                 logger.info(
-                    f"Spectral AI parse ({provider}): {len(questions)} questions from '{filename}' | "
+                    f"Spectral AI parse (Inception): {len(questions)} questions from '{filename}' | "
                     f"Finesse Check: {ai_meta.get('finesse_check', 'n/a')}"
                 )
             except Exception as ai_err:
-                logger.warning(f"Spectral AI failed, falling back to regex: {ai_err}")
+                logger.warning(f"Inception Spectral AI failed, falling back to regex: {ai_err}")
                 warnings.append(f"AI spectral parsing failed: {str(ai_err)}. Falling back to legacy mode.")
                 questions, regex_warns = _extract_questions_from_text(raw_text)
                 warnings += regex_warns
         else:
-            logger.info(f"AI keys (Inception/NVIDIA) not set — using legacy regex harvester for '{filename}'")
-            warnings.append("ℹ AI spectral parsing disabled (No API Key). Using legacy mode.")
+            logger.info(f"Inception API key not set — using legacy regex harvester for '{filename}'")
+            warnings.append("ℹ AI spectral parsing disabled (No Inception Key). Using legacy mode.")
             questions, regex_warns = _extract_questions_from_text(raw_text)
             warnings += regex_warns
     else:

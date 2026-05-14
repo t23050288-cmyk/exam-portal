@@ -704,20 +704,17 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
     """Admin endpoint to see all PyHunt student progress, joined with student identity."""
     db = get_supabase()
     try:
-        # Fetch all progress
-        progress_res = db.table("pyhunt_progress").select("*").order("last_active", desc=True).execute()
-        # Fetch all students for name/USN mapping
-        students_res = db.table("students").select("id, usn, name").execute()
-        student_map = {str(s["id"]): s for s in (students_res.data or [])}
+        # Fetch all progress with student identity join (Database-side Join)
+        res = db.table("pyhunt_progress").select("*, students(name, usn)").order("last_active", desc=True).execute()
         
         rows = []
-        for p in (progress_res.data or []):
-            sid = str(p.get("student_id", ""))
-            s = student_map.get(sid, {})
+        for p in (res.data or []):
+            s = p.get("students") or {}
+            # Prioritize joined data from 'students' table, fallback to cached columns in 'pyhunt_progress'
             rows.append({
                 **p,
-                "student_name": s.get("name", "Unknown"),
-                "student_usn": s.get("usn", "Unknown"),
+                "student_name": s.get("name") or p.get("student_name") or "Unknown",
+                "student_usn": s.get("usn") or p.get("usn") or "Unknown",
             })
         return rows
     except Exception as e:

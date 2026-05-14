@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
-import { getAICompletion, streamAICompletion } from "@/lib/ai-client";
+import { getAICompletion, streamAICompletion, checkCodeAI, getAIHint } from "@/lib/ai-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import GoldenOrb from "@/components/GoldenOrb";
@@ -363,52 +363,41 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
     if (!ready || running) return;
     setRunning(true); setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null);
     try {
-      // Run tests
+      // 1. Run local tests (Pyodide)
       const { results, allPass: ap } = await runTests(code, problem.testCases);
-      setTestResults(results); setAllPass(ap);
-      // Also get stdout for display
+      setTestResults(results);
       const out = await runCode(code);
       setOutput(out);
-      // AI feedback (Streaming)
+
+      // 2. AI Verification (Groq)
       setAiLoading(true); setAiReasoning(null);
-      const prompt = `Review this Python solution for round ${roundNum}.
-Problem Title: ${problem.title}
-Description: ${problem.description}
-Code:
-\`\`\`python
-${code}
-\`\`\`
-Test Cases: ${JSON.stringify(problem.testCases)}
-
-Please provide a brief, encouraging review of the logic. If it works, congratulate them. If it has issues, explain why without giving the full answer immediately. Keep it under 3 sentences.`;
-
-      try {
-        await streamAICompletion(
-          [{ role: "user", content: prompt }],
-          (token) => setAiFeedback(prev => (prev || "") + token),
-          (reasoningToken) => setAiReasoning(prev => (prev || "") + reasoningToken)
-        );
-
-        if (!ap) {
-          const hintPrompt = `The student is stuck on the Python problem: "${problem.title}".
-Code:
-\`\`\`python
-${code}
-\`\`\`
-Errors/Issues: ${results.map((r,i)=>`Test ${i+1}: got "${r.got}", expected "${r.expected}"`).join("; ")}
-
-Provide a subtle, helpful hint to guide them toward the solution. Do not provide the full code. Keep it one sentence.`;
-
-          await streamAICompletion(
-            [{ role: "user", content: hintPrompt }],
-            (token) => setAiHint(prev => (prev || "") + token)
-          );
-          onWrong();
-        }
-      } catch (err) {
-        console.error("AI Error:", err);
-        setAiFeedback("🤖 AI currently unavailable — keep going!");
+      
+      if (ap) {
+        // Verify logic protocol even if tests pass
+        const res = await checkCodeAI({
+          problem_title: problem.title,
+          problem_description: problem.description,
+          code,
+          test_cases: problem.testCases,
+          round_num: roundNum
+        });
+        setAiFeedback(res.feedback);
+        // Strict logic enforcement: only pass if AI agrees
+        setAllPass(res.correct === true);
+      } else {
+        // Get help hint
+        const res = await getAIHint({
+          problem_title: problem.title,
+          code,
+          error: results.find(r => !r.pass)?.got || out.error || out.stderr
+        });
+        setAiHint(res.hint);
+        setAllPass(false);
+        onWrong();
       }
+    } catch (err) {
+      console.error("AI Error:", err);
+      setAiFeedback("🤖 AI currently unavailable — keep going!");
     } finally { setRunning(false); setAiLoading(false); }
   };
 
@@ -463,7 +452,7 @@ Provide a subtle, helpful hint to guide them toward the solution. Do not provide
               ))}
             </div>
           )}
-          {aiLoading && <div className={styles.aiLoading}>🤖 DeepSeek is reviewing your code…</div>}
+          {aiLoading && <div className={styles.aiLoading}>🤖 Groq is reviewing your code…</div>}
           
           {aiReasoning && (
             <div className={styles.aiReasoningBox}>
@@ -987,29 +976,42 @@ export default function PyHuntPage() {
   useEffect(() => {
     const updateProgress = async () => {
       try {
-        const examStudent2 = sessionStorage.getItem("exam_student");
-        const sid = examStudent2 ? JSON.parse(examStudent2).id : "anonymous";
+        const examToken = sessionStorage.getItem("exam_token") || "";
+        if (!examToken) return;
+
         const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
-        const token = sessionStorage.getItem("exam_token") || "";
-        if (!token) return;
-        await fetch("/api/exam/pyhunt/sync-progress", {
+        
+        const payload = {
+          current_round: currentRound,
+          finished,
+          terminated,
+          warning_count: warningCount,
+          last_violation: lastViolation || undefined,
+          round1_score: finishStats.round1Score,
+          round1_time: finishStats.round1Time,
+          total_time: finished ? `${finishStats.minutes}m` : undefined,
+        };
+
+        const res = await fetch("/api/exam/pyhunt/sync-progress", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify({
-            current_round: currentRound,
-            finished,
-            terminated,
-            warning_count: warningCount,
-            last_violation: lastViolation || undefined,
-            round1_score: finishStats.round1Score,
-            round1_time: finishStats.round1Time,
-            total_time: finished ? `${finishStats.minutes}m` : undefined,
-          }),
+          headers: { 
+            "Content-Type": "application/json", 
+            "Authorization": `Bearer ${examToken}` 
+          },
+          body: JSON.stringify(payload),
         });
-      } catch {}
+
+        if (res.ok) {
+          console.log(`[PyHuntSync] Successfully synced: ${currentRound} (Score: ${finishStats.round1Score || "N/A"})`);
+        } else {
+          console.warn(`[PyHuntSync] Server returned error: ${res.status}`);
+        }
+      } catch (err) {
+        console.error("[PyHuntSync] Network/Logic error:", err);
+      }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation]);
+  }, [round, finished, terminated, warningCount, lastViolation, finishStats]);
 
   // Fullscreen Watcher
   useEffect(() => {

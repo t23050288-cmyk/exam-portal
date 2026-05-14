@@ -77,6 +77,7 @@ async def get_current_student(
     student_id = payload.get("sub")
     # Support both 'usn' (new) and 'roll_number' (legacy)
     usn = payload.get("usn") or payload.get("roll_number")
+    name = payload.get("name", "Student")
     branch = payload.get("branch", "CS")
 
     if not student_id or not usn:
@@ -89,16 +90,20 @@ async def get_current_student(
     if branch == "Syncing..." or not branch:
         try:
             db = get_supabase()
-            res = db.table("students").select("branch").eq("id", student_id).maybe_single().execute()
-            if res.data and res.data.get("branch"):
-                branch = res.data["branch"]
-                print(f"[SECURITY] Resolved 'Syncing...' branch to '{branch}' for student {usn}")
+            res = db.table("students").select("branch, name").eq("id", student_id).maybe_single().execute()
+            if res.data:
+                if res.data.get("branch"):
+                    branch = res.data["branch"]
+                if res.data.get("name"):
+                    name = res.data["name"]
+                print(f"[SECURITY] Resolved profile for student {usn}")
         except:
             branch = "CS" # Fallback to CS if DB check fails
 
     return {
         "student_id": student_id,
         "usn": usn,
+        "name": name,
         "branch": branch,
         "token": token
     }

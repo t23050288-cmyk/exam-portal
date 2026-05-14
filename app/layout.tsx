@@ -25,15 +25,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              /*
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js')
-                    .then(function(reg) { console.log('[SW] Registered:', reg.scope); })
+                    .then(function(reg) { 
+                      console.log('[SW] Registered:', reg.scope);
+                      
+                      // Check for updates every 15 minutes
+                      setInterval(() => { reg.update(); }, 15 * 60 * 1000);
+
+                      reg.onupdatefound = () => {
+                        const newWorker = reg.installing;
+                        if (newWorker) {
+                          newWorker.onstatechange = () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                              // New update available and installed - force reload to apply
+                              console.log('[SW] New version found! Reloading...');
+                              window.location.reload();
+                            }
+                          };
+                        }
+                      };
+                    })
                     .catch(function(err) { console.warn('[SW] Registration failed:', err); });
                 });
+
+                // Handle controller change (e.g. after skipWaiting)
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                  if (refreshing) return;
+                  refreshing = true;
+                  window.location.reload();
+                });
               }
-              */
             `,
           }}
         />

@@ -168,7 +168,9 @@ export default function DashboardPage() {
     // Reload history + exam list when student returns (e.g. after exam submission)
     const onFocus = async () => {
       const token2 = sessionStorage.getItem("exam_token") || "";
-      const histResp = await fetch("/api/exam/history", {
+      // Aggressively bypass all caches on window focus
+      const cacheBust = `?_=${Date.now()}`;
+      const histResp = await fetch(`/api/exam/history${cacheBust}`, {
         headers: { "Authorization": `Bearer ${token2}` },
         cache: "no-store",
       }).then(r => r.ok ? r.json() : null).catch(() => null);

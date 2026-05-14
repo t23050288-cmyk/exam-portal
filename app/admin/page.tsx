@@ -493,10 +493,10 @@ export default function AdminPage() {
     { id: "students",    label: "Students",    icon: "👥" },
     { id: "ingest",      label: "Harvester",   icon: "🌌" },
     // { id: "control",     label: "Control",     icon: "🛸" },  // Commented out – not needed yet
-    { id: "grading",     label: "Grading",     icon: "⚙️" },
+    // { id: "grading",     label: "Grading",     icon: "⚙️" },
     { id: "sos",         label: "SOS",         icon: "🆘" },
     { id: "pyhunt",      label: "PyHunt",      icon: "🐍" },
-    { id: "analytics",   label: "Analytics",   icon: "📊" },
+    // { id: "analytics",   label: "Analytics",   icon: "📊" },
   ];
 
   return (
@@ -745,14 +745,14 @@ export default function AdminPage() {
       {/* ── New Feature Tabs ── */}
       {activeTab === "leaderboard" && <LeaderboardPage />}
       {activeTab === "dashboard"   && <AdminDashboard examId={activeExamIds[0] || ""} />}
-      {activeTab === "grading"     && <GradingQueue />}
+      {/* activeTab === "grading"     && <GradingQueue /> */}
       {activeTab === "ingest"      && <IngestPage />}
       {activeTab === "control"     && <OrbitalControl />}
       {activeTab === "questions"   && <QuestionsTab />}
       {activeTab === "students"    && <StudentsTab />}
       {activeTab === "sos"         && <SOSAdminPage />}
       {activeTab === "pyhunt"      && <PyHuntAdminTab />}
-      {activeTab === "analytics"   && <AnalyticsTab />}
+      {/* activeTab === "analytics"   && <AnalyticsTab /> */}
     </div>
   );
 }
@@ -887,96 +887,9 @@ function WarningBadge({ count }: { count: number }) {
   return <span className="badge badge-danger">🔴 {count}</span>;
 }
 
-// ── Analytics Tab ─────────────────────────────────────────────
+// ── Analytics Tab (Commented) ───────────────────────────────
+/*
 function AnalyticsTab() {
-  const [stats, setStats] = useState<StudentDetailedStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [branchFilter, setBranchFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState<StudentDetailedStats | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchStudentDetailedStats(branchFilter, categoryFilter);
-      setStats(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [branchFilter, categoryFilter]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const filtered = stats.filter(s => 
-    (s.name || "").toLowerCase().includes(search.toLowerCase()) || 
-    (s.usn || "").toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div className={adminStyles.managementPage}>
-      <div className={adminStyles.header}>
-        <h2 className={adminStyles.headerTitle}>Academic Analytics</h2>
-        <div style={{ display: "flex", gap: 12 }}>
-          <select 
-            className={adminStyles.input} 
-            value={branchFilter} 
-            onChange={(e) => setBranchFilter(e.target.value)}
-            style={{ width: 140, height: 38, fontSize: 13 }}
-          >
-            <option value="all">All Branches</option>
-            {ALL_BRANCH_DATA.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select 
-            className={adminStyles.input} 
-            value={categoryFilter} 
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{ width: 140, height: 38, fontSize: 13 }}
-          >
-            <option value="all">All Categories</option>
-            <option value="Aptitude">Aptitude</option>
-            <option value="Programming">Programming</option>
-            <option value="Others">Others</option>
-          </select>
-          <div style={{ position: "relative" }}>
-            <input 
-              className={adminStyles.input}
-              placeholder="Search USN or Name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: 34, width: 220, height: 38, fontSize: 13 }}
-            />
-            <span style={{ position: "absolute", left: 10, top: 9, opacity: 0.4 }}>🔍</span>
-          </div>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
-          <div className="spinner" style={{ width: 40, height: 40 }} />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className={adminStyles.empty}>No matching student records found.</div>
-      ) : (
-        <div className={adminStyles.tableWrapper}>
-          <table className={adminStyles.table}>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Branch</th>
-                <th>Exams Done</th>
-                <th>Avg. Score</th>
-                <th>Last Active</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr key={s.student_id}>
                   <td>
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <span style={{ fontWeight: 600 }}>{s.name}</span>
@@ -2276,7 +2189,7 @@ function StudentsTab() {
         <div className={adminStyles.tableWrapper}>
           <table className={adminStyles.table}>
             <thead>
-              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>PyHunt</th><th>Actions</th></tr>
+              <tr><th>#</th><th>USN</th><th>Name</th><th>Email</th><th>Branch</th><th>Completed</th><th>Avg %</th><th>PyHunt</th><th>Actions</th></tr>
 
             </thead>
             <tbody>
@@ -2293,6 +2206,25 @@ function StudentsTab() {
                     <span style={{ padding:"4px 10px", borderRadius:20, fontSize:11, fontWeight:800, background: comp.done >= comp.total && comp.total > 0 ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.1)", color: comp.done >= comp.total && comp.total > 0 ? "#10b981" : "#f59e0b", border: comp.done >= comp.total && comp.total > 0 ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(245,158,11,0.2)" }}>
                       {comp.done}/{comp.total}
                     </span>
+                  </td>
+                  <td>
+                    {(() => {
+                      const sResults = examResults.filter((r: any) => r.student_id === s.student_id);
+                      if (sResults.length === 0) return <span style={{ opacity: 0.2 }}>—</span>;
+                      let totalPct = 0;
+                      sResults.forEach((r: any) => {
+                        totalPct += (r.score / (r.total_marks || 1)) * 100;
+                      });
+                      const avg = totalPct / sResults.length;
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ width: `${avg}%`, height: "100%", background: avg >= 70 ? "#10b981" : avg >= 40 ? "#f59e0b" : "#ef4444", boxShadow: "0 0 8px currentColor" }} />
+                          </div>
+                          <span style={{ fontWeight: 800, fontSize: 11, minWidth: 28 }}>{avg.toFixed(0)}%</span>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td>
                     {(() => {

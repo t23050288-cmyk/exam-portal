@@ -9,7 +9,21 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/(.*)",
-        headers: [{ key: "X-Content-Type-Options", value: "nosniff" }],
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Default for all pages: check with server every time (0s cache)
+          // but allow 5 mins of "stale" time for performance if offline.
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" }
+        ],
+      },
+      // Service Worker — NEVER cache this, or updates will fail
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
       },
       // Static assets — safe to cache (hashed filenames)
       {

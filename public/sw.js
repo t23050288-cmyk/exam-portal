@@ -1,10 +1,10 @@
 /**
- * Service Worker — exam-portal v5
+ * Service Worker — exam-portal v6
  * ONLY caches Pyodide CDN files and hashed Next.js static assets.
  * HTML pages are NEVER cached — always network-first.
  */
 
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const PYODIDE_CACHE = `exam-pyodide-${CACHE_VERSION}`;
 const STATIC_CACHE  = `exam-static-${CACHE_VERSION}`;
 const PYODIDE_CDN   = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/";

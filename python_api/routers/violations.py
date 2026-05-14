@@ -263,6 +263,8 @@ async def sync_pyhunt_progress(
             "current_round": request.current_round,
             "status": status,
             "last_active": datetime.now(timezone.utc).isoformat(),
+            "student_name": current.get("name"), # Cache for redundancy
+            "usn": current.get("usn"),
         }
         if request.turtle_image:
             data["turtle_image"] = request.turtle_image
@@ -277,7 +279,7 @@ async def sync_pyhunt_progress(
         if request.total_time:
             data["total_time"] = request.total_time
             
-        print(f"[PyHuntSync] Syncing progress for student {student_id}: Round {request.current_round}, status {status}")
+        print(f"[PyHuntSync] SYNC: {current.get('usn')} | {request.current_round} | {status} | Score: {request.round1_score}")
         db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()
         return {"ok": True}
     except Exception as e:

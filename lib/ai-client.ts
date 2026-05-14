@@ -131,3 +131,50 @@ export async function streamAICompletion(
 
   return fullText;
 }
+
+/**
+ * Perform a deep logic check on student code (Round 3 & 4)
+ * Returns { correct: boolean, score: number, status: string, feedback: string }
+ */
+export async function checkCodeAI(params: {
+  problem_title: string;
+  problem_description: string;
+  code: string;
+  test_cases: any[];
+  round_num: number;
+}) {
+  const res = await fetch("/api/ai/check-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(err.error || `AI check failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Get a subtle hint for a stuck student
+ */
+export async function getAIHint(params: {
+  problem_title: string;
+  code: string;
+  error?: string;
+}) {
+  const res = await fetch("/api/ai/hint", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(err.error || `AI hint failed (${res.status})`);
+  }
+
+  return res.json();
+}
