@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "llama3-70b-8192",
+          model: "llama-3.1-70b-versatile",
           messages,
           temperature: 0.3,
           max_tokens: 1024,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "llama-3.1-70b-versatile",
         messages,
         temperature: 0.3,
         max_tokens: 1024,
