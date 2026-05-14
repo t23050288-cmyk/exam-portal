@@ -83,7 +83,7 @@ self.onmessage = async (event) => {
 
   /* ─ FORMAT 1: type="run" — single code run ─ */
   if (msg.type === "run") {
-    const stdinLines = typeof msg.stdin === "string" ? msg.stdin.split("\n").filter(Boolean) : [];
+    const stdinLines = typeof msg.stdin === "string" ? msg.stdin.split(/\r?\n/).filter(Boolean) : [];
     try {
       const { stdout, stderr } = await runSingle(pyodide, msg.code, stdinLines);
       postMessage({ id, type: "result", stdout, stderr, error: null });
@@ -105,7 +105,7 @@ self.onmessage = async (event) => {
     const results = [];
     for (let i = 0; i < testCases.length; i++) {
       const tc = testCases[i];
-      const inputLines = typeof tc.input === "string" ? tc.input.split("\n").filter(Boolean) : [];
+      const inputLines = typeof tc.input === "string" ? tc.input.split(/\r?\n/).filter(Boolean) : [];
       const expected   = String(tc.expected || "").trim();
       try {
         const { stdout, stderr } = await runSingle(pyodide, msg.code, inputLines, 12000);
@@ -126,7 +126,7 @@ self.onmessage = async (event) => {
   const results = [];
   for (let i = 0; i < testCases.length; i++) {
     const tc = testCases[i];
-    const inputLines = typeof tc.input === "string" ? tc.input.split("\n").filter(Boolean) : [];
+    const inputLines = typeof tc.input === "string" ? tc.input.split(/\r?\n/).filter(Boolean) : [];
     try {
       const { stdout } = await runSingle(pyodide, msg.code, inputLines, msg.timeLimitMs || 10000);
       const actual   = stdout.trim();
