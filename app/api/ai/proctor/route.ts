@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       model: groq('llama-3.1-70b-versatile'),
       messages,
       temperature: 0.3,
-      maxTokens: 1024,
+      maxOutputTokens: 1024,
     });
     // Return OpenAI-compatible format (what getAICompletion() expects)
     return Response.json({
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         model: groq('llama-3.1-70b-versatile'),
         messages,
         temperature: 0.3,
-        maxTokens: 1024,
+        maxOutputTokens: 1024,
       });
 
       for await (const delta of result.textStream) {

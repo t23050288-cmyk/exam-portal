@@ -43,7 +43,7 @@ or
     model: groq('llama-3.1-70b-versatile'),
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.1,
-    maxTokens: 150,
+    maxOutputTokens: 150,
   });
 
   let text = result.text.trim();
