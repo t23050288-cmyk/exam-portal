@@ -724,16 +724,22 @@ async def get_pyhunt_config_public():
     db = get_supabase()
     try:
         # Include is_active column so student portal knows if the competition is live
-        result = db.table("exam_config").select("category, updated_at, is_active").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
-        if result.data and result.data[0].get("category"):
-            import json as _json
-            cfg = _json.loads(result.data[0]["category"])
-            return {
-                "ok": True, 
-                "config": cfg, 
-                "updated_at": result.data[0].get("updated_at"),
-                "is_active": result.data[0].get("is_active", True)
-            }
+        result = db.table("exam_config").select("config_json, category, updated_at, is_active").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        if result.data:
+            row = result.data[0]
+            # Try config_json first, then fallback to category
+            cfg = row.get("config_json")
+            if not cfg and row.get("category") and row["category"] != "PYHUNT":
+                import json as _json
+                cfg = _json.loads(row["category"])
+                
+            if cfg:
+                return {
+                    "ok": True, 
+                    "config": cfg, 
+                    "updated_at": row.get("updated_at"),
+                    "is_active": row.get("is_active", True)
+                }
         return {"ok": False, "config": None, "is_active": False}
     except Exception as e:
         print(f"get_pyhunt_config error: {e}")
@@ -758,7 +764,7 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
         existing = db.table("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
         if existing.data:
             db.table("exam_config").update({
-                "category": config_str, 
+                "config_json": parsed, 
                 "is_active": is_active, 
                 "duration_minutes": 0,
                 "scheduled_start": None,
@@ -767,7 +773,7 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
         else:
             db.table("exam_config").insert({
                 "exam_title": "PYHUNT_GLOBAL_CONFIG", 
-                "category": config_str, 
+                "config_json": parsed, 
                 "is_active": is_active, 
                 "duration_minutes": 0,
                 "scheduled_start": None,
