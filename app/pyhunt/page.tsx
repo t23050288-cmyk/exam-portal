@@ -28,16 +28,18 @@ interface ClueConfig {
   unlockCode: string;   // Student must type this code to proceed
 }
 interface PyHuntConfig {
-  entryAccessCode: string;         // Required to start the hunt
+  entryAccessCode: string;
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
-  jumbleProblemB?: JumbleProblem;    // Round 2 Part 2
+  jumbleProblemB?: JumbleProblem;
   round3: CodingProblem;
-  round3b?: CodingProblem;         // Round 3 Part 2 (Dual)
+  round3b?: CodingProblem;
   round4: CodingProblem;
-  round4UnlockCode: string;        // Code to finish Round 4
-  round1Clues: ClueConfig[];       // NEW: Multiple distribution nodes for R1
-  clues: ClueConfig[];             // Fixed clues for R2-R4
+  round4UnlockCode: string;
+  round1Clues: ClueConfig[];
+  round2Clues: ClueConfig[];
+  round3Clues: ClueConfig[];
+  round4Clues: ClueConfig[];
   finishMessage: string;
 }
 
@@ -59,14 +61,10 @@ const DEFAULT_CONFIG: PyHuntConfig = {
   round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
   round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
   round4UnlockCode: "FINISH",
-  round1Clues: [
-    { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" }
-  ],
-  clues: [
-    { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
-    { clueText: "🗝️ Round 3 Complete! Check Locker 301.", unlockCode: "ROUND3" },
-    { clueText: "🗝️ Round 4 Complete! Hunt Finished! Search near the main entrance for your final results.", unlockCode: "FINISH" },
-  ],
+  round1Clues: [{ clueText: "🗝️ Round 1 Complete! Go to Library.", unlockCode: "LIBRARY" }],
+  round2Clues: [{ clueText: "🗝️ Round 2 Complete! Go to Lab 2.", unlockCode: "LAB2" }],
+  round3Clues: [{ clueText: "🗝️ Round 3 Complete! Go to Locker 301.", unlockCode: "LOCKER" }],
+  round4Clues: [{ clueText: "🗝️ Round 4 Complete! Go to Main Entrance.", unlockCode: "FINISH" }],
   finishMessage: "Congratulations! You have completed the ultimate Python trial.",
 };
 
@@ -85,8 +83,10 @@ function parseCfg(parsed: any): PyHuntConfig {
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
     round4UnlockCode: parsed.round4UnlockCode || DEFAULT_CONFIG.round4UnlockCode,
     round1Clues: parsed.round1Clues || DEFAULT_CONFIG.round1Clues,
+    round2Clues: parsed.round2Clues || DEFAULT_CONFIG.round2Clues,
+    round3Clues: parsed.round3Clues || DEFAULT_CONFIG.round3Clues,
+    round4Clues: parsed.round4Clues || DEFAULT_CONFIG.round4Clues,
     entryAccessCode: parsed.entryAccessCode || DEFAULT_CONFIG.entryAccessCode,
-    clues: parsed.clues || DEFAULT_CONFIG.clues,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
 }
@@ -1301,14 +1301,19 @@ export default function PyHuntPage() {
               {/* CLUE SCREEN (ORBITAL DISTRIBUTION FOR ROUND 1) */}
               {showingClue && (
                 (() => {
-                  let activeClue = null;
-                  if (round === 0 && cfg.round1Clues && cfg.round1Clues.length > 0) {
-                    const idx = clueRank ? (clueRank - 1) % cfg.round1Clues.length : 0;
-                    activeClue = cfg.round1Clues[idx];
-                  } else if (round > 0) {
-                    activeClue = cfg.clues[round - 1];
-                  }
-                  return <ClueScreen clue={activeClue!} onUnlock={handleUnlock} />;
+                  let activeClue: ClueConfig | null = null;
+                  const getDynamicClue = (clues: ClueConfig[]) => {
+                    if (!clues || clues.length === 0) return null;
+                    const idx = clueRank ? (clueRank - 1) % clues.length : 0;
+                    return clues[idx];
+                  };
+
+                  if (round === 0) activeClue = getDynamicClue(cfg.round1Clues);
+                  else if (round === 1) activeClue = getDynamicClue(cfg.round2Clues);
+                  else if (round === 2) activeClue = getDynamicClue(cfg.round3Clues);
+                  else if (round === 3) activeClue = getDynamicClue(cfg.round4Clues);
+
+                  return activeClue ? <ClueScreen clue={activeClue} onUnlock={handleUnlock} /> : null;
                 })()
               )}
 
