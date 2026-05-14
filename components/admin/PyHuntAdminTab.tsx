@@ -221,7 +221,7 @@ export default function PyHuntAdminTab() {
       PyHuntConfigSchema.parse(cfg);
     } catch (e: any) {
       if (e instanceof z.ZodError) {
-        alert("❌ Cannot save! Config has validation errors:\n" + e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join('\n'));
+        alert("❌ Cannot save! Config has validation errors:\n" + e.issues.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('\n'));
       }
       return;
     }
@@ -279,7 +279,7 @@ export default function PyHuntAdminTab() {
       alert("✅ Protocol Applied! Remember to 'Save All Changes' to persist.");
     } catch (e: any) {
       if (e instanceof z.ZodError) {
-        alert("❌ Invalid JSON Protocol Structure:\n" + e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join('\n'));
+        alert("❌ Invalid JSON Protocol Structure:\n" + e.issues.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('\n'));
       } else {
         alert("❌ Invalid JSON Protocol: " + e.message);
       }
@@ -561,7 +561,7 @@ export default function PyHuntAdminTab() {
       })()}
 
       {/* ══ LIVE STATUS TAB ══ */}
-      {sub==="status" && <LiveStatusView />}
+      {sub==="status" && <LiveStatusView cfg={cfg} />}
       {sub==="marks" && <MarksView cfg={cfg} />}
 
       {/* ══ PROTOCOL JSON EDITOR ══ */}
@@ -686,7 +686,7 @@ function MarksView({ cfg }: { cfg: PyHuntConfig }) {
   );
 }
 
-function LiveStatusView() {
+function LiveStatusView({ cfg }: { cfg: PyHuntConfig }) {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedArt, setSelectedArt] = useState<{ id: string, name: string, img: string } | null>(null);
@@ -1039,9 +1039,9 @@ function LiveStatusView() {
             {/* Tab Selector */}
             <div className="flex bg-black/40 p-2 gap-2 border-y border-white/5">
               {[
-                { id: "r3", label: "Round 3 (Part A)", exists: !!selectedCode.r3, problem: config.round3 },
-                { id: "r3b", label: "Round 3 (Part B)", exists: !!selectedCode.r3b, problem: config.round3b || config.round3 },
-                { id: "r4", label: "Round 4", exists: !!selectedCode.r4, problem: config.round4 },
+                { id: "r3", label: "Round 3 (Part A)", exists: !!selectedCode.r3, problem: cfg.round3 },
+                { id: "r3b", label: "Round 3 (Part B)", exists: !!selectedCode.r3b, problem: cfg.round3b || cfg.round3 },
+                { id: "r4", label: "Round 4", exists: !!selectedCode.r4, problem: cfg.round4 },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1064,7 +1064,7 @@ function LiveStatusView() {
             <div className="flex-1 overflow-auto p-6 bg-black/20">
               {activeCodeTab === "r3" && selectedCode.r3 && (
                 <RoundCoding 
-                  problem={config.round3} 
+                  problem={cfg.round3} 
                   roundNum={3} 
                   partLabel="Part A"
                   initialCode={selectedCode.r3}
@@ -1075,7 +1075,7 @@ function LiveStatusView() {
               )}
               {activeCodeTab === "r3b" && selectedCode.r3b && (
                 <RoundCoding 
-                  problem={config.round3b || config.round3} 
+                  problem={cfg.round3b || cfg.round3} 
                   roundNum={3} 
                   partLabel="Part B"
                   initialCode={selectedCode.r3b}
@@ -1086,7 +1086,7 @@ function LiveStatusView() {
               )}
               {activeCodeTab === "r4" && selectedCode.r4 && (
                 <RoundCoding 
-                  problem={config.round4} 
+                  problem={cfg.round4} 
                   roundNum={4} 
                   initialCode={selectedCode.r4}
                   onComplete={() => {}} 

@@ -1508,7 +1508,7 @@ export default function PyHuntPage() {
           setTerminated(true);
           setFinished(true);
           const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats({ minutes: duration, wrongs: totalWrongs, warnings: 3 });
+          setFinishStats(prev => ({ ...prev, minutes: duration, wrongs: totalWrongs, warnings: 3 }));
         }}
         onViolation={(type, meta) => {
           setLastViolation(type);
