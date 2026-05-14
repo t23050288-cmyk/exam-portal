@@ -28,20 +28,8 @@ interface ClueConfig {
   clueText: string;     // Shown after round completes — physical location clue
   unlockCode: string;   // Student must type this code to proceed
 }
-interface PyHuntConfig {
-  entryAccessCode: string;
-  mcqQuestions: MCQQuestion[];
-  jumbleProblem: JumbleProblem;
-  jumbleProblemB?: JumbleProblem;
-  round3: CodingProblem;
-  round3b?: CodingProblem;
-  round4: CodingProblem;
-  round4UnlockCode: string;
-  round1Clues: ClueConfig[];
-  round2Clues: ClueConfig[];
-  round3Clues: ClueConfig[];
-  round4Clues: ClueConfig[];
   finishMessage: string;
+  isActive: boolean;
 }
 
 /* ═══════════════════════════════════════════════
@@ -67,6 +55,7 @@ const DEFAULT_CONFIG: PyHuntConfig = {
   round3Clues: [{ clueText: "🗝️ Round 3 Complete! Go to Locker 301.", unlockCode: "LOCKER" }],
   round4Clues: [{ clueText: "🗝️ Round 4 Complete! Go to Main Entrance.", unlockCode: "FINISH" }],
   finishMessage: "Congratulations! You have completed the ultimate Python trial.",
+  isActive: true,
 };
 
 /* ═══════════════════════════════════════════════
@@ -89,6 +78,7 @@ function parseCfg(parsed: any): PyHuntConfig {
     round4Clues: parsed.round4Clues || DEFAULT_CONFIG.round4Clues,
     entryAccessCode: parsed.entryAccessCode || DEFAULT_CONFIG.entryAccessCode,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
+    isActive: parsed.isActive !== undefined ? parsed.isActive : DEFAULT_CONFIG.isActive,
   };
 }
 
@@ -103,11 +93,9 @@ async function loadPyHuntConfigAsync(): Promise<PyHuntConfig> {
     if (res.ok) {
       const json = await res.json();
       if (json.ok && json.config) {
-        // Update cache with fresh server data
-        if (typeof window !== "undefined") {
-          localStorage.setItem("nexus_pyhunt_config_v2", JSON.stringify(json.config));
-        }
-        return parseCfg(json.config);
+        const parsed = typeof json.config === "string" ? JSON.parse(json.config) : json.config;
+        // Inject is_active from top-level response into our config object
+        return parseCfg({ ...parsed, isActive: json.is_active });
       }
     }
   } catch (e) {
@@ -1336,6 +1324,29 @@ export default function PyHuntPage() {
     <div className={styles.page}>
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
+      
+      {/* INACTIVE GUARD */}
+      {!cfg.isActive && !finished && (
+        <div className={styles.fsOverlay} style={{ zIndex: 9999 }}>
+          <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.98)", border: "1px solid rgba(244, 63, 94, 0.3)", boxShadow: "0 20px 80px rgba(0,0,0,0.8)" }}>
+            <div className={styles.fsIcon} style={{ fontSize: "64px", marginBottom: "24px" }}>🌑</div>
+            <h2 style={{ fontSize: "28px", fontWeight: 900, color: "#fff", marginBottom: "16px", letterSpacing: "-0.02em" }}>PyHunt is Currently Offline</h2>
+            <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "40px", fontSize: "16px", lineHeight: "1.6", maxWidth: 400, margin: "0 auto 40px" }}>
+              The competition portal has been deactivated by the administrator. Please check back during the scheduled event time.
+            </p>
+            <button 
+              className={styles.secondaryBtn} 
+              onClick={() => router.replace("/dashboard")}
+              style={{ padding: "16px 32px", fontSize: 14, fontWeight: 800, letterSpacing: 1 }}
+            >
+              ← RETURN TO DASHBOARD
+            </button>
+            <div style={{ marginTop: "32px", fontSize: "11px", color: "rgba(244, 63, 94, 0.5)", letterSpacing: "0.1em", fontWeight: 800, textTransform: "uppercase" }}>
+              ACCESS RESTRICTED · NEXUS SECURE
+            </div>
+          </div>
+        </div>
+      )}
 
       <AntiCheat
         sessionId={sessionStorage.getItem("exam_student") ? JSON.parse(sessionStorage.getItem("exam_student")!).id : "pyhunt"}

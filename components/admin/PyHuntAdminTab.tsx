@@ -35,6 +35,7 @@ interface PyHuntConfig {
   round3Clues: ClueConfig[];
   round4Clues: ClueConfig[];
   finishMessage: string;
+  isActive: boolean;
 }
 
 /* ─── Defaults ───────────────────────────────── */
@@ -65,6 +66,7 @@ const DEFAULT: PyHuntConfig = {
   ],
   round4UnlockCode: "FINISH",
   finishMessage:"🏆 Congratulations on completion of 4th round! Now proceed to the 5th offline round.",
+  isActive: true,
 };
 
 const STORAGE_KEY = "nexus_pyhunt_config_v2";
@@ -74,7 +76,10 @@ async function loadCfgAsync(): Promise<PyHuntConfig> {
   try {
     const json = await adminFetch<any>("/admin/pyhunt/config");
     if (json.ok && json.config) {
-      return { ...DEFAULT, ...json.config };
+      // Sync is_active from top-level response if provided
+      const merged = { ...DEFAULT, ...json.config };
+      if (json.is_active !== undefined) merged.isActive = json.is_active;
+      return merged;
     }
   } catch (e) {
     console.warn("Backend config load failed:", e);
@@ -228,6 +233,28 @@ export default function PyHuntAdminTab() {
       {/* ══ CLUES & CODES TAB ══ */}
       {sub==="clues" && (
         <div>
+          <div style={$.card}>
+            <div style={$.cardTitle}>⚙️ Competition Status</div>
+            <div style={{ marginBottom: 24, padding: 16, background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Active Status</div>
+                <div style={{ fontSize: 12, color: "rgba(216, 234, 242, 0.4)" }}>Enable or disable student access to the PyHunt competition.</div>
+              </div>
+              <button 
+                onClick={() => setCfg(c => ({ ...c, isActive: !c.isActive }))}
+                style={{
+                  padding: "8px 24px", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer",
+                  background: cfg.isActive ? "rgba(40, 215, 214, 0.2)" : "rgba(239, 68, 68, 0.2)",
+                  color: cfg.isActive ? "#28D7D6" : "#ef4444",
+                  border: `1px solid ${cfg.isActive ? "rgba(40, 215, 214, 0.4)" : "rgba(239, 68, 68, 0.4)"}`,
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {cfg.isActive ? "✅ ACTIVE" : "🚫 INACTIVE"}
+              </button>
+            </div>
+          </div>
+
           <div style={$.card}>
             <div style={$.cardTitle}>🚪 Competition Entrance</div>
             
@@ -496,20 +523,61 @@ export default function PyHuntAdminTab() {
               </div>
             ))}
 
-            {/* JSON preview */}
-            <details style={{marginTop:12}}>
-              <summary style={{fontSize:11, color:"#3a5578", cursor:"pointer", userSelect:"none"}}>
-                📋 Preview as JSON (copy for manual import)
-              </summary>
-              <pre style={{
-                marginTop:8, background:"#0d1117", color:"#7adaa0",
-                borderRadius:8, padding:"10px 14px", fontSize:11,
-                fontFamily:"'JetBrains Mono',monospace", overflowX:"auto",
-                border:"1px solid rgba(0,220,255,0.08)"
-              }}>
-                {JSON.stringify(cfg[rk].testCases, null, 2)}
-              </pre>
-            </details>
+            {/* Live Problem View (Student-Faced) */}
+            <div style={{marginTop:24, padding:20, background:"rgba(0,0,0,0.2)", borderRadius:16, border:"1px solid rgba(255,255,255,0.05)"}}>
+              <div style={{fontSize:10, fontWeight:900, color:accentColor, letterSpacing:2, marginBottom:16, opacity:0.6, textTransform:"uppercase"}}>
+                ✨ LIVE PROBLEM PREVIEW
+              </div>
+              <h3 style={{fontSize:20, fontWeight:800, color:"#fff", marginBottom:8}}>{cfg[rk].title || "Untitled Problem"}</h3>
+              <div style={{fontSize:14, color:"#94a3b8", lineHeight:1.6, marginBottom:20, whiteSpace:"pre-wrap"}}>
+                {cfg[rk].description || "No description provided."}
+              </div>
+              
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>STARTER CODE</div>
+                <div style={{background:"#0d1117", borderRadius:10, padding:14, border:"1px solid rgba(255,255,255,0.1)"}}>
+                  <pre style={{margin:0, fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:"#e2e8f0"}}>
+                    {cfg[rk].starterCode || "# No starter code"}
+                  </pre>
+                </div>
+              </div>
+
+              <div>
+                <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>VERIFICATION CASES</div>
+                <div style={{display:"flex", flexDirection:"column", gap:8}}>
+                  {cfg[rk].testCases.map((tc, idx) => (
+                    <div key={idx} style={{display:"flex", gap:12, alignItems:"center", background:"rgba(255,255,255,0.02)", padding:"8px 12px", borderRadius:8, border:"1px solid rgba(255,255,255,0.05)"}}>
+                      <div style={{fontSize:10, fontWeight:900, color:accentColor, minWidth:20}}>#{idx+1}</div>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>IN:</span>
+                        <code style={{fontSize:12, color:"#7adaa0"}}>{tc.input || "None"}</code>
+                      </div>
+                      <div style={{flex:1}}>
+                        <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>OUT:</span>
+                        <code style={{fontSize:12, color:accentColor}}>{tc.expected || "None"}</code>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* JSON utility */}
+            <div style={{marginTop:20, display:"flex", justifyContent:"flex-end"}}>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(cfg[rk].testCases, null, 2));
+                  alert("Test cases copied to clipboard!");
+                }}
+                style={{
+                  padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#fff", cursor: "pointer"
+                }}
+              >
+                📋 Copy Test Cases JSON
+              </button>
+            </div>
           </div>
         );
 

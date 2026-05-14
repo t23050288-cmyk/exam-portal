@@ -90,7 +90,11 @@ try:
     async def cron_evict():
         try:
             db = get_supabase()
-            result = db.table("exam_config").select("id, is_active, scheduled_end, exam_title").eq("is_active", True).not_.is_("scheduled_end", "null").execute()
+            # Hardening: Skip PYHUNT_GLOBAL_CONFIG as it doesn't follow standard scheduling
+            result = db.table("exam_config").select("id, is_active, scheduled_end, exam_title") \
+                .eq("is_active", True) \
+                .neq("exam_title", "PYHUNT_GLOBAL_CONFIG") \
+                .not_.is_("scheduled_end", "null").execute()
             deactivated_count = 0
             for config in (result.data or []):
                 end_time_str = config["scheduled_end"]

@@ -634,26 +634,32 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         # ── Activation Intelligence ──
         # If the user is manually activating an exam, ensure it's not immediately deactivated by the schedule cron
         if request.is_active is True:
-            # Check if scheduled_end exists and is in the past
-            # If it's in the past, we clear the schedule to keep it active
-            try:
-                now = datetime.now(timezone.utc)
-                
-                # Check current DB state for this exam's schedule
-                curr = db.table("exam_config").select("scheduled_end").eq("exam_title", request.exam_title).maybe_single().execute()
-                
-                # We also check the request payload
-                target_end = request.scheduled_end or (curr.data.get("scheduled_end") if curr.data else None)
-                
-                if target_end:
-                    end_dt = datetime.fromisoformat(target_end.replace("Z", "+00:00"))
-                    if now >= end_dt:
-                        # The schedule has expired. Clearing it to ensure persistence.
-                        update_data["scheduled_start"] = None
-                        update_data["scheduled_end"] = None
-                        print(f"[ADMIN] Cleared expired schedule for '{request.exam_title}' during manual activation.")
-            except Exception as e:
-                print(f"[ADMIN] Activation Intelligence error: {e}")
+            # SPECIAL CASE: PyHunt should never have a schedule
+            if request.exam_title == "PYHUNT_GLOBAL_CONFIG":
+                update_data["scheduled_start"] = None
+                update_data["scheduled_end"] = None
+                print(f"[ADMIN] Cleared PyHunt schedules for manual activation.")
+            else:
+                # Check if scheduled_end exists and is in the past
+                # If it's in the past, we clear the schedule to keep it active
+                try:
+                    now = datetime.now(timezone.utc)
+                    
+                    # Check current DB state for this exam's schedule
+                    curr = db.table("exam_config").select("scheduled_end").eq("exam_title", request.exam_title).maybe_single().execute()
+                    
+                    # We also check the request payload
+                    target_end = request.scheduled_end or (curr.data.get("scheduled_end") if curr.data else None)
+                    
+                    if target_end:
+                        end_dt = datetime.fromisoformat(target_end.replace("Z", "+00:00"))
+                        if now >= end_dt:
+                            # The schedule has expired. Clearing it to ensure persistence.
+                            update_data["scheduled_start"] = None
+                            update_data["scheduled_end"] = None
+                            print(f"[ADMIN] Cleared expired schedule for '{request.exam_title}' during manual activation.")
+                except Exception as e:
+                    print(f"[ADMIN] Activation Intelligence error: {e}")
 
         # Check if exists
         existing = db.table("exam_config").select("exam_title").eq("exam_title", request.exam_title).limit(1).execute()
@@ -704,7 +710,8 @@ async def get_exam_config_public():
     db = get_supabase()
     try:
         # Include category and counts to avoid heavy frontend fetching
-        result = db.table("exam_config").select("id, is_active, scheduled_start, scheduled_end, duration_minutes, exam_title, category, total_questions, total_marks, max_attempts, branch").neq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
+        # REMOVED: .neq("exam_title", "PYHUNT_GLOBAL_CONFIG") so PyHunt shows up in Admin dashboard lists
+        result = db.table("exam_config").select("id, is_active, scheduled_start, scheduled_end, duration_minutes, exam_title, category, total_questions, total_marks, max_attempts, branch").execute()
         return result.data or []
     except Exception:
         return []
@@ -716,15 +723,21 @@ async def get_pyhunt_config_public():
     """Student public endpoint — returns live PyHunt config via service role (bypasses RLS)."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("category, updated_at").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        # Include is_active column so student portal knows if the competition is live
+        result = db.table("exam_config").select("category, updated_at, is_active").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
         if result.data and result.data[0].get("category"):
             import json as _json
             cfg = _json.loads(result.data[0]["category"])
-            return {"ok": True, "config": cfg, "updated_at": result.data[0].get("updated_at")}
-        return {"ok": False, "config": None}
+            return {
+                "ok": True, 
+                "config": cfg, 
+                "updated_at": result.data[0].get("updated_at"),
+                "is_active": result.data[0].get("is_active", True)
+            }
+        return {"ok": False, "config": None, "is_active": False}
     except Exception as e:
         print(f"get_pyhunt_config error: {e}")
-        return {"ok": False, "config": None}
+        return {"ok": False, "config": None, "is_active": False}
 
 
 @router.post("/pyhunt/config/save")
@@ -737,12 +750,29 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
         if not config_str:
             raise HTTPException(status_code=400, detail="Missing 'config' field")
         import json as _json
-        _json.loads(config_str)  # Validate it parses cleanly
+        parsed = _json.loads(config_str)  # Validate it parses cleanly
+        
+        # Pull is_active from the JSON if provided (fallback to True)
+        is_active = parsed.get("isActive", True)
+
         existing = db.table("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
         if existing.data:
-            db.table("exam_config").update({"category": config_str, "is_active": True, "duration_minutes": 0}).eq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
+            db.table("exam_config").update({
+                "category": config_str, 
+                "is_active": is_active, 
+                "duration_minutes": 0,
+                "scheduled_start": None,
+                "scheduled_end": None
+            }).eq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
         else:
-            db.table("exam_config").insert({"exam_title": "PYHUNT_GLOBAL_CONFIG", "category": config_str, "is_active": True, "duration_minutes": 0}).execute()
+            db.table("exam_config").insert({
+                "exam_title": "PYHUNT_GLOBAL_CONFIG", 
+                "category": config_str, 
+                "is_active": is_active, 
+                "duration_minutes": 0,
+                "scheduled_start": None,
+                "scheduled_end": None
+            }).execute()
         return {"ok": True}
     except HTTPException:
         raise
