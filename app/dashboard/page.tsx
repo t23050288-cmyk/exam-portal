@@ -287,10 +287,6 @@ export default function DashboardPage() {
           console.error("[DASHBOARD] History sync error:", dbErr);
         }
       }
-        } catch (dbErr) {
-          console.error("[DASHBOARD] History sync error:", dbErr);
-        }
-      }
 
       const nodes: ExamNode[] = []; 
       const seen = new Set<string>();
