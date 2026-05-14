@@ -17,9 +17,19 @@ import io
 import xlsxwriter
 
 from core.question_cache import invalidate_all, invalidate_exam, cache_stats
+import uuid
 
 router = APIRouter(prefix="/admin", tags=["admin management"])
 settings = get_settings()
+
+def is_valid_uuid(val: str):
+    """Check if a string is a valid UUID to prevent DB 500 errors."""
+    if not val: return False
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 async def verify_admin(x_admin_secret: str = Header(...)):
     """Security dependency to check for admin secret."""
@@ -329,11 +339,22 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
     """Reset a student's exam so they can retake it."""
     db = get_supabase()
 
+    if not is_valid_uuid(student_id):
+        # If not a UUID, it might be a USN or legacy ID. 
+        # We try to find the actual student ID first.
+        s_res = db.table("students").select("id").or_(f"id.eq.{student_id},usn.eq.{student_id}").maybe_single().execute()
+        if s_res.data:
+            student_id = s_res.data["id"]
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid or non-existent student ID: {student_id}")
+
+    # 1. Clear session
     db.table("students").update({
         "is_active_session": False,
         "current_token": None
     }).eq("id", student_id).execute()
 
+    # 2. Reset regular exam status
     db.table("exam_status").update({
         "status": "not_started",
         "warnings": 0,
@@ -342,7 +363,9 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
         "last_active": None
     }).eq("student_id", student_id).execute()
 
-    # db.table("exam_results").delete().eq("student_id", student_id).execute() # REMOVED: Keep history
+    # 3. Clear PyHunt progress if exists
+    db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+
     return {"reset": True}
 
 
@@ -606,8 +629,32 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
             update_data[col] = val
 
     try:
-        # Multiple exams can be active simultaneously (different branches)
-        # Safe insert-or-update: check if a row with this exam_title already exists
+        # ── Activation Intelligence ──
+        # If the user is manually activating an exam, ensure it's not immediately deactivated by the schedule cron
+        if request.is_active is True:
+            # Check if scheduled_end exists and is in the past
+            # If it's in the past, we clear the schedule to keep it active
+            try:
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
+                
+                # Check current DB state for this exam's schedule
+                curr = db.table("exam_config").select("scheduled_end").eq("exam_title", request.exam_title).maybe_single().execute()
+                
+                # We also check the request payload
+                target_end = request.scheduled_end or (curr.data.get("scheduled_end") if curr.data else None)
+                
+                if target_end:
+                    end_dt = datetime.fromisoformat(target_end.replace("Z", "+00:00"))
+                    if now >= end_dt:
+                        # The schedule has expired. Clearing it to ensure persistence.
+                        update_data["scheduled_start"] = None
+                        update_data["scheduled_end"] = None
+                        print(f"[ADMIN] Cleared expired schedule for '{request.exam_title}' during manual activation.")
+            except Exception as e:
+                print(f"[ADMIN] Activation Intelligence error: {e}")
+
+        # Check if exists
         existing = db.table("exam_config").select("exam_title").eq("exam_title", request.exam_title).limit(1).execute()
         if existing.data:
             # Row exists — UPDATE it
@@ -616,6 +663,9 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
             # No row yet — INSERT it
             result = db.table("exam_config").insert(update_data).execute()
         
+        # Invalidate cache for this exam to reflect changes immediately
+        invalidate_exam(request.exam_title)
+
         if result.data:
             row = result.data[0]
             return ExamConfig(
@@ -729,6 +779,39 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
         return rows
     except Exception as e:
         print(f"get_pyhunt_status_admin error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/pyhunt/progress/reset")
+async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
+    """Admin-only: Reset a specific student's PyHunt progress to Round 1."""
+    db = get_supabase()
+    if not is_valid_uuid(student_id):
+        raise HTTPException(status_code=400, detail="Invalid student UUID")
+    
+    db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+    return {"reset": True}
+
+@router.delete("/pyhunt/progress/{student_id}")
+async def remove_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
+    """Admin-only: Remove a specific student from the PyHunt progress table."""
+    db = get_supabase()
+    if not is_valid_uuid(student_id):
+        raise HTTPException(status_code=400, detail="Invalid student UUID")
+
+    db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+    return {"deleted": True}
+
+
+@router.post("/pyhunt/reset")
+async def reset_all_pyhunt_progress(_: bool = Depends(verify_admin)):
+    """Wipe all PyHunt progress for all students."""
+    db = get_supabase()
+    try:
+        # Clears everyone's progress
+        db.table("pyhunt_progress").delete().neq("student_id", "").execute()
+        return {"ok": True, "reset": True}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -749,8 +749,7 @@ async def commit_questions(
             from datetime import datetime, timezone
             total_marks = sum(r.get("marks", 1) for r in rows_to_insert)
             
-            # Deactivate ALL other exams first to ensure this one becomes the global active one
-            db.table("exam_config").update({"is_active": False}).execute()
+            # Synchronize this exam's configuration
             
             duration = request.duration_minutes if request.duration_minutes and request.duration_minutes > 0 else 20
             

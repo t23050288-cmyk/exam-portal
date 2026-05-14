@@ -28,8 +28,10 @@ interface PyHuntConfig {
   round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
   round4UnlockCode: string;
-  round1Clues: ClueConfig[];      // NEW: Multiple distribution nodes for R1
-  clues: ClueConfig[];            // Fixed clues for R2, R3, R4
+  round1Clues: ClueConfig[];
+  round2Clues: ClueConfig[];
+  round3Clues: ClueConfig[];
+  round4Clues: ClueConfig[];
   finishMessage: string;
 }
 
@@ -48,10 +50,14 @@ const DEFAULT: PyHuntConfig = {
   round1Clues: [
     { clueText:"🗝️ Round 1 Complete! Find your next code in the Library.", unlockCode:"LIBRARY" }
   ],
-  clues: [
-    { clueText:"🗝️ Round 2 Complete! Find your next code in Lab-2.", unlockCode:"LAB2" },
-    { clueText:"🗝️ Round 3 Complete! Find your next code in Locker 301.", unlockCode:"LOCKER301" },
-    { clueText:"🗝️ Round 4 Complete! Hunt Over! Enter code to see your Results.", unlockCode:"FINISH" },
+  round2Clues: [
+    { clueText:"🗝️ Round 2 Complete! Find your next code in Lab-2.", unlockCode:"LAB2" }
+  ],
+  round3Clues: [
+    { clueText:"🗝️ Round 3 Complete! Find your next code in Locker 301.", unlockCode:"LOCKER301" }
+  ],
+  round4Clues: [
+    { clueText:"🗝️ Round 4 Complete! Hunt Over! Enter code to see your Results.", unlockCode:"FINISH" }
   ],
   round4UnlockCode: "FINISH",
   finishMessage:"🏆 Congratulations on completion of 4th round! Now proceed to the 5th offline round.",
@@ -155,8 +161,25 @@ export default function PyHuntAdminTab() {
     setCfg(c=>({...c,[r]:{...c[r],testCases:c[r].testCases.filter((_,j)=>j!==i)}}));
 
   /* ─ Clue helpers ─ */
-  const setClue = (i: number, f: keyof ClueConfig, v: string) =>
-    setCfg(c => { const cl=[...c.clues]; cl[i]={...cl[i],[f]:v}; return {...c,clues:cl}; });
+  const setClue = (round: 1|2|3|4, i: number, f: keyof ClueConfig, v: string) =>
+    setCfg(c => {
+      const key = `round${round}Clues` as keyof PyHuntConfig;
+      const cl = [...(c[key] as ClueConfig[])];
+      cl[i] = { ...cl[i], [f]: v };
+      return { ...c, [key]: cl };
+    });
+
+  const addClue = (round: 1|2|3|4) =>
+    setCfg(c => {
+      const key = `round${round}Clues` as keyof PyHuntConfig;
+      return { ...c, [key]: [...(c[key] as ClueConfig[]), { clueText: "", unlockCode: "" }] };
+    });
+
+  const delClue = (round: 1|2|3|4, i: number) =>
+    setCfg(c => {
+      const key = `round${round}Clues` as keyof PyHuntConfig;
+      return { ...c, [key]: (c[key] as ClueConfig[]).filter((_, j) => j !== i) };
+    });
 
   return (
     <div style={$.wrap}>
@@ -193,74 +216,47 @@ export default function PyHuntAdminTab() {
             <div style={$.info}>Students must enter this code at the start of the hunt.</div>
           </div>
 
-          <div style={{...$.h2, fontSize:22, marginBottom:16, marginTop:32}}>🛰️ Dynamic Orbital Distribution (Round 1)</div>
-          <div style={$.info}>
-            Students who finish Round 1 are assigned clues in a circular sequence (1-2-3-4-5-6-1...). 
-            Add multiple clues here to distribute 200+ concurrent users across different physical locations.
-          </div>
+          {[1, 2, 3, 4].map(r => {
+            const key = `round${r}Clues` as keyof PyHuntConfig;
+            const clues = (cfg[key] as ClueConfig[]) || [];
+            return (
+              <div key={r} style={{ marginTop: 32 }}>
+                <div style={{ ...$.h2, fontSize: 22, marginBottom: 16 }}>🛰️ Round {r} Distribution Nodes</div>
+                <div style={$.info}>
+                  Add multiple clues here to distribute students across different physical locations after Round {r}.
+                </div>
 
-          {(cfg.round1Clues || []).map((clue, i) => (
-            <div key={i} style={$.card}>
-              <div style={$.cardTitle}>
-                <span>Distribution Node {i + 1}</span>
-                <button style={$.btnDel} onClick={() => setCfg(c => ({...c, round1Clues: c.round1Clues.filter((_, j) => j !== i)}))}>✕ Remove</button>
+                {clues.map((clue, i) => (
+                  <div key={i} style={$.card}>
+                    <div style={$.cardTitle}>
+                      <span>Node {i + 1}</span>
+                      <button style={$.btnDel} onClick={() => delClue(r as any, i)}>✕ Remove</button>
+                    </div>
+
+                    <label style={$.lbl}>Clue Text (Location Hint)</label>
+                    <textarea
+                      style={{ ...$.ta, minHeight: 72 }}
+                      value={clue.clueText}
+                      onChange={e => setClue(r as any, i, "clueText", e.target.value)}
+                    />
+
+                    <label style={$.lbl}>Unlock Code (Found at Location)</label>
+                    <input
+                      style={$.inp}
+                      value={clue.unlockCode}
+                      onChange={e => setClue(r as any, i, "unlockCode", e.target.value.toUpperCase())}
+                    />
+                  </div>
+                ))}
+                <button
+                  style={{ ...$.btnAdd, marginBottom: 20, width: "100%", padding: 12 }}
+                  onClick={() => addClue(r as any)}
+                >
+                  ➕ Add Distribution Node for Round {r}
+                </button>
               </div>
-
-              <label style={$.lbl}>Clue Text (Location Hint)</label>
-              <textarea
-                style={{...$.ta, minHeight:72}}
-                value={clue.clueText}
-                onChange={e => {
-                  const newClues = [...cfg.round1Clues];
-                  newClues[i].clueText = e.target.value;
-                  setCfg(c => ({...c, round1Clues: newClues}));
-                }}
-              />
-
-              <label style={$.lbl}>Unlock Code (Found at Location)</label>
-              <input
-                style={$.inp}
-                value={clue.unlockCode}
-                onChange={e => {
-                  const newClues = [...cfg.round1Clues];
-                  newClues[i].unlockCode = e.target.value.toUpperCase();
-                  setCfg(c => ({...c, round1Clues: newClues}));
-                }}
-              />
-            </div>
-          ))}
-          <button 
-            style={{...$.btnAdd, marginBottom:40, width:"100%", padding:16}} 
-            onClick={() => setCfg(c => ({...c, round1Clues: [...(c.round1Clues || []), {clueText: "", unlockCode: ""}]}))}
-          >
-            ➕ Add Distribution Node (Clue {cfg.round1Clues?.length + 1 || 1})
-          </button>
-
-          <div style={{...$.h2, fontSize:22, marginBottom:16}}>🏁 Fixed Clues (Rounds 2-4)</div>
-          {cfg.clues.map((clue, i) => (
-            <div key={i} style={$.card}>
-              <div style={$.cardTitle}>
-                <span>
-                  <span style={{color:"#7090b0",marginRight:8}}>After</span>
-                  {ROUND_NAMES[i+1]}
-                </span>
-              </div>
-
-              <label style={$.lbl}>Clue Text</label>
-              <textarea
-                style={{...$.ta, minHeight:72}}
-                value={clue.clueText}
-                onChange={e=>setClue(i,"clueText",e.target.value)}
-              />
-
-              <label style={$.lbl}>Unlock Code</label>
-              <input
-                style={$.inp}
-                value={clue.unlockCode}
-                onChange={e=>setClue(i,"unlockCode",e.target.value.toUpperCase())}
-              />
-            </div>
-          ))}
+            );
+          })}
 
           <div style={$.card}>
             <label style={$.lbl}>🏆 Finish Message (shown after all rounds)</label>
@@ -544,16 +540,34 @@ function LiveStatusView() {
     }
   };
 
-  const removeStudent = async (studentId: string) => {
+  const removeStudent = async (student_id: string) => {
     if (!confirm("Permanently remove this student from the progress board?")) return;
     try {
-      const res = await adminFetch<any>(`/admin/pyhunt/progress/${studentId}`, {
+      const res = await adminFetch<any>(`/admin/pyhunt/progress/${student_id}`, {
         method: "DELETE"
       });
       if (res.ok) fetchStatus();
       else alert("Failed to remove student.");
     } catch (err) {
       console.error("Remove error:", err);
+    }
+  };
+
+  const globalReset = async () => {
+    if (!confirm("⚠️ DANGER: This will PERMANENTLY WIPE all student progress for EVERYONE. Are you absolutely sure?")) return;
+    try {
+      const res = await adminFetch<any>("/admin/pyhunt/reset", {
+        method: "POST"
+      });
+      if (res.ok) {
+        alert("All progress has been wiped.");
+        fetchStatus();
+      } else {
+        alert("Failed to perform global reset.");
+      }
+    } catch (err) {
+      console.error("Global reset error:", err);
+      alert("Error connecting to server.");
     }
   };
 
@@ -617,7 +631,15 @@ function LiveStatusView() {
             Refresh in {countdown}s
           </div>
         </div>
-        <button style={$.btnAdd} onClick={() => { fetchStatus(); setCountdown(60); }}>🔄 Refresh Now</button>
+        <div style={{display:"flex", gap:10}}>
+          <button 
+            style={{...$.btnDel, padding: "8px 16px", fontSize: 12, fontWeight: 900}} 
+            onClick={globalReset}
+          >
+            🔥 Global Purge
+          </button>
+          <button style={$.btnAdd} onClick={() => { fetchStatus(); setCountdown(60); }}>🔄 Refresh Now</button>
+        </div>
       </div>
 
       {loading && students.length === 0 ? (
