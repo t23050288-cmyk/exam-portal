@@ -92,14 +92,7 @@
     },
     {
       "src": "/api/ai/(.*)",
-      "dest": "/api/ai/$1",
-      "headers": {
-        "x-nextjs-page": "/api/ai/$1"
-      }
-    },
-    {
-      "src": "/api/ai/(.*)",
-      "dest": "/$1"
+      "dest": "/api/ai/$1"
     },
     {
       "src": "/api/(.*)",
