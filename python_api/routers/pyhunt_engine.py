@@ -25,19 +25,26 @@ async def verify_piston(client: httpx.AsyncClient, code: str, test_cases: List[T
     for tc in test_cases:
         payload = {
             "language": "python",
-            "version": "3.10.0",
             "files": [{"content": code}],
             "stdin": tc.input,
             "run_timeout": 3000
         }
         resp = await client.post("https://emkc.org/api/v2/piston/execute", json=payload, timeout=5.0)
+        
+        # CRITICAL: Trigger fallback if Piston is down or unauthorized (401)
+        if resp.status_code != 200:
+            raise Exception(f"Piston API Error {resp.status_code}: {resp.text}")
+            
         data = resp.json()
         run = data.get("run", {})
         stdout = run.get("stdout", "").strip()
         stderr = run.get("stderr", "").strip()
+        
+        # Logic check
         is_correct = (stdout == tc.expected.strip()) and not stderr
         if not is_correct: all_pass = False
         results.append({"pass": is_correct, "got": stderr or stdout, "expected": tc.expected})
+        
     return {"ok": True, "results": results, "all_pass": all_pass, "engine": "Piston v2"}
 
 async def verify_groq(client: httpx.AsyncClient, code: str, test_cases: List[TestCase], model: str):
@@ -112,5 +119,7 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
         except Exception as e:
             print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
 
-        # Tier 4: Emergency Regex
-        return verify_regex_emergency(request.code, request.test_cases)
+        # Tier 4: Emergency Regex (Now returns ok: False to trigger frontend fallback)
+        emergency = verify_regex_emergency(request.code, request.test_cases)
+        emergency["ok"] = False
+        return emergency

@@ -425,11 +425,12 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const handleRun = async () => {
     if (running || cooldown > 0) return;
     setRunning(true); setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null);
-    setCooldown(10); // HCOL Cooldown
+    setCooldown(5); // reduced cooldown for better UX during fallback
+    
     try {
       const examToken = sessionStorage.getItem("exam_token") || "";
       
-      // 1. Call Professional Grade Execution Engine (Plan A: Piston)
+      // 1. ATTEMPT Backend Verification (Plan A)
       const resp = await fetch("/api/exam/pyhunt/verify", {
         method: "POST",
         headers: {
@@ -444,16 +445,15 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
 
       const data = await resp.json();
       
-      if (data.ok) {
+      // Use backend if it's a "Real" engine (Piston or Groq)
+      if (data.ok && !data.engine?.includes("Regex")) {
         setTestResults(data.results || []);
         setAllPass(data.all_pass);
         
-        // Final result based on all test cases
         if (data.all_pass) {
-          setAiFeedback("🎯 LOGIC VERIFIED: Professional engine confirmed your solution is 100% correct.");
+          setAiFeedback(`🎯 LOGIC VERIFIED: ${data.engine} confirmed your solution.`);
         } else {
           onWrong();
-          // Get AI hint for why it failed
           const firstFail = (data.results || []).find((r: any) => !r.pass);
           try {
             const hintRes = await getAIHint({
@@ -464,13 +464,33 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
             setAiHint(hintRes.hint);
           } catch {}
         }
-      } else {
-        throw new Error(data.detail || "Execution failed");
+        setRunning(false);
+        return;
       }
     } catch (err) {
-      console.error("Execution Error:", err);
-      setAiFeedback("⚠ Execution Engine Error. Please check your internet connection.");
-    } finally { setRunning(false); }
+      console.warn("[PyHunt] Backend verification unavailable, falling back to Local Python...", err);
+    }
+
+    // 2. FALLBACK to Local Pyodide (Plan B - Professional Grade Local Execution)
+    if (ready) {
+      try {
+        const local = await runTests(code, problem.testCases);
+        setTestResults(local.results || []);
+        setAllPass(local.allPass);
+        
+        if (local.allPass) {
+          setAiFeedback("✓ LOCAL VERIFICATION: Browser-based Python engine confirmed your solution.");
+        } else {
+          onWrong();
+        }
+      } catch (err: any) {
+        setAiFeedback("⚠ Execution Error: " + err.message);
+      }
+    } else {
+      setAiFeedback("⚠ Python engine is still loading. Please wait a few seconds...");
+    }
+    
+    setRunning(false);
   };
 
   return (
