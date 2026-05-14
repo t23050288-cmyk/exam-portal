@@ -399,21 +399,31 @@ function shuffle<T>(arr: T[]): T[] {
 
 
 /* ═══════════════════════════════════════════════
-   ROUND 3 & 4 — CODING
+   ROUND 3 & 4 — LEET CODE-STYLE CODING IDE
+   - Split panel: Description left, Editor right
+   - Console + Testcases tabs (bottom)
+   - Groq AI strict grader → Piston fallback
+   - Bigger editor, status bar, run/submit buttons
 ═══════════════════════════════════════════════ */
-function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: { problem: CodingProblem; roundNum: number; partLabel?: string; onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean }) {
+function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: {
+  problem: CodingProblem; roundNum: number; partLabel?: string;
+  onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean;
+}) {
   const { ready, loadError, runCode, runTests } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
   const [running, setRunning] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [activeBottomTab, setActiveBottomTab] = useState<"console"|"testcases">("testcases");
   const [output, setOutput] = useState<{stdout:string;stderr:string;error?:string}|null>(null);
-  const [testResults, setTestResults] = useState<{pass:boolean;got:string;expected:string}[]>([]);
+  const [testResults, setTestResults] = useState<{pass:boolean;got:string;expected:string;input:string}[]>([]);
+  const [activeCase, setActiveCase] = useState(0);
   const [allPass, setAllPass] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string|null>(null);
-  const [aiHint, setAiHint] = useState<string|null>(null);
-  const [aiReasoning, setAiReasoning] = useState<string|null>(null);
-  const [showReasoning, setShowReasoning] = useState(false);
+  const [aiHint, setAiHint]     = useState<string|null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [engine, setEngine]      = useState<string>("");
+  const [submitMode, setSubmitMode] = useState(false);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -422,191 +432,295 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
     }
   }, [cooldown]);
 
-  const handleRun = async () => {
-    if (running || cooldown > 0) return;
-    setRunning(true); setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null);
-    setCooldown(5); // reduced cooldown for better UX during fallback
-    
-    try {
-      const examToken = sessionStorage.getItem("exam_token") || "";
-      
-      // 1. ATTEMPT Backend Verification (Plan A)
-      const resp = await fetch("/api/exam/pyhunt/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${examToken}`
-        },
-        body: JSON.stringify({
-          code,
-          test_cases: problem.testCases
-        })
+  // Tab key inserts 4 spaces
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const ta = e.currentTarget;
+      const start = ta.selectionStart;
+      const end   = ta.selectionEnd;
+      const newVal = code.substring(0, start) + "    " + code.substring(end);
+      setCode(newVal);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = start + 4;
       });
+    }
+  };
 
-      const data = await resp.json();
-      
-      // Use backend if it's a "Real" engine (Piston or Groq)
-      if (data.ok && !data.engine?.includes("Regex")) {
-        setTestResults(data.results || []);
-        setAllPass(data.all_pass);
-        
-        if (data.all_pass) {
-          setAiFeedback(`🎯 LOGIC VERIFIED: ${data.engine} confirmed your solution.`);
-        } else {
-          onWrong();
-          const firstFail = (data.results || []).find((r: any) => !r.pass);
-          try {
-            const hintRes = await getAIHint({
-              problem_title: problem.title,
-              code,
-              error: firstFail?.got || "Unknown logic error"
-            });
-            setAiHint(hintRes.hint);
-          } catch {}
+  const runVerification = async (isSubmit: boolean) => {
+    if (running || cooldown > 0) return;
+    setRunning(true); setSubmitMode(isSubmit);
+    setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null); setEngine("");
+    if (isSubmit) setCooldown(8);
+
+    try {
+      // ── Plan A: Groq AI Strict Grader ──
+      setAiLoading(true);
+      try {
+        const res = await checkCodeAI({
+          problem_title: problem.title,
+          problem_description: problem.description,
+          code,
+          test_cases: problem.testCases,
+          round_num: roundNum
+        });
+        setAiLoading(false);
+        const passed = res.correct === true || res.status === "Pass";
+        setEngine("🤖 Groq AI");
+        setAiFeedback(res.feedback || "");
+        const syntheticResults = problem.testCases.map((tc, i) => ({
+          pass: passed,
+          got: passed ? tc.expected : (res.errors || "Check failed"),
+          expected: tc.expected,
+          input: tc.input
+        }));
+        setTestResults(syntheticResults);
+        setActiveBottomTab("testcases");
+
+        if (isSubmit) {
+          setAllPass(passed);
+          if (!passed) {
+            setAiHint(res.errors && res.errors !== "None" ? res.errors : undefined);
+            onWrong();
+          }
         }
         setRunning(false);
         return;
+      } catch (aiErr) {
+        setAiLoading(false);
+        console.warn("[PyHunt] Groq failed, falling back to Piston/Local...", aiErr);
       }
-    } catch (err) {
-      console.warn("[PyHunt] Backend verification unavailable, falling back to Local Python...", err);
-    }
 
-    // 2. FALLBACK to Local Pyodide (Plan B - Professional Grade Local Execution)
-    if (ready) {
-      try {
-        const local = await runTests(code, problem.testCases);
-        setTestResults(local.results || []);
-        setAllPass(local.allPass);
-        
-        if (local.allPass) {
-          setAiFeedback("✓ LOCAL VERIFICATION: Browser-based Python engine confirmed your solution.");
-        } else {
-          onWrong();
+      // ── Plan B: Local Pyodide Execution ──
+      if (ready) {
+        const { results, allPass: ap } = await runTests(code, problem.testCases);
+        const out = await runCode(code);
+        const mapped = results.map((r, i) => ({
+          ...r,
+          input: problem.testCases[i]?.input || ""
+        }));
+        setTestResults(mapped);
+        setOutput(out);
+        setActiveBottomTab(isSubmit ? "testcases" : "console");
+        setEngine("⚙️ Local Python");
+        if (isSubmit) {
+          setAllPass(ap);
+          if (!ap) {
+            onWrong();
+            try {
+              const hintRes = await getAIHint({ problem_title: problem.title, code,
+                error: results.find(r => !r.pass)?.got || out.stderr || "" });
+              setAiHint(hintRes.hint);
+            } catch {}
+          }
         }
-      } catch (err: any) {
-        setAiFeedback("⚠ Execution Error: " + err.message);
+      } else {
+        setAiFeedback("⚠ Python engine still loading. Try again in a moment.");
       }
-    } else {
-      setAiFeedback("⚠ Python engine is still loading. Please wait a few seconds...");
+    } catch (err: any) {
+      setAiFeedback("⚠ Execution error: " + err.message);
+    } finally {
+      setRunning(false); setAiLoading(false);
     }
-    
-    setRunning(false);
   };
 
+  const passCount = testResults.filter(r => r.pass).length;
+  const totalCases = problem.testCases.length;
+
   return (
-    <div className={styles.roundWrap}>
-      <div className={styles.roundHeader}>
-        <span className={styles.roundTag}>Round {roundNum} · Coding{partLabel ? ` · ${partLabel}` : ""}</span>
-        {loadError && <span className={styles.errorTag}>⚠ Pyodide: {loadError}</span>}
-        {!loadError && !ready && <span className={styles.loadingTag}>⟳ Loading Python…</span>}
-        {!loadError && ready && <span className={styles.readyTag}>✓ Python Ready</span>}
+    <div className={styles.ideWrap}>
+      {/* ── Top bar ── */}
+      <div className={styles.ideTopBar}>
+        <span className={styles.roundTag}>Round {roundNum}{partLabel ? ` · ${partLabel}` : ""} · Coding</span>
+        <span className={styles.ideStatus}>
+          {loadError ? <span className={styles.errorTag}>⚠ Pyodide: {loadError}</span>
+            : !ready ? <span className={styles.loadingTag}>⟳ Loading Python…</span>
+            : <span className={styles.readyTag}>✓ Python Ready</span>}
+        </span>
+        {engine && <span className={styles.engineTag}>{engine}</span>}
       </div>
-      <div className={styles.codingLayout}>
-        <div className={styles.problemPane}>
-          <div className={styles.problemTitle}>{problem.title}</div>
-          <div className={styles.problemDesc}>{problem.description}</div>
-          <div className={styles.testCasesList}>
-            <div className={styles.tcHeader}>Verification Protocol (Test Cases)</div>
-            <div className={styles.tcGrid}>
-              {problem.testCases.map((tc, i) => {
-                const res = testResults[i];
-                return (
-                  <div key={i} className={`${styles.tcCard} ${res ? (res.pass ? styles.tcCardPass : styles.tcCardFail) : ""}`}>
-                    <div className={styles.tcCardHeader}>
-                      <span>Test Case {i + 1}</span>
-                      {res && (res.pass ? <span className={styles.passChip}>PASS</span> : <span className={styles.failChip}>FAIL</span>)}
-                    </div>
-                    <div className={styles.tcCardBody}>
-                      <div className={styles.tcField}>
-                        <span className={styles.tcLabel}>Input:</span>
-                        <code>{tc.input}</code>
-                      </div>
-                      <div className={styles.tcField}>
-                        <span className={styles.tcLabel}>Expected:</span>
-                        <code>{tc.expected}</code>
-                      </div>
-                      {res && !res.pass && (
-                        <div className={styles.tcField}>
-                          <span className={styles.tcLabel}>Got:</span>
-                          <code className={styles.codeFail}>{res.got || "(empty)"}</code>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+
+      {/* ── Main split ── */}
+      <div className={styles.ideMain}>
+        {/* LEFT — problem description */}
+        <div className={styles.ideLeft}>
+          <div className={styles.ideSection}>
+            <div className={styles.ideProblemTitle}>{problem.title}</div>
+            <div className={styles.ideProblemDesc}>{problem.description}</div>
+          </div>
+
+          <div className={styles.ideSection}>
+            <div className={styles.ideSectionLabel}>EXAMPLES</div>
+            {problem.testCases.slice(0, 3).map((tc, i) => (
+              <div key={i} className={styles.ideExample}>
+                <div className={styles.ideExampleRow}>
+                  <span className={styles.ideExLabel}>Input:</span>
+                  <code>{tc.input || "(none)"}</code>
+                </div>
+                <div className={styles.ideExampleRow}>
+                  <span className={styles.ideExLabel}>Output:</span>
+                  <code>{tc.expected}</code>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.ideSection}>
+            <div className={styles.ideSectionLabel}>PROTOCOL NOTE</div>
+            <div className={styles.ideProtocolBox}>
+              <p>Use <code>input()</code> to read the test value. Print only the final result.</p>
+              <pre className={styles.ideProtocolCode}>{`val = input()\nprint(your_result)`}</pre>
             </div>
           </div>
         </div>
-        <div className={styles.editorPane}>
+
+        {/* RIGHT — editor + console */}
+        <div className={styles.ideRight}>
+          {/* Language badge */}
+          <div className={styles.ideLangBar}>
+            <span className={styles.ideLangBadge}>🐍 Python 3</span>
+          </div>
+
+          {/* Code editor */}
           <textarea
-            className={styles.codeEditor}
+            ref={editorRef}
+            className={styles.ideEditor}
             value={code}
             onChange={e => setCode(e.target.value)}
+            onKeyDown={handleKeyDown}
             spellCheck={false}
+            placeholder="# Write your Python solution here..."
           />
-          <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running||cooldown>0}>
-            {running ? "⟳ Processing..." : (cooldown > 0 ? `COOLDOWN: ${cooldown}s` : "EXECUTE LOGIC PROTOCOL")}
-          </button>
-          {output && (
-            <div className={styles.outputBox}>
-              <div className={styles.outputLabel}>{output.stderr || output.error ? "SYSTEM ERROR — LOG TRACE" : "TRANSMISSION OUTPUT"}</div>
-              <pre style={{color: output.stderr || output.error ? "#f87171" : "#80c8a0"}}>
-                {output.stderr || output.error || output.stdout || "(no output)"}
-              </pre>
-            </div>
-          )}
-          {testResults.length > 0 && (
-            <div className={styles.testResults}>
-              {testResults.map((r,i) => (
-                <div key={i} className={`${styles.tcResult} ${r.pass?styles.tcPass:styles.tcFail}`}>
-                  {r.pass?"✓":"✗"} Test {i+1}: got <code>"{r.got.trim()}"</code> — expected <code>"{r.expected}"</code>
-                </div>
-              ))}
-            </div>
-          )}
-          {aiLoading && <div className={styles.aiLoading}>🤖 Groq is reviewing your code…</div>}
-          
-          {aiReasoning && (
-            <div className={styles.aiReasoningBox}>
-              <button 
-                className={styles.reasoningToggle} 
-                onClick={() => setShowReasoning(!showReasoning)}
-              >
-                {showReasoning ? "▼ Hide AI Thought Process" : "▶ Show AI Thought Process"}
-              </button>
-              <AnimatePresence>
-                {showReasoning && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className={styles.reasoningContent}
-                  >
-                    <div className={styles.reasoningLabel}>AI Reasoning:</div>
-                    <div className={styles.reasoningText}>{aiReasoning}</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
 
-          {aiFeedback && <div className={styles.aiFeedback}>🤖 <strong>AI Feedback:</strong> {aiFeedback}</div>}
-          {aiHint && <div className={styles.aiHint}><span className={styles.aiHintLabel}>💡 Hint: </span>{aiHint}</div>}
-          {allPass && (
-            <div className={styles.roundDone} style={{marginTop:12}}>
-              <div className={styles.doneIcon}>🎉</div>
-              <p>All tests passed! {partLabel ? `${partLabel} complete!` : ""}</p>
-              <button className={styles.primaryBtn} onClick={onComplete}>
-                {showNextPartOnPass ? "Next Part →" : "Get Clue →"}
-              </button>
+          {/* Bottom tabs */}
+          <div className={styles.ideBottomBar}>
+            <div className={styles.ideTabRow}>
+              <button
+                className={`${styles.ideTab} ${activeBottomTab === "console" ? styles.ideTabActive : ""}`}
+                onClick={() => setActiveBottomTab("console")}
+              >📟 Console</button>
+              <button
+                className={`${styles.ideTab} ${activeBottomTab === "testcases" ? styles.ideTabActive : ""}`}
+                onClick={() => setActiveBottomTab("testcases")}
+              >🧪 Testcases</button>
+              {testResults.length > 0 && (
+                <span className={passCount === totalCases ? styles.ideTcPassBadge : styles.ideTcFailBadge}>
+                  {passCount === totalCases ? `✓ ${passCount}/${totalCases} Passed` : `✗ ${passCount}/${totalCases} Passed`}
+                </span>
+              )}
             </div>
-          )}
+
+            <div className={styles.ideBottomContent}>
+              {activeBottomTab === "console" && (
+                <div className={styles.ideConsole}>
+                  {aiLoading && <div className={styles.ideConsoleAi}>🤖 Groq AI is reviewing your code…</div>}
+                  {output ? (
+                    <pre className={output.stderr || output.error ? styles.ideConsoleErr : styles.ideConsoleOut}>
+                      {output.stderr || output.error || output.stdout || "(no output)"}
+                    </pre>
+                  ) : !aiLoading ? (
+                    <div className={styles.ideConsolePlaceholder}>Run your code to see output here.</div>
+                  ) : null}
+                  {aiFeedback && (
+                    <div className={styles.ideAiFeedback}>
+                      <strong>🤖 AI Feedback:</strong> {aiFeedback}
+                    </div>
+                  )}
+                  {aiHint && (
+                    <div className={styles.ideAiHint}>
+                      <strong>💡 Hint:</strong> {aiHint}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeBottomTab === "testcases" && (
+                <div className={styles.ideTcPanel}>
+                  {aiLoading && <div className={styles.ideConsoleAi}>🤖 Groq AI is verifying your logic…</div>}
+                  {/* Case selector tabs */}
+                  {testResults.length > 0 && (
+                    <div className={styles.ideCaseTabs}>
+                      {problem.testCases.map((_, i) => (
+                        <button
+                          key={i}
+                          className={`${styles.ideCaseTab} ${activeCase === i ? styles.ideCaseTabActive : ""} ${testResults[i] ? (testResults[i].pass ? styles.ideCaseTabPass : styles.ideCaseTabFail) : ""}`}
+                          onClick={() => setActiveCase(i)}
+                        >Case {i+1}</button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Active case detail */}
+                  {testResults.length > 0 && testResults[activeCase] ? (
+                    <div className={styles.ideCaseDetail}>
+                      <div className={styles.ideCaseField}>
+                        <span className={styles.ideCaseLabel}>Input</span>
+                        <div className={styles.ideCaseValue}>{problem.testCases[activeCase]?.input || "(none)"}</div>
+                      </div>
+                      <div className={styles.ideCaseField}>
+                        <span className={styles.ideCaseLabel}>Expected Output</span>
+                        <div className={styles.ideCaseValue}>{testResults[activeCase].expected}</div>
+                      </div>
+                      {!testResults[activeCase].pass && (
+                        <div className={styles.ideCaseField}>
+                          <span className={styles.ideCaseLabel} style={{color:"#f87171"}}>Your Output</span>
+                          <div className={styles.ideCaseValueErr}>{testResults[activeCase].got || "(empty)"}</div>
+                        </div>
+                      )}
+                    </div>
+                  ) : !aiLoading ? (
+                    <div className={styles.ideConsolePlaceholder}>
+                      Click <strong>Run</strong> to test your code against the cases.
+                    </div>
+                  ) : null}
+                  {aiFeedback && (
+                    <div className={styles.ideAiFeedback}><strong>🤖 AI:</strong> {aiFeedback}</div>
+                  )}
+                  {aiHint && (
+                    <div className={styles.ideAiHint}><strong>💡 Hint:</strong> {aiHint}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className={styles.ideActions}>
+            <div className={styles.ideStatusDot}>
+              {ready ? <span className={styles.ideReady}>● READY</span> : <span className={styles.ideLoading}>● LOADING</span>}
+            </div>
+            <button
+              className={styles.ideRunBtn}
+              onClick={() => runVerification(false)}
+              disabled={running || cooldown > 0}
+            >
+              {running && !submitMode ? "⟳ Running…" : "▶ Run"}
+            </button>
+            <button
+              className={styles.ideSubmitBtn}
+              onClick={() => runVerification(true)}
+              disabled={running || cooldown > 0}
+            >
+              {running && submitMode ? "⟳ Verifying…" : cooldown > 0 ? `⏳ ${cooldown}s` : "✔ Submit"}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* All-pass overlay */}
+      {allPass && (
+        <div className={styles.idePassOverlay}>
+          <div className={styles.doneIcon}>🎉</div>
+          <h3>All Tests Passed!</h3>
+          {aiFeedback && <p className={styles.ideFeedbackText}>{aiFeedback}</p>}
+          <button className={styles.primaryBtn} onClick={onComplete}>
+            {showNextPartOnPass ? "Next Part →" : "Get Clue →"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
 /* ═══════════════════════════════════════════════
