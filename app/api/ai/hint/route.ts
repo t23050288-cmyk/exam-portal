@@ -41,7 +41,7 @@ Give ONE short, encouraging hint (1-2 sentences max) nudging toward the solution
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "llama-3.1-70b-versatile",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.4,
         max_tokens: 100,
