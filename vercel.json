@@ -91,6 +91,18 @@
       "dest": "python_api/index.py"
     },
     {
+      "src": "/api/ai/check-code",
+      "dest": "/api/ai/check-code"
+    },
+    {
+      "src": "/api/ai/hint",
+      "dest": "/api/ai/hint"
+    },
+    {
+      "src": "/api/ai/proctor",
+      "dest": "/api/ai/proctor"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "python_api/index.py"
     },
