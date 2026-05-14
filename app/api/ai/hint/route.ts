@@ -41,7 +41,7 @@ Give ONE short, encouraging hint (1-2 sentences max) nudging toward the solution
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.4,
         max_tokens: 100,
@@ -52,8 +52,11 @@ Give ONE short, encouraging hint (1-2 sentences max) nudging toward the solution
       const errBody = await groqRes.text();
       console.error("[AI/hint] Groq API error:", groqRes.status, errBody);
       return NextResponse.json(
-        { error: `Groq API error: ${groqRes.status}` },
-        { status: 502 }
+        { 
+          error: groqRes.status === 429 ? "Rate limit reached" : `Groq API error: ${groqRes.status}`,
+          detail: errBody 
+        },
+        { status: groqRes.status === 429 ? 429 : 502 }
       );
     }
 

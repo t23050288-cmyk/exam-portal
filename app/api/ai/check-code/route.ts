@@ -68,7 +68,7 @@ Evaluate this code strictly. Return ONLY the JSON object.`;
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
@@ -82,8 +82,11 @@ Evaluate this code strictly. Return ONLY the JSON object.`;
       const errBody = await groqRes.text();
       console.error("[AI/check-code] Groq API error:", groqRes.status, errBody);
       return NextResponse.json(
-        { error: `Groq API error: ${groqRes.status}`, detail: errBody },
-        { status: 502 }
+        { 
+          error: groqRes.status === 429 ? "Rate limit reached" : `Groq API error: ${groqRes.status}`,
+          detail: errBody 
+        },
+        { status: groqRes.status === 429 ? 429 : 502 }
       );
     }
 

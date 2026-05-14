@@ -882,17 +882,17 @@
 
 /* Console */
 .ideConsole { display: flex; flex-direction: column; gap: 8px; }
-.ideConsoleAi { font-size: 12px; color: #a0b8ff; animation: pulse 1.5s infinite; }
+.ideConsoleVerifying { font-size: 12px; color: #a0b8ff; animation: pulse 1.5s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 .ideConsoleOut { font-family: monospace; font-size: 12px; color: #7adaa0; white-space: pre-wrap; margin: 0; }
 .ideConsoleErr { font-family: monospace; font-size: 12px; color: #f87171; white-space: pre-wrap; margin: 0; }
 .ideConsolePlaceholder { font-size: 12px; color: #2a3a4a; font-style: italic; }
-.ideAiFeedback {
+.ideFeedback {
   font-size: 12px; color: #90b0d8; background: rgba(0,100,200,0.08);
   border: 1px solid rgba(0,150,255,0.15); border-radius: 8px; padding: 8px 12px;
   line-height: 1.5;
 }
-.ideAiHint {
+.ideHint {
   font-size: 12px; color: #ffb060; background: rgba(255,160,0,0.06);
   border: 1px solid rgba(255,160,0,0.15); border-radius: 8px; padding: 8px 12px;
   line-height: 1.5;

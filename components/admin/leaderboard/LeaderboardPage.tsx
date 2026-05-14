@@ -162,6 +162,7 @@ export default function LeaderboardPage() {
             className={styles.filterSelect}
             value={selectedExam}
             onChange={(e) => setSelectedExam(e.target.value)}
+            aria-label="Filter by Exam"
           >
             <option value="ALL">All Quizzes</option>
             {exams.map(ex => <option key={ex as string} value={ex as string}>{ex as string}</option>)}
@@ -171,6 +172,7 @@ export default function LeaderboardPage() {
             className={styles.filterSelect}
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
+            aria-label="Filter by Branch"
           >
             <option value="ALL">All Branches</option>
             {branches.map(br => <option key={br} value={br}>{br}</option>)}

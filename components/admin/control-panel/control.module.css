@@ -251,7 +251,7 @@
 }
 
 .quizContextSelect:focus {
-  border-color: #8b5cf6;
+  border-color: #7c3aed;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -519,7 +519,7 @@
 }
 
 .markSelect:focus {
-  border-color: #8b5cf6;
+  border-color: #7c3aed;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
@@ -569,7 +569,7 @@
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
   color: #fff;
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -686,7 +686,7 @@
 }
 
 .settingsInput:focus {
-  border-color: #8b5cf6;
+  border-color: #7c3aed;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
@@ -715,7 +715,7 @@
 }
 
 .settingsSelect:focus {
-  border-color: #8b5cf6;
+  border-color: #7c3aed;
   background-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }

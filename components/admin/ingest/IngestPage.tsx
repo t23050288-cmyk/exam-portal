@@ -317,8 +317,9 @@ export default function IngestPage() {
         <>
           {/* Exam Identity Orb */}
           <div className={styles.orbContainer}>
-            <label className={styles.orbLabel}>Exam Identity (Folder)</label>
+            <label htmlFor="exam-identity" className={styles.orbLabel}>Exam Identity (Folder)</label>
             <select
+              id="exam-identity"
               className={`${styles.orbInput} ${examName ? styles.orbActive : ""}`}
               style={{ cursor: "pointer" }}
               value={existingExamNames.includes(examName) ? examName : (examName ? "NEW_IDENTITY" : "")}
@@ -353,8 +354,9 @@ export default function IngestPage() {
 
           {/* Question Count Orb */}
           <div className={styles.orbContainer} style={{ marginTop: 12 }}>
-            <label className={styles.orbLabel}>Question Count (Optional)</label>
+            <label htmlFor="question-count" className={styles.orbLabel}>Question Count (Optional)</label>
             <input
+              id="question-count"
               type="number"
               placeholder="Total questions to ingest (e.g. 20)"
               className={`${styles.orbInput} ${maxQuestions ? styles.orbActive : ""}`}
@@ -368,8 +370,9 @@ export default function IngestPage() {
 
            {/* Duration Orb */}
           <div className={styles.orbContainer} style={{ marginTop: 12 }}>
-            <label className={styles.orbLabel}>Exam Duration (Minutes)</label>
+            <label htmlFor="exam-duration" className={styles.orbLabel}>Exam Duration (Minutes)</label>
             <input
+              id="exam-duration"
               type="number"
               placeholder="Duration in minutes (e.g. 60)"
               className={`${styles.orbInput} ${durationMinutes ? styles.orbActive : ""}`}

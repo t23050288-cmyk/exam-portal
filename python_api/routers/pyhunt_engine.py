@@ -97,27 +97,26 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
         try:
             return await verify_piston(client, request.code, request.test_cases)
         except Exception as e:
-            print(f"[HCOL] Piston Failed: {e}. Falling back to Groq 70B...")
+            print(f"[HCOL] Piston Failed: {e}. Falling back to Emergency Regex...")
 
-        # Tier 2: Groq 70B
-        try:
-            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
-            if res: 
-                res["engine"] = "Groq Llama 3.1 70B"
-                res["ok"] = True
-                return res
-        except Exception as e:
-            print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
-
-        # Tier 3: Groq 8B
-        try:
-            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
-            if res:
-                res["engine"] = "Groq Llama 3.1 8B"
-                res["ok"] = True
-                return res
-        except Exception as e:
-            print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
+        # Tiers 2 & 3 (Groq AI) - COMMENTED OUT AS REQUESTED
+        # try:
+        #     res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
+        #     if res: 
+        #         res["engine"] = "Groq Llama 3.1 70B"
+        #         res["ok"] = True
+        #         return res
+        # except Exception as e:
+        #     print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
+        #
+        # try:
+        #     res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
+        #     if res:
+        #         res["engine"] = "Groq Llama 3.1 8B"
+        #         res["ok"] = True
+        #         return res
+        # except Exception as e:
+        #     print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
 
         # Tier 4: Emergency Regex (Now returns ok: False to trigger frontend fallback)
         emergency = verify_regex_emergency(request.code, request.test_cases)

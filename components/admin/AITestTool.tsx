@@ -83,8 +83,9 @@ export default function AITestTool() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>Test Prompt (for Proctor)</label>
+        <label htmlFor="ai-prompt" style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>Test Prompt (for Proctor)</label>
         <textarea
+          id="ai-prompt"
           style={{
             width: "100%",
             background: "rgba(0,0,0,0.3)",

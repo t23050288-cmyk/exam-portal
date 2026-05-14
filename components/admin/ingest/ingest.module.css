@@ -279,7 +279,7 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
+  background: linear-gradient(90deg, #7c3aed, #3b82f6, #10b981);
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
   border-radius: 2px;
@@ -543,7 +543,7 @@
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
   color: #fff;
   box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);

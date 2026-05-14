@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-8b-instant",
           messages,
           temperature: 0.3,
           max_tokens: 1024,
@@ -64,9 +64,13 @@ export async function POST(req: NextRequest) {
       if (!groqRes.ok) {
         const errBody = await groqRes.text();
         console.error("[AI/proctor] Groq API error:", groqRes.status, errBody);
+        const isRateLimit = groqRes.status === 429;
         return NextResponse.json(
-          { error: `Groq API error: ${groqRes.status}`, detail: errBody },
-          { status: 502 }
+          { 
+            error: isRateLimit ? "Rate limit reached" : `Groq API error: ${groqRes.status}`,
+            detail: isRateLimit ? "Please wait a minute before asking more questions." : errBody 
+          },
+          { status: groqRes.status === 429 ? 429 : 502 }
         );
       }
 
@@ -89,7 +93,7 @@ export async function POST(req: NextRequest) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages,
         temperature: 0.3,
         max_tokens: 1024,

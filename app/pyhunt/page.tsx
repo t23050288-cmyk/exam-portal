@@ -3,7 +3,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import styles from "./pyhunt.module.css";
-import { getAICompletion, streamAICompletion, checkCodeAI, getAIHint } from "@/lib/ai-client";
+
+
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import GoldenOrb from "@/components/GoldenOrb";
@@ -418,9 +419,9 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const [testResults, setTestResults] = useState<{pass:boolean;got:string;expected:string;input:string}[]>([]);
   const [activeCase, setActiveCase] = useState(0);
   const [allPass, setAllPass] = useState(false);
-  const [aiFeedback, setAiFeedback] = useState<string|null>(null);
-  const [aiHint, setAiHint]     = useState<string|null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [feedback, setFeedback] = useState<string|null>(null);
+  const [hint, setHint]     = useState<string|null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [engine, setEngine]      = useState<string>("");
   const [submitMode, setSubmitMode] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -450,45 +451,39 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const runVerification = async (isSubmit: boolean) => {
     if (running || cooldown > 0) return;
     setRunning(true); setSubmitMode(isSubmit);
-    setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null); setEngine("");
+    setOutput(null); setTestResults([]); setFeedback(null); setHint(null); setEngine("");
     if (isSubmit) setCooldown(8);
 
     try {
-      // ── Plan A: Groq AI Strict Grader ──
-      setAiLoading(true);
-      try {
-        const res = await checkCodeAI({
+      // ── Plan A: Backend Piston API ──
+      setVerifying(true);
+      const resp = await fetch("/api/exam/pyhunt/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           problem_title: problem.title,
-          problem_description: problem.description,
           code,
           test_cases: problem.testCases,
-          round_num: roundNum
-        });
-        setAiLoading(false);
-        const passed = res.correct === true || res.status === "Pass";
-        setEngine("🤖 Groq AI");
-        setAiFeedback(res.feedback || "");
-        const syntheticResults = problem.testCases.map((tc, i) => ({
-          pass: passed,
-          got: passed ? tc.expected : (res.errors || "Check failed"),
-          expected: tc.expected,
-          input: tc.input
-        }));
-        setTestResults(syntheticResults);
-        setActiveBottomTab("testcases");
+          is_submit: isSubmit
+        })
+      });
+      
+      const data = await resp.json();
+      setVerifying(false);
 
-        if (isSubmit) {
-          setAllPass(passed);
-          if (!passed) {
-            setAiHint(res.errors && res.errors !== "None" ? res.errors : undefined);
-            onWrong();
-          }
+      if (data.ok && !data.engine?.includes("Regex")) {
+        setTestResults(data.results || []);
+        setAllPass(data.all_pass);
+        setEngine(data.engine || "Backend API");
+        
+        if (data.all_pass) {
+          setFeedback(`🎯 LOGIC VERIFIED: ${data.engine} confirmed your solution.`);
+        } else {
+          onWrong();
+          setHint("Focus on the test case error above! You can do it.");
         }
         setRunning(false);
         return;
-      } catch (aiErr) {
-        setAiLoading(false);
-        console.warn("[PyHunt] Groq failed, falling back to Piston/Local...", aiErr);
       }
 
       // ── Plan B: Local Pyodide Execution ──
@@ -507,20 +502,16 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
           setAllPass(ap);
           if (!ap) {
             onWrong();
-            try {
-              const hintRes = await getAIHint({ problem_title: problem.title, code,
-                error: results.find(r => !r.pass)?.got || out.stderr || "" });
-              setAiHint(hintRes.hint);
-            } catch {}
+            setHint("Check your logic against the failed test cases!");
           }
         }
       } else {
-        setAiFeedback("⚠ Python engine still loading. Try again in a moment.");
+        setFeedback("⚠ Python engine still loading. Try again in a moment.");
       }
     } catch (err: any) {
-      setAiFeedback("⚠ Execution error: " + err.message);
+      setFeedback("⚠ Execution error: " + err.message);
     } finally {
-      setRunning(false); setAiLoading(false);
+      setRunning(false); setVerifying(false);
     }
   };
 
@@ -613,22 +604,22 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
             <div className={styles.ideBottomContent}>
               {activeBottomTab === "console" && (
                 <div className={styles.ideConsole}>
-                  {aiLoading && <div className={styles.ideConsoleAi}>🤖 Groq AI is reviewing your code…</div>}
+                  {verifying && <div className={styles.ideConsoleVerifying}>📡 Verifying code logic…</div>}
                   {output ? (
                     <pre className={output.stderr || output.error ? styles.ideConsoleErr : styles.ideConsoleOut}>
                       {output.stderr || output.error || output.stdout || "(no output)"}
                     </pre>
-                  ) : !aiLoading ? (
+                  ) : !verifying ? (
                     <div className={styles.ideConsolePlaceholder}>Run your code to see output here.</div>
                   ) : null}
-                  {aiFeedback && (
-                    <div className={styles.ideAiFeedback}>
-                      <strong>🤖 AI Feedback:</strong> {aiFeedback}
+                  {feedback && (
+                    <div className={styles.ideFeedback}>
+                      <strong>✨ Result:</strong> {feedback}
                     </div>
                   )}
-                  {aiHint && (
-                    <div className={styles.ideAiHint}>
-                      <strong>💡 Hint:</strong> {aiHint}
+                  {hint && (
+                    <div className={styles.ideHint}>
+                      <strong>💡 Hint:</strong> {hint}
                     </div>
                   )}
                 </div>
@@ -636,7 +627,7 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
 
               {activeBottomTab === "testcases" && (
                 <div className={styles.ideTcPanel}>
-                  {aiLoading && <div className={styles.ideConsoleAi}>🤖 Groq AI is verifying your logic…</div>}
+                  {verifying && <div className={styles.ideConsoleVerifying}>📡 Verifying logic…</div>}
                   {/* Case selector tabs */}
                   {testResults.length > 0 && (
                     <div className={styles.ideCaseTabs}>
@@ -667,17 +658,11 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
                         </div>
                       )}
                     </div>
-                  ) : !aiLoading ? (
+                  ) : !verifying ? (
                     <div className={styles.ideConsolePlaceholder}>
                       Click <strong>Run</strong> to test your code against the cases.
                     </div>
                   ) : null}
-                  {aiFeedback && (
-                    <div className={styles.ideAiFeedback}><strong>🤖 AI:</strong> {aiFeedback}</div>
-                  )}
-                  {aiHint && (
-                    <div className={styles.ideAiHint}><strong>💡 Hint:</strong> {aiHint}</div>
-                  )}
                 </div>
               )}
             </div>
@@ -711,7 +696,7 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
         <div className={styles.idePassOverlay}>
           <div className={styles.doneIcon}>🎉</div>
           <h3>All Tests Passed!</h3>
-          {aiFeedback && <p className={styles.ideFeedbackText}>{aiFeedback}</p>}
+          {feedback && <p className={styles.ideFeedbackText}>{feedback}</p>}
           <button className={styles.primaryBtn} onClick={onComplete}>
             {showNextPartOnPass ? "Next Part →" : "Get Clue →"}
           </button>
@@ -720,8 +705,6 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
     </div>
   );
 }
-
-
 
 /* ═══════════════════════════════════════════════
    ROUND 2 — DUAL CODE JUMBLE  (Part A + Part B, with compiler on right)

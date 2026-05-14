@@ -190,7 +190,7 @@ export default function AdminDashboard({ examId = "" }: Props) {
                   </div>
                 ))}
                 {log.events.slice(0,50).map((ev,i) => (
-                  <div key={i} style={{ padding:"2px 8px", color:"#64748b" }}>
+                  <div key={i} style={{ padding:"2px 8px", color:"#8ba3c7" }}>
                     [{String(ev.created_at||"").slice(11,19)}] {String(ev.event_type)}
                   </div>
                 ))}

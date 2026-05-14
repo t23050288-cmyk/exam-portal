@@ -20,6 +20,8 @@ interface CodingProblem { title: string; description: string; starterCode: strin
 interface ClueConfig { clueText: string; unlockCode: string; }
 interface TurtleProblem { title: string; description: string; starterCode: string; }
 interface PyHuntConfig {
+  competitionName: string;
+  startTime: string;
   entryAccessCode: string;
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
@@ -37,6 +39,8 @@ interface PyHuntConfig {
 
 /* ─── Defaults ───────────────────────────────── */
 const DEFAULT: PyHuntConfig = {
+  competitionName: "PyHunt 2024",
+  startTime: new Date().toISOString().slice(0, 16),
   entryAccessCode: "NEXUS24",
   mcqQuestions: [
     { id:"q1", question:"What is the output of: print(type([]).__name__)?", options:[{label:"A",text:"list"},{label:"B",text:"array"},{label:"C",text:"List"},{label:"D",text:"tuple"}], correct:"A", explanation:"type([]) → <class 'list'>, .__name__ → 'list'." },
@@ -98,7 +102,7 @@ const $ = {
   tabOn: { background:"rgba(40, 215, 214, 0.1)", borderColor:"rgba(40, 215, 214, 0.3)", color:"#28D7D6" } as React.CSSProperties,
   card: { background:"rgba(255, 255, 255, 0.04)", backdropFilter:"blur(24px)", border:"1px solid rgba(230, 180, 130, 0.08)", borderRadius:20, padding:"28px", marginBottom:20, boxShadow:"0 8px 32px rgba(0,0,0,0.3)" } as React.CSSProperties,
   cardTitle: { fontSize:14, fontWeight:800, color:"#28D7D6", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center", letterSpacing:"0.05em", textTransform:"uppercase" as const } as React.CSSProperties,
-  lbl: { fontSize:11, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase" as const, color:"rgba(216, 234, 242, 0.4)", marginBottom:8, display:"block" },
+  lbl: { fontSize:11, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase" as const, color:"rgba(216, 234, 242, 0.75)", marginBottom:8, display:"block" },
   inp: { width:"100%", background:"rgba(0,0,0,0.25)", border:"1px solid rgba(255, 255, 255, 0.1)", borderRadius:10, padding:"12px 16px", color:"#fff", fontSize:14, fontFamily:"Inter,sans-serif", outline:"none", boxSizing:"border-box" as const, marginBottom:16, transition:"all 0.2s" } as React.CSSProperties,
   ta: { width:"100%", background:"rgba(0,0,0,0.25)", border:"1px solid rgba(255, 255, 255, 0.1)", borderRadius:10, padding:"12px 16px", color:"#fff", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box" as const, resize:"vertical" as const, marginBottom:16, transition:"all 0.2s" } as React.CSSProperties,
   row: { display:"flex", gap:12, alignItems:"flex-start", marginBottom:12 } as React.CSSProperties,
@@ -129,10 +133,19 @@ export default function PyHuntAdminTab() {
   const [sub, setSub] = useState<SubTab>("clues");
   const [saved, setSaved] = useState(false);
   const [editIdx, setEditIdx] = useState<number|null>(null);
+  const [jsonStr, setJsonStr] = useState("");
 
   useEffect(() => { 
-    loadCfgAsync().then(c => setCfg(c)); 
+    loadCfgAsync().then(c => {
+      setCfg(c);
+      setJsonStr(JSON.stringify(c, null, 2));
+    }); 
   }, []);
+
+  useEffect(() => {
+    // Live sync cfg -> json preview as the user edits the UI form
+    setJsonStr(JSON.stringify(cfg, null, 2));
+  }, [cfg]);
 
   const handleSave = async () => {
     await saveCfgAsync(cfg);
@@ -181,6 +194,17 @@ export default function PyHuntAdminTab() {
       return { ...c, [key]: (c[key] as ClueConfig[]).filter((_, j) => j !== i) };
     });
 
+  const applyJson = () => {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (!parsed.entryAccessCode) throw new Error("Invalid Config: Missing entryAccessCode");
+      setCfg(parsed);
+      alert("✅ Protocol Applied! Remember to 'Save All Changes' to persist.");
+    } catch (e: any) {
+      alert("❌ Invalid JSON Protocol: " + e.message);
+    }
+  };
+
   return (
     <div style={$.wrap}>
       <div style={$.topRow}>
@@ -206,8 +230,27 @@ export default function PyHuntAdminTab() {
         <div>
           <div style={$.card}>
             <div style={$.cardTitle}>🚪 Competition Entrance</div>
-            <label style={$.lbl}>Entry Access Code (Required to start PyHunt)</label>
+            
+            <label htmlFor="competitionName" style={$.lbl}>Competition Name</label>
             <input
+              id="competitionName"
+              style={$.inp}
+              value={cfg.competitionName}
+              onChange={e=>setCfg(c=>({...c,competitionName:e.target.value}))}
+            />
+
+            <label htmlFor="startTime" style={$.lbl}>Start Time</label>
+            <input
+              id="startTime"
+              type="datetime-local"
+              style={$.inp}
+              value={cfg.startTime}
+              onChange={e=>setCfg(c=>({...c,startTime:e.target.value}))}
+            />
+
+            <label htmlFor="entryAccessCode" style={$.lbl}>Entry Access Code (Required to start PyHunt)</label>
+            <input
+              id="entryAccessCode"
               style={$.inp}
               value={cfg.entryAccessCode}
               onChange={e=>setCfg(c=>({...c,entryAccessCode:e.target.value.toUpperCase()}))}
@@ -233,15 +276,17 @@ export default function PyHuntAdminTab() {
                       <button style={$.btnDel} onClick={() => delClue(r as any, i)}>✕ Remove</button>
                     </div>
 
-                    <label style={$.lbl}>Clue Text (Location Hint)</label>
+                    <label htmlFor={`clueText_${r}_${i}`} style={$.lbl}>Clue Text (Location Hint)</label>
                     <textarea
+                      id={`clueText_${r}_${i}`}
                       style={{ ...$.ta, minHeight: 72 }}
                       value={clue.clueText}
                       onChange={e => setClue(r as any, i, "clueText", e.target.value)}
                     />
 
-                    <label style={$.lbl}>Unlock Code (Found at Location)</label>
+                    <label htmlFor={`unlockCode_${r}_${i}`} style={$.lbl}>Unlock Code (Found at Location)</label>
                     <input
+                      id={`unlockCode_${r}_${i}`}
                       style={$.inp}
                       value={clue.unlockCode}
                       onChange={e => setClue(r as any, i, "unlockCode", e.target.value.toUpperCase())}
@@ -259,8 +304,9 @@ export default function PyHuntAdminTab() {
           })}
 
           <div style={$.card}>
-            <label style={$.lbl}>🏆 Finish Message (shown after all rounds)</label>
+            <label htmlFor="finishMessage" style={$.lbl}>🏆 Finish Message (shown after all rounds)</label>
             <textarea
+              id="finishMessage"
               style={{...$.ta, minHeight:60}}
               value={cfg.finishMessage}
               onChange={e=>setCfg(c=>({...c,finishMessage:e.target.value}))}
@@ -287,27 +333,33 @@ export default function PyHuntAdminTab() {
 
               {editIdx===qi && (
                 <>
-                  <label style={$.lbl}>Question</label>
-                  <textarea style={{...$.ta,minHeight:60}} value={q.question} onChange={e=>setMCQ(qi,"question",e.target.value)} />
+                  <label htmlFor={`mcq_q_${qi}`} style={$.lbl}>Question</label>
+                  <textarea id={`mcq_q_${qi}`} style={{...$.ta,minHeight:60}} value={q.question} onChange={e=>setMCQ(qi,"question",e.target.value)} />
 
                   <label style={$.lbl}>Options</label>
                   {q.options.map((opt, oi) => (
                     <div key={opt.label} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
                       <span style={{color:"#00dcff",fontWeight:800,width:20,flexShrink:0}}>{opt.label}.</span>
-                      <input style={{...$.inp,margin:0,flex:1}} value={opt.text} onChange={e=>setOpt(qi,oi,e.target.value)} />
+                      <input 
+                        id={`mcq_q_${qi}_opt_${opt.label}`}
+                        style={{...$.inp,margin:0,flex:1}} 
+                        value={opt.text} 
+                        onChange={e=>setOpt(qi,oi,e.target.value)} 
+                        aria-label={`Option ${opt.label}`}
+                      />
                     </div>
                   ))}
 
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                     <div>
-                      <label style={$.lbl}>Correct Answer</label>
-                      <select style={{...$.inp,width:"auto"}} value={q.correct} onChange={e=>setMCQ(qi,"correct",e.target.value)}>
+                      <label htmlFor={`mcq_q_${qi}_correct`} style={$.lbl}>Correct Answer</label>
+                      <select id={`mcq_q_${qi}_correct`} style={{...$.inp,width:"auto"}} value={q.correct} onChange={e=>setMCQ(qi,"correct",e.target.value)}>
                         {q.options.map(o=><option key={o.label} value={o.label}>{o.label} — {o.text}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={$.lbl}>Explanation (shown after answer)</label>
-                      <input style={$.inp} value={q.explanation} onChange={e=>setMCQ(qi,"explanation",e.target.value)} placeholder="Why is this the right answer?" />
+                      <label htmlFor={`mcq_q_${qi}_expl`} style={$.lbl}>Explanation (shown after answer)</label>
+                      <input id={`mcq_q_${qi}_expl`} style={$.inp} value={q.explanation} onChange={e=>setMCQ(qi,"explanation",e.target.value)} placeholder="Why is this the right answer?" />
                     </div>
                   </div>
                 </>
@@ -323,12 +375,13 @@ export default function PyHuntAdminTab() {
         <div>
           <div style={$.card}>
             <div style={{...$.cardTitle}}>Round 2 — Problem 1 (Part A)</div>
-            <label style={$.lbl}>Title</label>
-            <input style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
-            <label style={$.lbl}>Description</label>
-            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
-            <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
+            <label htmlFor="jumble_title_a" style={$.lbl}>Title</label>
+            <input id="jumble_title_a" style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
+            <label htmlFor="jumble_desc_a" style={$.lbl}>Description</label>
+            <textarea id="jumble_desc_a" style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
+            <label htmlFor="jumble_lines_a" style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
             <textarea
+              id="jumble_lines_a"
               style={{...$.ta,minHeight:180}}
               value={cfg.jumbleProblem.lines.join("\n")}
               onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
@@ -337,12 +390,13 @@ export default function PyHuntAdminTab() {
 
           <div style={$.card}>
             <div style={{...$.cardTitle, color: "#a78bfa"}}>Round 2 — Problem 2 (Part B)</div>
-            <label style={$.lbl}>Title</label>
-            <input style={$.inp} value={cfg.jumbleProblemB.title} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,title:e.target.value}}))} />
-            <label style={$.lbl}>Description</label>
-            <textarea style={{...$.ta,minHeight:60}} value={cfg.jumbleProblemB.description} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,description:e.target.value}}))} />
-            <label style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
+            <label htmlFor="jumble_title_b" style={$.lbl}>Title</label>
+            <input id="jumble_title_b" style={$.inp} value={cfg.jumbleProblemB.title} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,title:e.target.value}}))} />
+            <label htmlFor="jumble_desc_b" style={$.lbl}>Description</label>
+            <textarea id="jumble_desc_b" style={{...$.ta,minHeight:60}} value={cfg.jumbleProblemB.description} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,description:e.target.value}}))} />
+            <label htmlFor="jumble_lines_b" style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
             <textarea
+              id="jumble_lines_b"
               style={{...$.ta,minHeight:180}}
               value={cfg.jumbleProblemB.lines.join("\n")}
               onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,lines:e.target.value.split("\n")}}))}
@@ -367,19 +421,20 @@ export default function PyHuntAdminTab() {
             </div>
 
             {/* Title & Description */}
-            <label style={$.lbl}>Problem Title</label>
-            <input style={$.inp} value={cfg[rk].title}
+            <label htmlFor={`${rk}_title`} style={$.lbl}>Problem Title</label>
+            <input id={`${rk}_title`} style={$.inp} value={cfg[rk].title}
               onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],title:e.target.value}}))} />
-            <label style={$.lbl}>Problem Description</label>
-            <textarea style={{...$.ta,minHeight:70}} value={cfg[rk].description}
+            <label htmlFor={`${rk}_desc`} style={$.lbl}>Problem Description</label>
+            <textarea id={`${rk}_desc`} style={{...$.ta,minHeight:70}} value={cfg[rk].description}
               onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
 
             {/* Starter Code — monospace IDE-style */}
-            <label style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+            <label htmlFor={`${rk}_starter`} style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
               <span>🐍 Starter Code</span>
               <span style={{fontSize:10, color:"#3a5578"}}>Python 3 · Tab = 4 spaces</span>
             </label>
             <textarea
+              id={`${rk}_starter`}
               style={{
                 width:"100%", minHeight:220,
                 background:"#0d1117", color:"#e6edf3",
@@ -469,6 +524,49 @@ export default function PyHuntAdminTab() {
       {/* ══ LIVE STATUS TAB ══ */}
       {sub==="status" && <LiveStatusView />}
       {sub==="marks" && <MarksView cfg={cfg} />}
+
+      {/* ══ PROTOCOL JSON EDITOR ══ */}
+      <div style={{ marginTop: 60, borderTop: "1px solid rgba(40, 215, 214, 0.1)", paddingTop: 40 }}>
+        <div style={$.cardTitle}>
+          <span>📡 PROTOCOL JSON (Direct Configuration)</span>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button 
+              style={{ ...$.btnEdit, color: "#28D7D6", borderColor: "rgba(40,215,214,0.3)" }} 
+              onClick={() => setJsonStr(JSON.stringify(cfg, null, 2))}
+              title="Reset JSON editor to match the current UI state"
+            >
+              🔄 Refresh from UI
+            </button>
+            <button 
+              style={{ ...$.btnSave, padding: "8px 20px", fontSize: 12, background: "linear-gradient(135deg,#28D7D6,#3b82f6)" }} 
+              onClick={applyJson}
+              title="Apply the JSON below to the UI fields above"
+            >
+              ⚡ Apply Protocol
+            </button>
+          </div>
+        </div>
+        <div style={$.info}>
+          Preview as JSON (copy for manual import or direct modification). Changes applied here will update the fields above. 
+          Use this for batch editing or transferring configurations between environments.
+        </div>
+        <textarea
+          style={{
+            ...$.ta,
+            minHeight: 400,
+            fontSize: 12,
+            background: "rgba(0,0,0,0.45)",
+            border: "1px solid rgba(40,215,214,0.15)",
+            color: "#28D7D6",
+            boxShadow: "inset 0 4px 20px rgba(0,0,0,0.6)",
+            lineHeight: 1.6,
+            padding: "20px"
+          }}
+          value={jsonStr}
+          onChange={e => setJsonStr(e.target.value)}
+          spellCheck={false}
+        />
+      </div>
     </div>
   );
 }
@@ -522,7 +620,7 @@ function MarksView({ cfg }: { cfg: PyHuntConfig }) {
               <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
                 <td style={{padding:"12px 8px"}}>
                   <div style={{fontWeight:700}}>{s.student_name}</div>
-                  <div style={{fontSize:10, opacity:0.6}}>{s.student_usn}</div>
+                  <div style={{fontSize:10, color: "#8ba3c7"}}>{s.student_usn}</div>
                 </td>
                 <td style={{padding:"12px 8px"}}>
                   <span style={{...$.clueBadge, background:"rgba(0,220,255,0.05)", color:"#00dcff"}}>
@@ -739,7 +837,7 @@ function LiveStatusView() {
                 }}>
                     <td style={{padding:"12px 8px"}}>
                       <div style={{fontWeight:700}}>{s.student_name || "Unknown Name"}</div>
-                      <div style={{fontSize:10, opacity:0.6, color: "#00dcff", fontWeight: 700}}>{s.student_usn || s.student_id || "Anonymous"}</div>
+                      <div style={{fontSize:10, color: "#8ba3c7", fontWeight: 700}}>{s.student_usn || s.student_id || "Anonymous"}</div>
                     </td>
                   <td style={{padding:"12px 8px"}}>
                     <span style={{

@@ -372,8 +372,9 @@ export default function OrbitalControlPage() {
               {/* ── Quiz Link & Selection ── */}
               <div className={styles.quizContextBar}>
                 <div className={styles.quizDropdownGroup}>
-                  <label className={styles.quizContextLabel}>Target Quiz</label>
+                  <label htmlFor="quiz-select" className={styles.quizContextLabel}>Target Quiz</label>
                   <select 
+                    id="quiz-select"
                     className={styles.quizContextSelect}
                     value={config.exam_title}
                     onChange={(e) => {
@@ -388,9 +389,10 @@ export default function OrbitalControlPage() {
                   </select>
                 </div>
                 <div className={styles.quizLinkGroup}>
-                  <label className={styles.quizContextLabel}>Shareable Link</label>
+                  <label htmlFor="shareable-link" className={styles.quizContextLabel}>Shareable Link</label>
                   <div className={styles.quizLinkInputWrapper}>
                     <input 
+                      id="shareable-link"
                       readOnly 
                       className={styles.quizLinkInput} 
                       value={typeof window !== 'undefined' ? `${window.location.origin}/login?exam=${encodeURIComponent(config.exam_title)}` : ''} 
