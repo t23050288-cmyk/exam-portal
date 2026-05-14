@@ -51,9 +51,9 @@
 }
 
 .tabActive {
-  background: #8b5cf6 !important; /* Force solid color for visibility */
+  background: #7C3AED !important; /* Force solid color for visibility */
   color: #ffffff !important;
-  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
   font-weight: 700 !important;
 }
 

@@ -655,6 +655,7 @@ export default function AdminPage() {
               style={{ maxWidth: 200, padding: "8px 12px", cursor: "pointer" }}
               value={quizFilter}
               onChange={(e) => setQuizFilter(e.target.value)}
+              aria-label="Filter by Quiz"
             >
               <option value="all">All Quizzes</option>
               {Array.from(new Set(quizzes.map(q => q.exam_name))).map(name => (
@@ -669,7 +670,7 @@ export default function AdminPage() {
                   {f === "not_started" ? "Not Started" : f.charAt(0).toUpperCase() + f.slice(1)}
                 </button>
               ))}
-              <button className="btn btn-outline" onClick={handleCleanup} style={{ fontSize: 12, padding: "6px 14px", border: "1px dashed var(--warning)", color: "var(--warning)" }}>
+              <button className="btn btn-outline" onClick={handleCleanup} style={{ fontSize: 12, padding: "6px 14px", border: "1px dashed var(--warning)", color: "#9A4E0E" }}>
                 🧹 Cleanup Stale
               </button>
             </div>
@@ -860,12 +861,12 @@ function ViolationAlertsFeed({ students }: { students: StudentRow[] }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 2 }}>
                     {alert.name}
-                    <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>{alert.usn}</span>
+                    <span style={{ fontWeight: 400, fontSize: 12, color: "#8BA3C7", marginLeft: 8 }}>{alert.usn}</span>
                   </div>
                   <div style={{ fontSize: 13, color: "var(--danger)", fontWeight: 500, marginBottom: 2 }}>
                     {alert.type}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Recorded during active session</div>
+                  <div style={{ fontSize: 11, color: "#8BA3C7" }}>Recorded during active session</div>
                 </div>
 
                 {/* Badge number */}
