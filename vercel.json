@@ -23,10 +23,6 @@
       "dest": "python_api/index.py"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "python_api/index.py"
-    },
-    {
       "src": "/api/admin/students/([^/]+)/ban",
       "dest": "python_api/index.py"
     },
@@ -40,10 +36,6 @@
     },
     {
       "src": "/api/admin/(.*)",
-      "dest": "python_api/index.py"
-    },
-    {
-      "src": "/api/ai/(.*)",
       "dest": "python_api/index.py"
     },
     {
@@ -96,6 +88,17 @@
     },
     {
       "src": "/api/py/(.*)",
+      "dest": "python_api/index.py"
+    },
+    {
+      "src": "/api/ai/(.*)",
+      "dest": "/api/ai/$1",
+      "headers": {
+        "x-nextjs-page": "/api/ai/$1"
+      }
+    },
+    {
+      "src": "/api/(.*)",
       "dest": "python_api/index.py"
     },
     {

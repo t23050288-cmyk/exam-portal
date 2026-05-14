@@ -48,7 +48,8 @@ try:
 
     from db.supabase_client import get_supabase
     from core.config import get_settings
-    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support, nvidia_ai
+    from routers import auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support
+    # nvidia_ai removed — AI now handled by Next.js Edge (Groq)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -60,7 +61,7 @@ try:
 
     # Single mount with /api prefix for consistency
     # Define routers list
-    routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support, nvidia_ai]
+    routers_list = [auth, exam, violations, admin, ingest, leaderboard, sessions, sync, uploads, aggregate, admin_auth, grading, support]
 
     # Mount routers with /api prefix only
     # Vercel routes /api/* → this lambda, so root-mounting is redundant and wastes memory
