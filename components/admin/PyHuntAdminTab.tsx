@@ -351,54 +351,117 @@ export default function PyHuntAdminTab() {
         </div>
       )}
 
-      {/* ══ ROUND 3 / 4 CODING ══ */}
+      {/* ══ ROUND 3 / 4 CODING — IDE EDITOR ══ */}
       {(sub==="round3"||sub==="round4") && (() => {
         const rk1 = sub as "round3"|"round4";
         const isR3 = sub==="round3";
-        const rk2 = isR3 ? "round3b" : null;
+        const rk2 = isR3 ? "round3b" as const : null;
         const rn = isR3?3:4;
-        
-        return (
-          <div>
-            <div style={$.card}>
-              <div style={{...$.cardTitle}}>Round {rn} — {isR3 ? "Problem 1" : "Coding Problem"}</div>
-              <label style={$.lbl}>Title</label>
-              <input style={$.inp} value={cfg[rk1].title} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],title:e.target.value}}))} />
-              <label style={$.lbl}>Description</label>
-              <textarea style={{...$.ta,minHeight:80}} value={cfg[rk1].description} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],description:e.target.value}}))} />
-              <label style={$.lbl}>Starter Code</label>
-              <textarea style={{...$.ta,minHeight:150}} value={cfg[rk1].starterCode} onChange={e=>setCfg(c=>({...c,[rk1]:{...c[rk1],starterCode:e.target.value}}))} />
-              
-              <div style={{...$.cardTitle, marginTop: 24}}>Test Cases <button style={$.btnAdd} onClick={()=>addTC(rk1)}>+ Add Test</button></div>
-              {cfg[rk1].testCases.map((tc,i)=>(
-                <div key={i} style={$.row}>
-                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.input} onChange={e=>setTC(rk1,i,"input",e.target.value)} placeholder="Input" /></div>
-                  <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.expected} onChange={e=>setTC(rk1,i,"expected",e.target.value)} placeholder="Expected" /></div>
-                  <button style={$.btnDel} onClick={()=>delTC(rk1,i)}>✕</button>
-                </div>
-              ))}
+
+        const CodingProblemEditor = ({ rk, accentColor = "#00dcff", label }: { rk: "round3"|"round3b"|"round4"; accentColor?: string; label: string }) => (
+          <div style={{...$.card, borderColor: `${accentColor}22`}}>
+            {/* Header */}
+            <div style={{...$.cardTitle, color: accentColor, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+              <span>Round {rn} — {label}</span>
+              <span style={{fontSize:10, color:"#3a5578", fontWeight:700, letterSpacing:1}}>IDE EDITOR</span>
             </div>
 
-            {rk2 && (
-              <div style={$.card}>
-                <div style={{...$.cardTitle, color: "#a78bfa"}}>Round {rn} — Problem 2</div>
-                <label style={$.lbl}>Title</label>
-                <input style={$.inp} value={cfg[rk2].title} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],title:e.target.value}}))} />
-                <label style={$.lbl}>Description</label>
-                <textarea style={{...$.ta,minHeight:80}} value={cfg[rk2].description} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],description:e.target.value}}))} />
-                <label style={$.lbl}>Starter Code</label>
-                <textarea style={{...$.ta,minHeight:150}} value={cfg[rk2].starterCode} onChange={e=>setCfg(c=>({...c,[rk2]:{...c[rk2],starterCode:e.target.value}}))} />
-                
-                <div style={{...$.cardTitle, marginTop: 24, color: "#a78bfa"}}>Test Cases (Part 2) <button style={{...$.btnAdd, color: "#a78bfa", borderColor: "rgba(167,139,250,0.3)"}} onClick={()=>addTC(rk2)}>+ Add Test</button></div>
-                {cfg[rk2].testCases.map((tc,i)=>(
-                  <div key={i} style={$.row}>
-                    <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.input} onChange={e=>setTC(rk2,i,"input",e.target.value)} placeholder="Input" /></div>
-                    <div style={{flex:1}}><input style={{...$.inp,margin:0}} value={tc.expected} onChange={e=>setTC(rk2,i,"expected",e.target.value)} placeholder="Expected" /></div>
-                    <button style={$.btnDel} onClick={()=>delTC(rk2,i)}>✕</button>
-                  </div>
-                ))}
+            {/* Title & Description */}
+            <label style={$.lbl}>Problem Title</label>
+            <input style={$.inp} value={cfg[rk].title}
+              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],title:e.target.value}}))} />
+            <label style={$.lbl}>Problem Description</label>
+            <textarea style={{...$.ta,minHeight:70}} value={cfg[rk].description}
+              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
+
+            {/* Starter Code — monospace IDE-style */}
+            <label style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+              <span>🐍 Starter Code</span>
+              <span style={{fontSize:10, color:"#3a5578"}}>Python 3 · Tab = 4 spaces</span>
+            </label>
+            <textarea
+              style={{
+                width:"100%", minHeight:220,
+                background:"#0d1117", color:"#e6edf3",
+                fontFamily:"'JetBrains Mono','Fira Code',monospace",
+                fontSize:13, lineHeight:1.7,
+                padding:"14px 16px",
+                border:`1px solid ${accentColor}22`,
+                borderRadius:10, resize:"vertical",
+                boxSizing:"border-box", outline:"none",
+                tabSize:4,
+              }}
+              value={cfg[rk].starterCode}
+              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],starterCode:e.target.value}}))}
+              onKeyDown={e => {
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  const ta = e.currentTarget;
+                  const s = ta.selectionStart, en = ta.selectionEnd;
+                  const val = ta.value;
+                  const newVal = val.substring(0, s) + "    " + val.substring(en);
+                  setCfg(c=>({...c,[rk]:{...c[rk],starterCode:newVal}}));
+                  requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 4; });
+                }
+              }}
+              spellCheck={false}
+            />
+
+            {/* Test Cases — LeetCode style */}
+            <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:20, marginBottom:8}}>
+              <div style={{...$.cardTitle as any, color: accentColor, margin:0}}>
+                🧪 Test Cases (Protocol JSON)
               </div>
-            )}
+              <button style={{...$.btnAdd, color: accentColor, borderColor:`${accentColor}44`}} onClick={()=>addTC(rk)}>
+                + Add Case
+              </button>
+            </div>
+
+            {/* Column headers */}
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 32px", gap:6, marginBottom:4}}>
+              <div style={{fontSize:10, fontWeight:800, color:"#3a5578", letterSpacing:1, paddingLeft:4}}>INPUT</div>
+              <div style={{fontSize:10, fontWeight:800, color:"#3a5578", letterSpacing:1, paddingLeft:4}}>EXPECTED OUTPUT</div>
+              <div/>
+            </div>
+            {cfg[rk].testCases.map((tc,i)=>(
+              <div key={i} style={{display:"grid", gridTemplateColumns:"1fr 1fr 32px", gap:6, marginBottom:6, alignItems:"center"}}>
+                <input
+                  style={{...$.inp, margin:0, fontFamily:"'JetBrains Mono',monospace", fontSize:12}}
+                  value={tc.input}
+                  onChange={e=>setTC(rk,i,"input",e.target.value)}
+                  placeholder={`e.g. "hello" or 5`}
+                />
+                <input
+                  style={{...$.inp, margin:0, fontFamily:"'JetBrains Mono',monospace", fontSize:12, borderColor:`${accentColor}33`}}
+                  value={tc.expected}
+                  onChange={e=>setTC(rk,i,"expected",e.target.value)}
+                  placeholder={`e.g. "True" or 120`}
+                />
+                <button style={{...$.btnDel, padding:"6px 10px"}} onClick={()=>delTC(rk,i)}>✕</button>
+              </div>
+            ))}
+
+            {/* JSON preview */}
+            <details style={{marginTop:12}}>
+              <summary style={{fontSize:11, color:"#3a5578", cursor:"pointer", userSelect:"none"}}>
+                📋 Preview as JSON (copy for manual import)
+              </summary>
+              <pre style={{
+                marginTop:8, background:"#0d1117", color:"#7adaa0",
+                borderRadius:8, padding:"10px 14px", fontSize:11,
+                fontFamily:"'JetBrains Mono',monospace", overflowX:"auto",
+                border:"1px solid rgba(0,220,255,0.08)"
+              }}>
+                {JSON.stringify(cfg[rk].testCases, null, 2)}
+              </pre>
+            </details>
+          </div>
+        );
+
+        return (
+          <div>
+            <CodingProblemEditor rk={rk1} label={isR3 ? "Part 1 Problem" : "Coding Problem"} />
+            {rk2 && <CodingProblemEditor rk={rk2} accentColor="#a78bfa" label="Part 2 Problem" />}
           </div>
         );
       })()}
