@@ -442,7 +442,7 @@ function shuffle<T>(arr: T[]): T[] {
    - Groq AI strict grader → Piston fallback
    - Bigger editor, status bar, run/submit buttons
 ═══════════════════════════════════════════════ */
-function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: {
+export function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: {
   problem: CodingProblem; roundNum: number; partLabel?: string;
   onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean;
 }) {

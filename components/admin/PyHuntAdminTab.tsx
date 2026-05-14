@@ -11,6 +11,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { adminFetch } from "@/lib/api";
+import { RoundCoding } from "@/app/pyhunt/page";
 
 /* ─── Types ─────────────────────────────────── */
 interface MCQOption { label: string; text: string; }
@@ -907,6 +908,7 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
   label: string 
 }) {
   const [tcJson, setTcJson] = useState(JSON.stringify(cfg[rk].testCases, null, 2));
+  const [showPreview, setShowPreview] = useState(false);
 
   // Sync tcJson if cfg[rk].testCases changes from elsewhere
   useEffect(() => {
@@ -1084,22 +1086,94 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
         </div>
       </div>
 
-      {/* JSON utility */}
-      <div style={{marginTop:20, display:"flex", justifyContent:"flex-end"}}>
+      {/* JSON utility & Live Preview Trigger */}
+      <div style={{marginTop:24, display:"flex", justifyContent:"flex-end", gap:12}}>
+        <button 
+          onClick={() => setShowPreview(true)}
+          style={{
+            padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 800,
+            background: "linear-gradient(135deg, #00dcff 0%, #0072ff 100%)", 
+            border: "none", color: "#000", cursor: "pointer",
+            boxShadow: "0 0 20px rgba(0, 220, 255, 0.3)",
+            display: "flex", alignItems: "center", gap: 8
+          }}
+        >
+          🚀 OPEN LIVE IDE PREVIEW
+        </button>
         <button 
           onClick={() => {
             navigator.clipboard.writeText(JSON.stringify(cfg[rk].testCases, null, 2));
             alert("Test cases copied to clipboard!");
           }}
           style={{
-            padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+            padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
             background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
             color: "#fff", cursor: "pointer"
           }}
         >
-          📋 Copy Test Cases JSON
+          📋 Copy JSON
         </button>
       </div>
+
+      {/* FULL-SCREEN LIVE PREVIEW MODAL */}
+      {showPreview && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:9999,
+          background:"rgba(2, 6, 18, 0.98)",
+          backdropFilter:"blur(12px)",
+          display:"flex", flexDirection:"column",
+          animation: "modalFadeIn 0.3s ease-out"
+        }}>
+          {/* Modal Header */}
+          <div style={{
+            padding:"16px 24px", 
+            background:"rgba(13, 17, 23, 0.8)",
+            borderBottom:"1px solid rgba(0, 220, 255, 0.1)",
+            display:"flex", alignItems:"center", justifyContent:"space-between"
+          }}>
+            <div style={{display:"flex", alignItems:"center", gap:12}}>
+              <div style={{width:12, height:12, borderRadius:"50%", background:"#ef4444"}} />
+              <div style={{width:12, height:12, borderRadius:"50%", background:"#fbbf24"}} />
+              <div style={{width:12, height:12, borderRadius:"50%", background:"#10b981"}} />
+              <span style={{marginLeft:12, fontSize:14, fontWeight:800, color:"#00dcff", letterSpacing:1}}>
+                LIVE IDE PREVIEW — ROUND {rn} ({label})
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowPreview(false)}
+              style={{
+                background:"rgba(239, 68, 68, 0.1)", border:"1px solid rgba(239, 68, 68, 0.3)",
+                color:"#f87171", padding:"8px 16px", borderRadius:10, fontSize:12, fontWeight:800,
+                cursor:"pointer", transition:"all 0.2s"
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"}
+            >
+              ✕ CLOSE PREVIEW
+            </button>
+          </div>
+
+          {/* Modal Content — Rendering the actual Student IDE component */}
+          <div style={{flex:1, padding:32, overflowY:"auto"}}>
+            <div style={{maxWidth:1400, margin:"0 auto"}}>
+              <RoundCoding 
+                problem={cfg[rk]}
+                roundNum={rn}
+                onComplete={() => alert("Success! This problem is fully solved and working.")}
+                onWrong={() => {}} // No-op for admin preview
+                showNextPartOnPass={false}
+              />
+            </div>
+          </div>
+          
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes modalFadeIn {
+              from { opacity: 0; transform: scale(1.05); }
+              to { opacity: 1; transform: scale(1); }
+            }
+          `}} />
+        </div>
+      )}
     </div>
   );
 }
