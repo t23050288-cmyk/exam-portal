@@ -732,3 +732,251 @@
   padding: 3px 10px;
   font-weight: 600;
 }
+
+
+/* ════════════════════════════════════════════════
+   LEET CODE-STYLE IDE  (Rounds 3 & 4)
+════════════════════════════════════════════════ */
+
+/* Outer wrapper */
+.ideWrap {
+  display: flex; flex-direction: column; gap: 0;
+  background: #0d1117;
+  border: 1px solid rgba(0,220,255,0.15);
+  border-radius: 16px; overflow: hidden;
+  min-height: 80vh;
+  position: relative;
+}
+
+/* Top status bar */
+.ideTopBar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 18px;
+  background: rgba(4,8,18,0.95);
+  border-bottom: 1px solid rgba(0,220,255,0.1);
+}
+.ideStatus { margin-left: auto; }
+.engineTag {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  color: #a0c0ff; background: rgba(100,150,255,0.1);
+  border: 1px solid rgba(100,150,255,0.2); border-radius: 20px; padding: 3px 10px;
+}
+
+/* Split pane */
+.ideMain {
+  display: grid; grid-template-columns: 42% 58%;
+  flex: 1; min-height: 0;
+}
+@media (max-width: 800px) { .ideMain { grid-template-columns: 1fr; } }
+
+/* LEFT — problem pane */
+.ideLeft {
+  border-right: 1px solid rgba(0,220,255,0.1);
+  padding: 20px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 20px;
+  background: rgba(6,10,24,0.9);
+  max-height: 70vh;
+}
+.ideSection { display: flex; flex-direction: column; gap: 10px; }
+.ideSectionLabel {
+  font-size: 9px; font-weight: 900; letter-spacing: 2px;
+  color: #2a4060; text-transform: uppercase;
+}
+.ideProblemTitle { font-size: 17px; font-weight: 800; color: #e0f0ff; }
+.ideProblemDesc  { font-size: 13px; color: #5a7898; line-height: 1.7; }
+
+.ideExample {
+  background: rgba(0,220,255,0.04);
+  border: 1px solid rgba(0,220,255,0.1);
+  border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ideExampleRow { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ideExLabel { color: #3a5578; font-weight: 700; min-width: 58px; }
+.ideExample code { color: #80dcff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+.ideProtocolBox {
+  background: rgba(255,160,0,0.06); border: 1px solid rgba(255,160,0,0.15);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 12px; color: #9a7040; line-height: 1.6;
+}
+.ideProtocolBox code { color: #ffb060; font-size: 11px; }
+.ideProtocolCode {
+  margin-top: 8px; font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: #c0a060; background: rgba(0,0,0,0.3);
+  border-radius: 6px; padding: 8px 10px;
+}
+
+/* RIGHT — editor pane */
+.ideRight {
+  display: flex; flex-direction: column;
+  background: #0d1117;
+}
+
+.ideLangBar {
+  padding: 8px 14px;
+  background: rgba(4,8,18,0.7);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.ideLangBadge {
+  font-size: 11px; font-weight: 700; color: #5a7898;
+  background: rgba(0,220,255,0.06); border: 1px solid rgba(0,220,255,0.12);
+  border-radius: 6px; padding: 3px 10px;
+}
+
+/* THE EDITOR — bigger, comfortable */
+.ideEditor {
+  flex: 1;
+  width: 100%;
+  min-height: 340px;
+  max-height: 420px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 16px 18px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  tab-size: 4;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.ideEditor::placeholder { color: #2a3a4a; }
+.ideEditor:focus { background: #0d1117; }
+
+/* Bottom tabs panel */
+.ideBottomBar {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  background: #161b22;
+  min-height: 160px;
+  display: flex; flex-direction: column;
+}
+.ideTabRow {
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ideTab {
+  font-size: 12px; font-weight: 600; color: #5a7898;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 6px 14px 8px; cursor: pointer; font-family: inherit;
+  transition: all 0.2s;
+}
+.ideTab:hover { color: #90b8d8; }
+.ideTabActive { color: #00dcff !important; border-bottom-color: #00dcff !important; }
+.ideTcPassBadge {
+  margin-left: auto; font-size: 11px; font-weight: 800;
+  color: #10b981; background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.25); border-radius: 20px; padding: 2px 10px;
+}
+.ideTcFailBadge {
+  margin-left: auto; font-size: 11px; font-weight: 800;
+  color: #f87171; background: rgba(248,113,113,0.1);
+  border: 1px solid rgba(248,113,113,0.25); border-radius: 20px; padding: 2px 10px;
+}
+
+.ideBottomContent { flex: 1; padding: 12px 14px; overflow-y: auto; max-height: 180px; }
+
+/* Console */
+.ideConsole { display: flex; flex-direction: column; gap: 8px; }
+.ideConsoleAi { font-size: 12px; color: #a0b8ff; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.ideConsoleOut { font-family: monospace; font-size: 12px; color: #7adaa0; white-space: pre-wrap; margin: 0; }
+.ideConsoleErr { font-family: monospace; font-size: 12px; color: #f87171; white-space: pre-wrap; margin: 0; }
+.ideConsolePlaceholder { font-size: 12px; color: #2a3a4a; font-style: italic; }
+.ideAiFeedback {
+  font-size: 12px; color: #90b0d8; background: rgba(0,100,200,0.08);
+  border: 1px solid rgba(0,150,255,0.15); border-radius: 8px; padding: 8px 12px;
+  line-height: 1.5;
+}
+.ideAiHint {
+  font-size: 12px; color: #ffb060; background: rgba(255,160,0,0.06);
+  border: 1px solid rgba(255,160,0,0.15); border-radius: 8px; padding: 8px 12px;
+  line-height: 1.5;
+}
+
+/* Testcases tab */
+.ideTcPanel { display: flex; flex-direction: column; gap: 10px; }
+.ideCaseTabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ideCaseTab {
+  font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: #5a7898; border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  font-family: inherit; transition: all 0.2s;
+}
+.ideCaseTabActive { background: rgba(0,220,255,0.1); border-color: rgba(0,220,255,0.3); color: #00dcff; }
+.ideCaseTabPass  { border-color: rgba(16,185,129,0.4) !important; color: #10b981 !important; }
+.ideCaseTabFail  { border-color: rgba(248,113,113,0.4) !important; color: #f87171 !important; }
+
+.ideCaseDetail { display: flex; flex-direction: column; gap: 8px; }
+.ideCaseField  { display: flex; flex-direction: column; gap: 3px; }
+.ideCaseLabel  { font-size: 10px; font-weight: 800; color: #3a5578; letter-spacing: 1px; text-transform: uppercase; }
+.ideCaseValue  {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: #e6edf3; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 10px;
+}
+.ideCaseValueErr {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: #f87171; background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.2); border-radius: 6px; padding: 6px 10px;
+}
+
+/* Action bar */
+.ideActions {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: rgba(4,8,18,0.95);
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.ideStatusDot { margin-right: auto; }
+.ideReady    { font-size: 11px; font-weight: 700; color: #10b981; }
+.ideLoading  { font-size: 11px; font-weight: 700; color: #f59e0b; }
+
+.ideRunBtn {
+  padding: 8px 22px; border-radius: 8px;
+  background: rgba(0,220,255,0.08); border: 1.5px solid rgba(0,220,255,0.3);
+  color: #00dcff; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all 0.2s;
+}
+.ideRunBtn:hover:not(:disabled) { background: rgba(0,220,255,0.15); }
+.ideRunBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ideSubmitBtn {
+  padding: 8px 22px; border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none; color: #fff; font-size: 13px; font-weight: 800;
+  cursor: pointer; font-family: inherit; transition: all 0.2s;
+  box-shadow: 0 0 16px rgba(16,185,129,0.3);
+}
+.ideSubmitBtn:hover:not(:disabled) { box-shadow: 0 0 24px rgba(16,185,129,0.5); transform: translateY(-1px); }
+.ideSubmitBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Pass overlay */
+.idePassOverlay {
+  position: absolute; inset: 0; z-index: 50;
+  background: rgba(4,8,18,0.95);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 40px;
+  border-radius: 16px;
+}
+.ideFeedbackText { font-size: 14px; color: #7090b0; text-align: center; max-width: 420px; line-height: 1.6; }
+
+/* ── Admin IDE Editor (inside PyHuntAdminTab) ── */
+.adminIdeEditor {
+  width: 100%;
+  min-height: 240px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px; line-height: 1.7;
+  padding: 14px 16px;
+  border: 1px solid rgba(0,220,255,0.15);
+  border-radius: 10px;
+  resize: vertical;
+  tab-size: 4; outline: none;
+}
+.adminIdeEditor:focus { border-color: rgba(0,220,255,0.4); }
