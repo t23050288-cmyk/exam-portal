@@ -91,10 +91,6 @@
       "dest": "python_api/index.py"
     },
     {
-      "src": "/api/ai/(.*)",
-      "dest": "/api/ai/$1"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "python_api/index.py"
     },
