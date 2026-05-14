@@ -12,6 +12,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { adminFetch } from "@/lib/api";
 import { RoundCoding } from "@/app/pyhunt/page";
+import { z } from "zod";
 
 /* ─── Types ─────────────────────────────────── */
 interface MCQOption { label: string; text: string; }
@@ -46,6 +47,60 @@ interface PyHuntConfig {
   finishMessage: string;
   isActive: boolean;
 }
+
+/* ─── Validation Schemas ─────────────────────── */
+const MCQOptionSchema = z.object({
+  label: z.string(),
+  text: z.string()
+});
+
+const MCQQuestionSchema = z.object({
+  id: z.string(),
+  question: z.string(),
+  options: z.array(MCQOptionSchema),
+  correct: z.string(),
+  explanation: z.string()
+});
+
+const JumbleProblemSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  lines: z.array(z.string())
+});
+
+const CodingProblemSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  hint: z.string().optional(),
+  starterCode: z.string(),
+  testCases: z.array(z.object({ input: z.string(), expected: z.string() })),
+  imageUrl: z.string().optional(),
+  targetOutput: z.string().optional()
+});
+
+const ClueConfigSchema = z.object({
+  clueText: z.string(),
+  unlockCode: z.string()
+});
+
+const PyHuntConfigSchema = z.object({
+  competitionName: z.string(),
+  startTime: z.string(),
+  entryAccessCode: z.string(),
+  mcqQuestions: z.array(MCQQuestionSchema),
+  jumbleProblem: JumbleProblemSchema,
+  jumbleProblemB: JumbleProblemSchema,
+  round3: CodingProblemSchema,
+  round3b: CodingProblemSchema,
+  round4: CodingProblemSchema,
+  round4UnlockCode: z.string(),
+  round1Clues: z.array(ClueConfigSchema),
+  round2Clues: z.array(ClueConfigSchema),
+  round3Clues: z.array(ClueConfigSchema),
+  round4Clues: z.array(ClueConfigSchema),
+  finishMessage: z.string(),
+  isActive: z.boolean()
+});
 
 /* ─── Defaults ───────────────────────────────── */
 const DEFAULT: PyHuntConfig = {
@@ -162,6 +217,14 @@ export default function PyHuntAdminTab() {
   }, [cfg]);
 
   const handleSave = async () => {
+    try {
+      PyHuntConfigSchema.parse(cfg);
+    } catch (e: any) {
+      if (e instanceof z.ZodError) {
+        alert("❌ Cannot save! Config has validation errors:\n" + e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join('\n'));
+      }
+      return;
+    }
     await saveCfgAsync(cfg);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -211,11 +274,15 @@ export default function PyHuntAdminTab() {
   const applyJson = () => {
     try {
       const parsed = JSON.parse(jsonStr);
-      if (!parsed.entryAccessCode) throw new Error("Invalid Config: Missing entryAccessCode");
-      setCfg(parsed);
+      const validCfg = PyHuntConfigSchema.parse(parsed);
+      setCfg(validCfg);
       alert("✅ Protocol Applied! Remember to 'Save All Changes' to persist.");
     } catch (e: any) {
-      alert("❌ Invalid JSON Protocol: " + e.message);
+      if (e instanceof z.ZodError) {
+        alert("❌ Invalid JSON Protocol Structure:\n" + e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join('\n'));
+      } else {
+        alert("❌ Invalid JSON Protocol: " + e.message);
+      }
     }
   };
 

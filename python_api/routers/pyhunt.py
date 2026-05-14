@@ -48,7 +48,21 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
     submitted = req.submitted_pass_code.strip().upper()
     expected = expected_data.get("unlockCode", "").strip().upper()
     
-    if submitted != expected:
+    is_success = submitted == expected
+    
+    # Log the attempt
+    try:
+        sb.table("pyhunt_logs").insert({
+            "student_id": user["id"],
+            "round_id": req.round_id,
+            "submitted_code": submitted,
+            "expected_code": expected,
+            "is_success": is_success
+        }).execute()
+    except Exception as e:
+        print(f"Failed to log PyHunt attempt: {e}")
+
+    if not is_success:
         return {
             "status": "Fail",
             "message": "Wrong Pass-Code! You must enter the code for YOUR assigned clue.",
@@ -61,3 +75,4 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
         "rank": rank,
         "clue": expected_data.get("clueText", "")
     }
+
