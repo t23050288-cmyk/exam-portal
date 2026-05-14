@@ -340,13 +340,15 @@ async def reset_student_exam(student_id: str, _: bool = Depends(verify_admin)):
     db = get_supabase()
 
     if not is_valid_uuid(student_id):
-        # If not a UUID, it might be a USN or legacy ID. 
-        # We try to find the actual student ID first.
-        s_res = db.table("students").select("id").or_(f"id.eq.{student_id},usn.eq.{student_id}").maybe_single().execute()
+        # If not a UUID, it might be a USN. We try to find the actual student ID first.
+        # We search by USN only to avoid passing non-UUID to the ID column
+        s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
         if s_res.data:
             student_id = s_res.data["id"]
         else:
-            raise HTTPException(status_code=400, detail=f"Invalid or non-existent student ID: {student_id}")
+            # Fallback: maybe it's literally stored in a text field elsewhere, 
+            # but we can't search 'id' column with 'anonymous'
+            raise HTTPException(status_code=400, detail=f"Invalid or non-existent student ID/USN: {student_id}")
 
     # 1. Clear session
     db.table("students").update({
@@ -786,24 +788,21 @@ async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)
     """Admin-only: Reset a specific student's PyHunt progress to Round 1."""
     db = get_supabase()
     
-    # Use flexible matching to avoid UUID syntax errors
-    query = db.table("pyhunt_progress").delete()
-    filters = [f"usn.eq.{student_id}", f"student_name.eq.{student_id}"]
-    
-    if is_valid_uuid(student_id):
-        filters.append(f"student_id.eq.{student_id}")
-    else:
-        # Try USN lookup to get actual UUID
-        s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
-        if s_res.data:
-            filters.append(f"student_id.eq.{s_res.data['id']}")
-            
     try:
-        query.or_(",".join(filters)).execute()
+        # 1. Try deleting by student_id IF it's a UUID
+        if is_valid_uuid(student_id):
+            db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+        else:
+            # Try to resolve UUID from USN first
+            s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
+            if s_res.data:
+                db.table("pyhunt_progress").delete().eq("student_id", s_res.data["id"]).execute()
+
+        # 2. Always try deleting by USN/Name string (these should be TEXT columns)
+        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
+        db.table("pyhunt_progress").delete().eq("student_name", student_id).execute()
     except Exception as e:
         print(f"[ADMIN] PyHunt Reset Error: {e}")
-        # Fallback for "anonymous" or weird strings if the column is text
-        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
 
     return {"reset": True}
 
@@ -811,25 +810,21 @@ async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)
 async def remove_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
     """Admin-only: Remove a specific student from the PyHunt progress table."""
     db = get_supabase()
-    
-    # Use flexible matching to avoid UUID syntax errors
-    query = db.table("pyhunt_progress").delete()
-    filters = [f"usn.eq.{student_id}", f"student_name.eq.{student_id}"]
-    
-    if is_valid_uuid(student_id):
-        filters.append(f"student_id.eq.{student_id}")
-    else:
-        # Try USN lookup to get actual UUID
-        s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
-        if s_res.data:
-            filters.append(f"student_id.eq.{s_res.data['id']}")
-            
     try:
-        query.or_(",".join(filters)).execute()
+        # 1. Try deleting by student_id IF it's a UUID
+        if is_valid_uuid(student_id):
+            db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+        else:
+            # Try to resolve UUID from USN first
+            s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
+            if s_res.data:
+                db.table("pyhunt_progress").delete().eq("student_id", s_res.data["id"]).execute()
+
+        # 2. Always try deleting by USN/Name string (these should be TEXT columns)
+        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
+        db.table("pyhunt_progress").delete().eq("student_name", student_id).execute()
     except Exception as e:
         print(f"[ADMIN] PyHunt Remove Error: {e}")
-        # Fallback
-        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
 
     return {"deleted": True}
 
