@@ -1,6 +1,6 @@
 /**
  * NEXUS AI Client — Frontend utility
- * Calls /api/ai-proxy which securely forwards to NVIDIA NIM (DeepSeek V4 Flash)
+ * Calls /api/ai-proxy which securely forwards to Groq (Llama 3.1)
  * API key never touches the browser.
  */
 
@@ -14,9 +14,6 @@ export interface AIChoice {
   message: {
     role: string;
     content: string;
-    /** DeepSeek reasoning/thinking content (if returned) */
-    reasoning?: string;
-    reasoning_content?: string;
   };
   finish_reason: string;
 }
@@ -28,19 +25,8 @@ export interface AIResponse {
 }
 
 /**
- * Send a conversation to the NEXUS AI (DeepSeek V4 Flash via NVIDIA NIM).
+ * Send a conversation to the NEXUS AI (Groq Llama 3.1).
  * The system prompt is injected server-side — just send user/assistant messages.
- *
- * @param messages - Array of { role, content } messages
- * @returns The AI response with choices
- *
- * @example
- * ```ts
- * const res = await getAICompletion([
- *   { role: "user", content: "Explain binary search in simple terms" }
- * ]);
- * console.log(res.choices[0].message.content);
- * ```
  */
 export async function getAICompletion(messages: AIMessage[]): Promise<AIResponse> {
   const res = await fetch("/api/ai/proctor", {
@@ -54,28 +40,15 @@ export async function getAICompletion(messages: AIMessage[]): Promise<AIResponse
     throw new Error(err.error || `AI request failed (${res.status})`);
   }
 
-  const data: AIResponse = await res.json();
-
-  // Normalize DeepSeek reasoning fields into content if present
-  if (data.choices?.[0]?.message) {
-    const msg = data.choices[0].message;
-    // Prioritize content, but if empty, check reasoning fields
-    if (!msg.content && (msg.reasoning || msg.reasoning_content)) {
-      msg.content = msg.reasoning || msg.reasoning_content || "";
-    }
-  }
-
-  return data;
+  return res.json();
 }
 
 /**
- * Stream a conversation from the NEXUS AI.
- * Handles DeepSeek's `reasoning` and `reasoning_content` delta fields.
+ * Stream a conversation from the NEXUS AI (Groq).
  */
 export async function streamAICompletion(
   messages: AIMessage[],
-  onToken: (token: string) => void,
-  onReasoning?: (token: string) => void
+  onToken: (token: string) => void
 ): Promise<string> {
   const res = await fetch("/api/ai/proctor", {
     method: "POST",
@@ -110,18 +83,12 @@ export async function streamAICompletion(
       const payload = trimmed.slice(5).trim();
       if (payload === "[DONE]") break;
 
-      try {
         const chunk = JSON.parse(payload);
-        const delta = chunk.choices?.[0]?.delta;
+        const content = chunk.choices?.[0]?.delta?.content;
 
-        if (delta?.content) {
-          fullText += delta.content;
-          onToken(delta.content);
-        }
-
-        // DeepSeek reasoning/thinking tokens
-        if ((delta?.reasoning || delta?.reasoning_content) && onReasoning) {
-          onReasoning(delta.reasoning || delta.reasoning_content);
+        if (content) {
+          fullText += content;
+          onToken(content);
         }
       } catch {
         // Skip malformed chunks

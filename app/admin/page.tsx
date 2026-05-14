@@ -1328,18 +1328,15 @@ function QuestionsTab() {
                       </div>
                       {!expandedClusters[clusterKey] && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                          {/* 0. ATTEMPTS */}
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(255,152,0,0.4)", background: "rgba(255,152,0,0.08)", color: "#ff9800", cursor: "pointer", fontWeight: 700 }}
                             onClick={(e) => { e.stopPropagation(); setAttemptsModal({ name }); setAttemptsValue("1"); }}
                           >🔄 Attempts</button>
-                          {/* 1. ACTIVATE */}
                           {activeExamTitles.includes(name) ? (
                             <>
                               <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, background: "rgba(46,125,50,0.1)", color: "#2e7d32", border: "1px solid rgba(46,125,50,0.2)", fontWeight: 700, display: "flex", alignItems: "center" }}>
                                 ✅ Active
                               </span>
-                              {/* 2. DEACTIVATE */}
                               <button
                                 style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(211,47,47,0.3)", background: "transparent", color: "var(--danger)", cursor: "pointer", fontWeight: 600 }}
                                 onClick={(e) => { e.stopPropagation(); handleDeactivateFolder(name); }}
@@ -1351,12 +1348,10 @@ function QuestionsTab() {
                               onClick={(e) => { e.stopPropagation(); handleActivateFolder(name); }}
                             >Activate</button>
                           )}
-                          {/* 3. SCHEDULE */}
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(25,118,210,0.4)", background: "transparent", color: "#1976d2", cursor: "pointer", fontWeight: 600 }}
                             onClick={(e) => { e.stopPropagation(); setConfigModal({ name, mode: "schedule" }); setScheduleDate(""); setScheduleTime(""); }}
                           >📅 Schedule</button>
-                          {/* 4. DURATION */}
                           <button
                             style={{ fontSize: 11, padding: "3px 10px", borderRadius: 8, border: "1px solid rgba(103,58,183,0.4)", background: "transparent", color: "#7c4dff", cursor: "pointer", fontWeight: 600 }}
                             onClick={(e) => { e.stopPropagation(); setConfigModal({ name, mode: "duration" }); setDurationMin("30"); }}
