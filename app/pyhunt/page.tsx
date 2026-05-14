@@ -28,6 +28,7 @@ interface ClueConfig {
   unlockCode: string;   // Student must type this code to proceed
 }
 interface PyHuntConfig {
+  entryAccessCode: string;         // Required to start the hunt
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
   jumbleProblemB?: JumbleProblem;    // Round 2 Part 2
@@ -35,7 +36,8 @@ interface PyHuntConfig {
   round3b?: CodingProblem;         // Round 3 Part 2 (Dual)
   round4: CodingProblem;
   round4UnlockCode: string;        // Code to finish Round 4
-  clues: ClueConfig[];             // 4 entries (rounds 0-3)
+  round1Clues: ClueConfig[];       // NEW: Multiple distribution nodes for R1
+  clues: ClueConfig[];             // Fixed clues for R2-R4
   finishMessage: string;
 }
 
@@ -43,6 +45,7 @@ interface PyHuntConfig {
    DEFAULTS
 ═══════════════════════════════════════════════ */
 const DEFAULT_CONFIG: PyHuntConfig = {
+  entryAccessCode: "NEXUS24",
   mcqQuestions: [
     { id: "q1", question: "What is the output of print(2**3**2)?", options: [{ label: "A", text: "64" }, { label: "B", text: "512" }, { label: "C", text: "81" }, { label: "D", text: "4096" }], correct: "B", explanation: "Exponentiation is right-associative: 2**(3**2) = 2**9 = 512." },
     { id: "q2", question: "Which of these is a valid Python set?", options: [{ label: "A", text: "{1, 2, [3]}" }, { label: "B", text: "{1, 2, {3}}" }, { label: "C", text: "{1, 2, (3,)}" }, { label: "D", text: "{'a': 1}" }], correct: "C", explanation: "Sets only accept hashable (immutable) elements. Tuples are hashable; lists and sets are not." },
@@ -56,8 +59,10 @@ const DEFAULT_CONFIG: PyHuntConfig = {
   round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
   round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
   round4UnlockCode: "FINISH",
+  round1Clues: [
+    { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" }
+  ],
   clues: [
-    { clueText: "🗝️ Round 1 Complete! The next clue is hidden near the library entrance.", unlockCode: "LIBRARY" },
     { clueText: "🗝️ Round 2 Complete! Search the Lab-2 whiteboard.", unlockCode: "LAB2CODE" },
     { clueText: "🗝️ Round 3 Complete! Check Locker 301.", unlockCode: "ROUND3" },
     { clueText: "🗝️ Round 4 Complete! Hunt Finished! Search near the main entrance for your final results.", unlockCode: "FINISH" },
@@ -79,6 +84,8 @@ function parseCfg(parsed: any): PyHuntConfig {
     round3b: parsed.round3b || DEFAULT_CONFIG.round3b,
     round4: parsed.round4 || DEFAULT_CONFIG.round4,
     round4UnlockCode: parsed.round4UnlockCode || DEFAULT_CONFIG.round4UnlockCode,
+    round1Clues: parsed.round1Clues || DEFAULT_CONFIG.round1Clues,
+    entryAccessCode: parsed.entryAccessCode || DEFAULT_CONFIG.entryAccessCode,
     clues: parsed.clues || DEFAULT_CONFIG.clues,
     finishMessage: parsed.finishMessage || DEFAULT_CONFIG.finishMessage,
   };
@@ -179,6 +186,54 @@ function usePyodide() {
 }
 
 /* ═══════════════════════════════════════════════
+   ENTRY GATE
+   Requires entryAccessCode to begin Round 1
+═══════════════════════════════════════════════ */
+function EntryGate({ correctCode, onUnlock }: { correctCode: string; onUnlock: () => void }) {
+  const [input, setInput] = useState("");
+  const [shaking, setShaking] = useState(false);
+  const [error, setError] = useState(false);
+
+  const handleSubmit = () => {
+    if (input.trim().toUpperCase() === (correctCode || "").toUpperCase()) {
+      onUnlock();
+    } else {
+      setShaking(true);
+      setError(true);
+      setTimeout(() => { setShaking(false); setError(false); }, 600);
+    }
+  };
+
+  return (
+    <div className={styles.clueScreen}>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`${styles.clueCard} ${shaking ? styles.shake : ""}`}
+      >
+        <div className={styles.clueEmoji}>🐍</div>
+        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Initialize Hunt</h2>
+        <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: 24 }}>Enter the competition access code to begin the trial.</p>
+        
+        <input
+          className={`${styles.clueCodeInput} ${error ? styles.clueInputError : ""}`}
+          type="text"
+          placeholder="ENTER ACCESS CODE…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()}
+          autoFocus
+          autoComplete="off"
+        />
+        <button className={styles.primaryBtn} onClick={handleSubmit} style={{ width: "100%", marginTop: 12 }}>
+          🔓 START COMPETITION
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    CLUE UNLOCK SCREEN
 ═══════════════════════════════════════════════ */
 function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void }) {
@@ -188,12 +243,12 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
   const [attempts, setAttempts] = useState(0);
 
   // If no unlock code needed (last round), auto-show unlock button
-  if (!clue.unlockCode) {
+  if (!clue || !clue.unlockCode) {
     return (
       <div className={styles.clueScreen}>
         <div className={styles.clueCard}>
           <div className={styles.clueEmoji}>🎉</div>
-          <div className={styles.clueText}>{clue.clueText}</div>
+          <div className={styles.clueText}>{clue?.clueText || "Hunt Over! Proceed to final results."}</div>
           <button className={styles.primaryBtn} onClick={onUnlock}>Continue →</button>
         </div>
       </div>
@@ -360,55 +415,53 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const [aiLoading, setAiLoading] = useState(false);
 
   const handleRun = async () => {
-    if (!ready || running) return;
+    if (running) return;
     setRunning(true); setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null);
     try {
-      // 1. Run local tests (Pyodide)
-      const { results, allPass: ap } = await runTests(code, problem.testCases);
-      setTestResults(results);
-      const out = await runCode(code);
-      setOutput(out);
-
-      // 2. AI Verification (Groq)
-      setAiLoading(true); setAiReasoning(null);
+      const examToken = sessionStorage.getItem("exam_token") || "";
       
-      if (ap) {
-        // Verify logic protocol even if tests pass
-        try {
-          const res = await checkCodeAI({
-            problem_title: problem.title,
-            problem_description: problem.description,
-            code,
-            test_cases: problem.testCases,
-            round_num: roundNum
-          });
-          setAiFeedback(res.feedback);
-          // Strict logic enforcement: only pass if AI agrees OR if AI is down but tests pass
-          setAllPass(res.correct === true);
-        } catch (aiErr) {
-          console.warn("AI verification failed, falling back to local tests", aiErr);
-          setAiFeedback("🤖 AI logic engine temporarily offline — passing based on test cases.");
-          setAllPass(true);
+      // 1. Call Professional Grade Execution Engine (Plan A: Piston)
+      const resp = await fetch("/api/exam/pyhunt/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${examToken}`
+        },
+        body: JSON.stringify({
+          code,
+          test_cases: problem.testCases
+        })
+      });
+
+      const data = await resp.json();
+      
+      if (data.ok) {
+        setTestResults(data.results || []);
+        setAllPass(data.all_pass);
+        
+        // Final result based on all test cases
+        if (data.all_pass) {
+          setAiFeedback("🎯 LOGIC VERIFIED: Professional engine confirmed your solution is 100% correct.");
+        } else {
+          onWrong();
+          // Get AI hint for why it failed
+          const firstFail = (data.results || []).find((r: any) => !r.pass);
+          try {
+            const hintRes = await getAIHint({
+              problem_title: problem.title,
+              code,
+              error: firstFail?.got || "Unknown logic error"
+            });
+            setAiHint(hintRes.hint);
+          } catch {}
         }
       } else {
-        // Get help hint
-        try {
-          const res = await getAIHint({
-            problem_title: problem.title,
-            code,
-            error: results.find(r => !r.pass)?.got || out.error || out.stderr
-          });
-          setAiHint(res.hint);
-        } catch (hintErr) {
-          console.warn("AI hint failed", hintErr);
-        }
-        setAllPass(false);
-        onWrong();
+        throw new Error(data.detail || "Execution failed");
       }
     } catch (err) {
       console.error("Execution Error:", err);
-      setOutput({ stdout: "", stderr: String(err) });
-    } finally { setRunning(false); setAiLoading(false); }
+      setAiFeedback("⚠ Execution Engine Error. Please check your internet connection.");
+    } finally { setRunning(false); }
   };
 
   return (
@@ -939,6 +992,9 @@ export default function PyHuntPage() {
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
   const [studentId, setStudentId] = useState("");
+  const [entryUnlocked, setEntryUnlocked] = useState(false);
+  const [assignedClue, setAssignedClue] = useState<ClueConfig | null>(null);
+  const [clueRank, setClueRank] = useState<number | null>(null);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -979,9 +1035,17 @@ export default function PyHuntPage() {
                 return;
               }
               setWarningCount(data.warnings || 0);
+              if (data.round1_rank) {
+                setClueRank(data.round1_rank);
+                setEntryUnlocked(true);
+              }
               if (data.current_round && data.current_round.startsWith("Round")) {
                 const r = parseInt(data.current_round.replace("Round ", ""));
-                if (!isNaN(r)) setRound(Math.min(r - 1, 3));
+                if (!isNaN(r)) {
+                  const currentR = Math.min(r - 1, 3);
+                  setRound(currentR);
+                  if (currentR > 0) setEntryUnlocked(true);
+                }
               }
             }
           });
@@ -1042,7 +1106,7 @@ export default function PyHuntPage() {
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation, finishStats]);
+  }, [round, finished, terminated, warningCount, lastViolation, finishStats, clueRank]);
 
   // Fullscreen Watcher
   useEffect(() => {
@@ -1079,20 +1143,31 @@ export default function PyHuntPage() {
   }, []);
 
   // Round complete → show clue (rounds 0–3)
-  const handleRoundComplete = useCallback((mcqScore?: string) => {
-    if (round === 0 && mcqScore) {
-      // Round 1 MCQ complete!
-      const timeMs = Date.now() - mcqStartTime;
-      const m = Math.floor(timeMs / 60000);
-      const s = Math.floor((timeMs % 60000) / 1000);
-      setFinishStats(prev => ({
-        ...prev,
-        round1Score: mcqScore,
-        round1Time: `${m}m ${s}s`
-      }));
+  const handleRoundComplete = useCallback(async (mcqScore?: string) => {
+    if (round === 0) {
+      if (mcqScore) {
+        const timeMs = Date.now() - mcqStartTime;
+        const m = Math.floor(timeMs / 60000);
+        const s = Math.floor((timeMs % 60000) / 1000);
+        setFinishStats(prev => ({
+          ...prev,
+          round1Score: mcqScore,
+          round1Time: `${m}m ${s}s`
+        }));
+      }
+
+      // ORBITAL DISTRIBUTION: Assign rank atomically
+      try {
+        const { data: rank, error } = await supabase.rpc("get_pyhunt_round_rank", { target_student_id: studentId });
+        if (!error && rank) {
+          setClueRank(rank);
+        }
+      } catch (err) {
+        console.warn("Rank assignment failed:", err);
+      }
     }
     setShowingClue(true);
-  }, [round, mcqStartTime]);
+  }, [round, mcqStartTime, studentId]);
 
   // Clue unlocked → next round or finish
   const handleUnlock = useCallback(() => {
@@ -1201,13 +1276,27 @@ export default function PyHuntPage() {
 
             {/* Content */}
             <main className={styles.content}>
-              {/* CLUE SCREEN */}
-              {showingClue && cfg.clues[round] && (
-                <ClueScreen clue={cfg.clues[round]} onUnlock={handleUnlock} />
+              {/* ENTRY GATE */}
+              {!entryUnlocked && round === 0 && (
+                <EntryGate correctCode={cfg.entryAccessCode} onUnlock={() => setEntryUnlocked(true)} />
+              )}
+
+              {/* CLUE SCREEN (ORBITAL DISTRIBUTION FOR ROUND 1) */}
+              {showingClue && (
+                (() => {
+                  let activeClue = null;
+                  if (round === 0 && cfg.round1Clues && cfg.round1Clues.length > 0) {
+                    const idx = clueRank ? (clueRank - 1) % cfg.round1Clues.length : 0;
+                    activeClue = cfg.round1Clues[idx];
+                  } else if (round > 0) {
+                    activeClue = cfg.clues[round - 1];
+                  }
+                  return <ClueScreen clue={activeClue!} onUnlock={handleUnlock} />;
+                })()
               )}
 
               {/* ROUND 1 — MCQ */}
-              {!showingClue && round === 0 && (
+              {!showingClue && entryUnlocked && round === 0 && (
                 <RoundMCQ questions={cfg.mcqQuestions} onComplete={handleRoundComplete} onWrong={recordWrong} />
               )}
 

@@ -278,6 +278,8 @@ async def sync_pyhunt_progress(
             data["round1_time"] = request.round1_time
         if request.total_time:
             data["total_time"] = request.total_time
+        if request.round1_rank is not None:
+            data["round1_rank"] = request.round1_rank
             
         print(f"[PyHuntSync] SYNC: {current.get('usn')} | {request.current_round} | {status} | Score: {request.round1_score}")
         db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()

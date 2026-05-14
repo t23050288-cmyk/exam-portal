@@ -20,6 +20,7 @@ interface CodingProblem { title: string; description: string; starterCode: strin
 interface ClueConfig { clueText: string; unlockCode: string; }
 interface TurtleProblem { title: string; description: string; starterCode: string; }
 interface PyHuntConfig {
+  entryAccessCode: string;
   mcqQuestions: MCQQuestion[];
   jumbleProblem: JumbleProblem;
   jumbleProblemB: JumbleProblem;
@@ -27,12 +28,14 @@ interface PyHuntConfig {
   round3b: CodingProblem;        // Round 3 Part 2
   round4: CodingProblem;
   round4UnlockCode: string;
-  clues: ClueConfig[];
+  round1Clues: ClueConfig[];      // NEW: Multiple distribution nodes for R1
+  clues: ClueConfig[];            // Fixed clues for R2, R3, R4
   finishMessage: string;
 }
 
 /* ─── Defaults ───────────────────────────────── */
 const DEFAULT: PyHuntConfig = {
+  entryAccessCode: "NEXUS24",
   mcqQuestions: [
     { id:"q1", question:"What is the output of: print(type([]).__name__)?", options:[{label:"A",text:"list"},{label:"B",text:"array"},{label:"C",text:"List"},{label:"D",text:"tuple"}], correct:"A", explanation:"type([]) → <class 'list'>, .__name__ → 'list'." },
     { id:"q2", question:"Which keyword defines a generator function?", options:[{label:"A",text:"return"},{label:"B",text:"async"},{label:"C",text:"yield"},{label:"D",text:"lambda"}], correct:"C", explanation:"yield makes a function a generator." },
@@ -42,8 +45,10 @@ const DEFAULT: PyHuntConfig = {
   round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
   round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
   round4: { title:"FizzBuzz Remix (Round 4)", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
+  round1Clues: [
+    { clueText:"🗝️ Round 1 Complete! Find your next code in the Library.", unlockCode:"LIBRARY" }
+  ],
   clues: [
-    { clueText:"🗝️ Round 1 Complete! Find your next code in the Library.", unlockCode:"LIBRARY" },
     { clueText:"🗝️ Round 2 Complete! Find your next code in Lab-2.", unlockCode:"LAB2" },
     { clueText:"🗝️ Round 3 Complete! Find your next code in Locker 301.", unlockCode:"LOCKER301" },
     { clueText:"🗝️ Round 4 Complete! Hunt Over! Enter code to see your Results.", unlockCode:"FINISH" },
@@ -176,37 +181,84 @@ export default function PyHuntAdminTab() {
       {/* ══ CLUES & CODES TAB ══ */}
       {sub==="clues" && (
         <div>
-          <div style={$.info}>
-            After each round completes, students see the <strong>Clue Text</strong> — a physical location hint. They go find the code in the real world, type the <strong>Unlock Code</strong> here, and get access to the next round. Leave Unlock Code blank for the last round.
+          <div style={$.card}>
+            <div style={$.cardTitle}>🚪 Competition Entrance</div>
+            <label style={$.lbl}>Entry Access Code (Required to start PyHunt)</label>
+            <input
+              style={$.inp}
+              value={cfg.entryAccessCode}
+              onChange={e=>setCfg(c=>({...c,entryAccessCode:e.target.value.toUpperCase()}))}
+              placeholder="e.g. NEXUS24"
+            />
+            <div style={$.info}>Students must enter this code at the start of the hunt.</div>
           </div>
 
+          <div style={{...$.h2, fontSize:22, marginBottom:16, marginTop:32}}>🛰️ Dynamic Orbital Distribution (Round 1)</div>
+          <div style={$.info}>
+            Students who finish Round 1 are assigned clues in a circular sequence (1-2-3-4-5-6-1...). 
+            Add multiple clues here to distribute 200+ concurrent users across different physical locations.
+          </div>
+
+          {(cfg.round1Clues || []).map((clue, i) => (
+            <div key={i} style={$.card}>
+              <div style={$.cardTitle}>
+                <span>Distribution Node {i + 1}</span>
+                <button style={$.btnDel} onClick={() => setCfg(c => ({...c, round1Clues: c.round1Clues.filter((_, j) => j !== i)}))}>✕ Remove</button>
+              </div>
+
+              <label style={$.lbl}>Clue Text (Location Hint)</label>
+              <textarea
+                style={{...$.ta, minHeight:72}}
+                value={clue.clueText}
+                onChange={e => {
+                  const newClues = [...cfg.round1Clues];
+                  newClues[i].clueText = e.target.value;
+                  setCfg(c => ({...c, round1Clues: newClues}));
+                }}
+              />
+
+              <label style={$.lbl}>Unlock Code (Found at Location)</label>
+              <input
+                style={$.inp}
+                value={clue.unlockCode}
+                onChange={e => {
+                  const newClues = [...cfg.round1Clues];
+                  newClues[i].unlockCode = e.target.value.toUpperCase();
+                  setCfg(c => ({...c, round1Clues: newClues}));
+                }}
+              />
+            </div>
+          ))}
+          <button 
+            style={{...$.btnAdd, marginBottom:40, width:"100%", padding:16}} 
+            onClick={() => setCfg(c => ({...c, round1Clues: [...(c.round1Clues || []), {clueText: "", unlockCode: ""}]}))}
+          >
+            ➕ Add Distribution Node (Clue {cfg.round1Clues?.length + 1 || 1})
+          </button>
+
+          <div style={{...$.h2, fontSize:22, marginBottom:16}}>🏁 Fixed Clues (Rounds 2-4)</div>
           {cfg.clues.map((clue, i) => (
             <div key={i} style={$.card}>
               <div style={$.cardTitle}>
                 <span>
                   <span style={{color:"#7090b0",marginRight:8}}>After</span>
-                  {ROUND_NAMES[i]}
+                  {ROUND_NAMES[i+1]}
                 </span>
               </div>
 
-              <label style={$.lbl}>Clue Text (shown to student after round)</label>
+              <label style={$.lbl}>Clue Text</label>
               <textarea
                 style={{...$.ta, minHeight:72}}
                 value={clue.clueText}
                 onChange={e=>setClue(i,"clueText",e.target.value)}
-                placeholder="e.g. 🗝️ Head to the library, look for the book with a red spine..."
               />
 
-              <label style={$.lbl}>Unlock Code (student must type this to proceed)</label>
+              <label style={$.lbl}>Unlock Code</label>
               <input
                 style={$.inp}
                 value={clue.unlockCode}
                 onChange={e=>setClue(i,"unlockCode",e.target.value.toUpperCase())}
-                placeholder="e.g. PYTHON42 (case-insensitive)"
               />
-              <div style={{...$.info, marginBottom:0}}>
-                💡 Tip: Use a short memorable word. Students enter it case-insensitively.
-              </div>
             </div>
           ))}
 
