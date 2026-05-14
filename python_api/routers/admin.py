@@ -635,7 +635,6 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
             # Check if scheduled_end exists and is in the past
             # If it's in the past, we clear the schedule to keep it active
             try:
-                from datetime import datetime, timezone
                 now = datetime.now(timezone.utc)
                 
                 # Check current DB state for this exam's schedule
