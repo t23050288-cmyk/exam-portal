@@ -744,7 +744,7 @@
   background: #0d1117;
   border: 1px solid rgba(0,220,255,0.15);
   border-radius: 16px; overflow: hidden;
-  height: calc(100vh - 120px);
+  height: calc(100vh - 80px);
   min-height: 600px;
   position: relative;
   box-shadow: 0 20px 80px rgba(0,0,0,0.8);
@@ -766,7 +766,7 @@
 
 /* Split pane */
 .ideMain {
-  display: grid; grid-template-columns: 42% 58%;
+  display: grid; grid-template-columns: 35% 65%;
   flex: 1; min-height: 0;
 }
 @media (max-width: 800px) { .ideMain { grid-template-columns: 1fr; } }
@@ -833,7 +833,7 @@
   background: #0d1117;
   color: #e6edf3;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.8;
   padding: 24px;
   border: none;
@@ -878,7 +878,7 @@
   border: 1px solid rgba(248,113,113,0.25); border-radius: 20px; padding: 2px 10px;
 }
 
-.ideBottomContent { flex: 1; padding: 12px 14px; overflow-y: auto; max-height: 180px; }
+.ideBottomContent { flex: 1; padding: 12px 14px; overflow-y: auto; max-height: 300px; }
 
 /* Console */
 .ideConsole { display: flex; flex-direction: column; gap: 8px; }

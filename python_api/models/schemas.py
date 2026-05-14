@@ -436,6 +436,9 @@ class PyHuntProgressUpdate(BaseModel):
     round1_time: Optional[str] = None
     round1_rank: Optional[int] = None
     total_time: Optional[str] = None
+    round3_code: Optional[str] = None
+    round3b_code: Optional[str] = None
+    round4_code: Optional[str] = None
 
 
 

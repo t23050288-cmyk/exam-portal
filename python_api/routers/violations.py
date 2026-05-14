@@ -280,6 +280,12 @@ async def sync_pyhunt_progress(
             data["total_time"] = request.total_time
         if request.round1_rank is not None:
             data["round1_rank"] = request.round1_rank
+        if request.round3_code:
+            data["round3_code"] = request.round3_code
+        if request.round3b_code:
+            data["round3b_code"] = request.round3b_code
+        if request.round4_code:
+            data["round4_code"] = request.round4_code
             
         print(f"[PyHuntSync] SYNC: {current.get('usn')} | {request.current_round} | {status} | Score: {request.round1_score}")
         db.table("pyhunt_progress").upsert(data, on_conflict="student_id").execute()

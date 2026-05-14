@@ -273,11 +273,13 @@ function EntryGate({ correctCode, onUnlock }: { correctCode: string; onUnlock: (
 /* ═══════════════════════════════════════════════
    CLUE UNLOCK SCREEN
 ═══════════════════════════════════════════════ */
-function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void }) {
+function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueConfig; onUnlock: () => void }) {
   const [input, setInput] = useState("");
   const [shaking, setShaking] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // If no unlock code needed (last round), auto-show unlock button
   if (!clue || !clue.unlockCode) {
@@ -292,20 +294,47 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
     );
   }
 
-  const MAX_CODE_ATTEMPTS = 4;
-  const handleSubmit = () => {
-    if (input.trim().toUpperCase() === clue.unlockCode.toUpperCase()) {
-      setUnlocked(true);
-      setTimeout(onUnlock, 1200);
-    } else {
-      const next = attempts + 1;
-      setAttempts(next);
-      setShaking(true);
-      setTimeout(() => setShaking(false), 600);
-      if (next >= MAX_CODE_ATTEMPTS) {
-        // Auto-submit after max wrong code attempts
-        setTimeout(() => onUnlock(), 1500);
+  const MAX_CODE_ATTEMPTS = 5;
+  
+  const handleSubmit = async () => {
+    if (!input.trim() || loading) return;
+    setLoading(true);
+    setErrorMsg("");
+
+    try {
+      const examToken = sessionStorage.getItem("exam_token") || "";
+      const resp = await fetch("/api/exam/pyhunt/unlock", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${examToken}`
+        },
+        body: JSON.stringify({
+          round_id: roundId,
+          submitted_pass_code: input.trim()
+        })
+      });
+
+      const data = await resp.json();
+      if (data.status === "Pass") {
+        setUnlocked(true);
+        setTimeout(onUnlock, 1200);
+      } else {
+        const next = attempts + 1;
+        setAttempts(next);
+        setShaking(true);
+        setErrorMsg(data.message || "Wrong code!");
+        setTimeout(() => setShaking(false), 600);
+        
+        if (next >= MAX_CODE_ATTEMPTS) {
+          // Hard limit reached
+          setTimeout(onUnlock, 2000);
+        }
       }
+    } catch (err) {
+      setErrorMsg("Connection error. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -333,16 +362,16 @@ function ClueScreen({ clue, onUnlock }: { clue: ClueConfig; onUnlock: () => void
               autoFocus
               autoComplete="off"
             />
-            {attempts > 0 && (
+            {errorMsg && (
               <div className={styles.clueWrongMsg}>
-                {attempts >= 4
-                  ? "🚫 Too many wrong attempts! Moving to next round automatically..."
-                  : `❌ Wrong code — ${4 - attempts} attempt${4 - attempts !== 1 ? "s" : ""} remaining`
+                {attempts >= MAX_CODE_ATTEMPTS
+                  ? "🚫 Too many wrong attempts! Moving to next round..."
+                  : `❌ ${errorMsg} (${MAX_CODE_ATTEMPTS - attempts} remaining)`
                 }
               </div>
             )}
-            <button className={styles.primaryBtn} onClick={handleSubmit}>
-              🔓 Unlock Next Round
+            <button className={styles.primaryBtn} onClick={handleSubmit} disabled={loading}>
+              {loading ? "⌛ Verifying..." : "🔓 Unlock Next Round"}
             </button>
           </div>
         ) : (
@@ -444,14 +473,14 @@ function shuffle<T>(arr: T[]): T[] {
 ═══════════════════════════════════════════════ */
 export function RoundCoding({ 
   problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false, 
-  isAdminPreview = false 
+  isAdminPreview = false, initialCode
 }: {
   problem: CodingProblem; roundNum: number; partLabel?: string;
-  onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean;
-  isAdminPreview?: boolean;
+  onComplete: (submittedCode: string) => void; onWrong: () => void; showNextPartOnPass?: boolean;
+  isAdminPreview?: boolean; initialCode?: string;
 }) {
   const { ready, loadError, runCode, runTests } = usePyodide();
-  const [code, setCode] = useState(problem.starterCode);
+  const [code, setCode] = useState(initialCode || problem.starterCode);
   const [running, setRunning] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [activeBottomTab, setActiveBottomTab] = useState<"console"|"testcases">("testcases");
@@ -746,7 +775,7 @@ export function RoundCoding({
           <div className={styles.doneIcon}>🎉</div>
           <h3>All Tests Passed!</h3>
           {feedback && <p className={styles.ideFeedbackText}>{feedback}</p>}
-          <button className={styles.primaryBtn} onClick={onComplete}>
+          <button className={styles.primaryBtn} onClick={() => onComplete(code)}>
             {showNextPartOnPass ? "Next Part →" : "Get Clue →"}
           </button>
         </div>
@@ -965,10 +994,11 @@ function RoundCodingDual({
   problemA: CodingProblem;
   problemB: CodingProblem;
   roundNum: number;
-  onComplete: () => void;
+  onComplete: (code3a?: string, code3b?: string) => void;
   onWrong: () => void;
 }) {
   const [part, setPart] = useState<0 | 1>(0);
+  const [code3a, setCode3a] = useState("");
 
   return part === 0 ? (
     <RoundCoding
@@ -976,7 +1006,7 @@ function RoundCodingDual({
       problem={problemA}
       roundNum={roundNum}
       partLabel="Part 1"
-      onComplete={() => setPart(1)}
+      onComplete={(c) => { setCode3a(c); setPart(1); }}
       onWrong={onWrong}
       showNextPartOnPass
     />
@@ -986,7 +1016,7 @@ function RoundCodingDual({
       problem={problemB}
       roundNum={roundNum}
       partLabel="Part 2"
-      onComplete={onComplete}
+      onComplete={(c) => onComplete(code3a, c)}
       onWrong={onWrong}
       showNextPartOnPass={false}
     />
@@ -1157,19 +1187,25 @@ export default function PyHuntPage() {
   const [studentName, setStudentName] = useState("Student");
 
   // Stats tracking
-  const [startTime] = useState(Date.now());
   const [totalWrongs, setTotalWrongs] = useState(0);
-  const [finishStats, setFinishStats] = useState<{ minutes: number; wrongs: number; warnings: number; round1Score?: string; round1Time?: string }>({ minutes: 0, wrongs: 0, warnings: 0 });
-  const [mcqStartTime, setMcqStartTime] = useState(Date.now());
   const [warningCount, setWarningCount] = useState(0);
   const [lastViolation, setLastViolation] = useState("");
+  const [startTime] = useState(Date.now());
+  const [mcqStartTime] = useState(Date.now());
+  const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0, round1Score: "", round1Time: "" });
+  const [clueRank, setClueRank] = useState<number | null>(null);
+
+  // CODE STORAGE FOR ADMIN VISIBILITY
+  const [round3Code, setRound3Code] = useState("");
+  const [round3bCode, setRound3bCode] = useState("");
+  const [round4Code, setRound4Code] = useState("");
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pyhuntLoading, setPyhuntLoading] = useState(false);
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
   const [studentId, setStudentId] = useState("");
   const [entryUnlocked, setEntryUnlocked] = useState(false);
   const [assignedClue, setAssignedClue] = useState<ClueConfig | null>(null);
-  const [clueRank, setClueRank] = useState<number | null>(null);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -1181,12 +1217,37 @@ export default function PyHuntPage() {
       localStorage.removeItem("nexus_pyhunt_config_v2");
     }
 
-    loadPyHuntConfigAsync().then(c => {
-      setCfg(c);
-    }).catch(e => {
-      console.error("[PyHunt] Config load failed:", e);
-    });
+    const syncConfig = async () => {
+      try {
+        const c = await loadPyHuntConfigAsync();
+        setCfg(c);
+      } catch(e) {
+        console.error("[PyHunt] Config sync error:", e);
+      }
+    };
 
+    syncConfig();
+
+    // REALTIME CONFIG: Listen for any changes in the pyhunt_config table
+    const configChannel = supabase
+      .channel('pyhunt-config-sync')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'pyhunt_config' },
+        (payload: any) => {
+          console.log("[PyHunt] Configuration updated remotely, syncing...");
+          syncConfig();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(t);
+      supabase.removeChannel(configChannel);
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const examStudent = sessionStorage.getItem("exam_student");
       const examStudentData = examStudent ? JSON.parse(examStudent) : {};
@@ -1260,7 +1321,11 @@ export default function PyHuntPage() {
           last_violation: lastViolation || undefined,
           round1_score: finishStats.round1Score,
           round1_time: finishStats.round1Time,
+          round1_rank: clueRank,
           total_time: finished ? `${finishStats.minutes}m` : undefined,
+          round3_code: round3Code || undefined,
+          round3b_code: round3bCode || undefined,
+          round4_code: round4Code || undefined,
         };
 
         const res = await fetch("/api/exam/pyhunt/sync-progress", {
@@ -1273,16 +1338,14 @@ export default function PyHuntPage() {
         });
 
         if (res.ok) {
-          console.log(`[PyHuntSync] Successfully synced: ${currentRound} (Score: ${finishStats.round1Score || "N/A"})`);
-        } else {
-          console.warn(`[PyHuntSync] Server returned error: ${res.status}`);
+          console.log(`[PyHuntSync] Successfully synced: ${currentRound}`);
         }
       } catch (err) {
         console.error("[PyHuntSync] Network/Logic error:", err);
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation, finishStats, clueRank]);
+  }, [round, finished, terminated, warningCount, lastViolation, finishStats, clueRank, round3Code, round3bCode, round4Code]);
 
   // Fullscreen Watcher
   useEffect(() => {
@@ -1319,35 +1382,59 @@ export default function PyHuntPage() {
   }, []);
 
   // Round complete → show clue (rounds 0–3)
-  const handleRoundComplete = useCallback(async (mcqScore?: string) => {
-    if (round === 0) {
-      if (mcqScore) {
-        const timeMs = Date.now() - mcqStartTime;
-        const m = Math.floor(timeMs / 60000);
-        const s = Math.floor((timeMs % 60000) / 1000);
-        setFinishStats(prev => ({
-          ...prev,
-          round1Score: mcqScore,
-          round1Time: `${m}m ${s}s`
-        }));
-      }
+  const handleRoundComplete = useCallback(async (arg1?: any, arg2?: any) => {
+    // If round 0 (MCQ), arg1 is mcqScore
+    if (round === 0 && typeof arg1 === "string") {
+      const timeMs = Date.now() - mcqStartTime;
+      const m = Math.floor(timeMs / 60000);
+      const s = Math.floor((timeMs % 60000) / 1000);
+      setFinishStats(prev => ({
+        ...prev,
+        round1Score: arg1,
+        round1Time: `${m}m ${s}s`
+      }));
+    }
+    // If round 2 (Coding Dual), arg1=code3a, arg2=code3b
+    if (round === 2) {
+      if (arg1) setRound3Code(arg1);
+      if (arg2) setRound3bCode(arg2);
+    }
+    // If round 3 (Coding Single), arg1=code4
+    if (round === 3) {
+      if (arg1) setRound4Code(arg1);
+    }
 
-      // ORBITAL DISTRIBUTION: Assign rank atomically
-      try {
-        // HCOL: Check cache first to prevent redundant DB calls
-        const cached = localStorage.getItem("pyhunt_clue_rank_cache");
-        if (cached) {
-          setClueRank(parseInt(cached));
-        } else {
-          const { data: rank, error } = await supabase.rpc("get_pyhunt_round_rank", { target_student_id: studentId });
-          if (!error && rank) {
-            setClueRank(rank);
-            localStorage.setItem("pyhunt_clue_rank_cache", rank.toString());
-          }
+    // ORBITAL DISTRIBUTION: Assign rank atomically for the round just completed
+    setPyhuntLoading(true); 
+    try {
+      // Always fetch fresh rank for the current round to ensure strict sequence
+      let rank = null;
+      for (let i = 0; i < 3; i++) {
+        // Use the new strict rank function from migration v9
+        const { data, error } = await supabase.rpc("get_strict_rank", { 
+          p_round_id: round + 1, 
+          p_user_id: studentId 
+        });
+        if (!error && data) {
+          rank = data;
+          break;
         }
-      } catch (err) {
-        console.warn("Rank assignment failed:", err);
+        console.warn(`Rank fetch attempt ${i+1} failed:`, error);
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
+      
+      if (rank) {
+        setClueRank(rank);
+        // We don't cache this in localStorage anymore because it's per-round
+      } else {
+        console.error("Critical: Atomic rank assignment failed after retries.");
+        setClueRank(1); // Emergency fallback
+      }
+    } catch (err) {
+      console.warn("Rank assignment failed:", err);
+      setClueRank(1);
+    } finally {
+      setPyhuntLoading(false);
     }
     setShowingClue(true);
   }, [round, mcqStartTime, studentId]);
@@ -1502,7 +1589,7 @@ export default function PyHuntPage() {
                   else if (round === 2) activeClue = getDynamicClue(cfg.round3Clues);
                   else if (round === 3) activeClue = getDynamicClue(cfg.round4Clues);
 
-                  return activeClue ? <ClueScreen clue={activeClue} onUnlock={handleUnlock} /> : null;
+                  return activeClue ? <ClueScreen roundId={round + 1} clue={activeClue} onUnlock={handleUnlock} /> : null;
                 })()
               )}
 

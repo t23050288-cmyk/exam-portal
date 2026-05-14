@@ -449,11 +449,46 @@ export default function PyHuntAdminTab() {
         const rn = isR3?3:4;
 
 
-
         return (
           <div>
             <CodingProblemEditor cfg={cfg} setCfg={setCfg} rk={rk1} rn={rn} label={isR3 ? "Part 1 Problem" : "Coding Problem"} />
-            {rk2 && <CodingProblemEditor cfg={cfg} setCfg={setCfg} rk={rk2} rn={rn} accentColor="#a78bfa" label="Part 2 Problem" />}
+            
+            <div style={$.card}>
+              <div style={$.cardTitle}>🛠️ Round {rn} {isR3 ? "Part 1" : ""} JSON Sync</div>
+              <div style={$.info}>Directly edit the JSON for this problem below. It will update the editor above automatically.</div>
+              <textarea 
+                style={{...$.ta, minHeight:300, fontSize:12, background:"rgba(0,0,0,0.45)", color:"#00dcff", borderColor:"rgba(0,220,255,0.15)"}}
+                value={JSON.stringify(cfg[rk1], null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    setCfg(c => ({...c, [rk1]: parsed}));
+                  } catch(err) {}
+                }}
+                spellCheck={false}
+              />
+            </div>
+
+            {rk2 && (
+              <>
+                <CodingProblemEditor cfg={cfg} setCfg={setCfg} rk={rk2} rn={rn} accentColor="#a78bfa" label="Part 2 Problem" />
+                <div style={$.card}>
+                  <div style={{...$.cardTitle, color: "#a78bfa"}}>🛠️ Round {rn} Part 2 JSON Sync</div>
+                  <div style={$.info}>Directly edit the JSON for the second part problem below.</div>
+                  <textarea 
+                    style={{...$.ta, minHeight:300, fontSize:12, background:"rgba(0,0,0,0.45)", color:"#a78bfa", borderColor:"rgba(167, 139, 250, 0.15)"}}
+                    value={JSON.stringify(cfg[rk2], null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const parsed = JSON.parse(e.target.value);
+                        setCfg(c => ({...c, [rk2]: parsed}));
+                      } catch(err) {}
+                    }}
+                    spellCheck={false}
+                  />
+                </div>
+              </>
+            )}
           </div>
         );
       })()}
@@ -468,7 +503,7 @@ export default function PyHuntAdminTab() {
           <span>📡 PROTOCOL JSON (Direct Configuration)</span>
           <div style={{ display: "flex", gap: 10 }}>
             <button 
-              style={{ ...$.btnEdit, color: "#28D7D6", borderColor: "rgba(40,215,214,0.3)" }} 
+              style={{ ...$.btnEdit, color: "#28D7D6", borderColor: "rgba(40,214,214,0.3)" }} 
               onClick={() => setJsonStr(JSON.stringify(cfg, null, 2))}
               title="Reset JSON editor to match the current UI state"
             >
@@ -493,7 +528,7 @@ export default function PyHuntAdminTab() {
             minHeight: 400,
             fontSize: 12,
             background: "rgba(0,0,0,0.45)",
-            border: "1px solid rgba(40,215,214,0.15)",
+            border: "1px solid rgba(40,214,214,0.15)",
             color: "#28D7D6",
             boxShadow: "inset 0 4px 20px rgba(0,0,0,0.6)",
             lineHeight: 1.6,
@@ -587,9 +622,10 @@ function MarksView({ cfg }: { cfg: PyHuntConfig }) {
 function LiveStatusView() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedArt, setSelectedArt] = useState<{id: string, name: string, img: string} | null>(null);
+  const [selectedArt, setSelectedArt] = useState<{ id: string, name: string, img: string } | null>(null);
+  const [selectedCode, setSelectedCode] = useState<{ name: string, r3: string, r3b: string, r4: string } | null>(null);
+  const [activeCodeTab, setActiveCodeTab] = useState<"r3"|"r3b"|"r4">("r3");
   const [countdown, setCountdown] = useState(60);
-
   const [lastSync, setLastSync] = useState<string>("");
 
   const fetchStatus = async () => {
@@ -834,6 +870,23 @@ function LiveStatusView() {
                           style={{ ...$.btnEdit, padding: "4px 8px", fontSize: 10 }}
                         >View Art</button>
                       )}
+                      {(s.round3_code || s.round3b_code || s.round4_code) && (
+                        <button 
+                          onClick={() => {
+                            setSelectedCode({ 
+                              name: s.student_name, 
+                              r3: s.round3_code || "", 
+                              r3b: s.round3b_code || "", 
+                              r4: s.round4_code || "" 
+                            });
+                            // Default to first available code
+                            if (s.round3_code) setActiveCodeTab("r3");
+                            else if (s.round3b_code) setActiveCodeTab("r3b");
+                            else setActiveCodeTab("r4");
+                          }}
+                          style={{ ...$.btnAdd, padding: "4px 8px", fontSize: 10, borderColor: "rgba(0, 220, 255, 0.3)", color: "#00dcff", background: "rgba(0, 220, 255, 0.05)" }}
+                        >View Code</button>
+                      )}
                       <button 
                         onClick={() => resetProgress(s.student_id)}
                         style={{ ...$.btnAdd, padding: "4px 8px", fontSize: 10, borderColor: "rgba(245, 158, 11, 0.3)", color: "#f59e0b", background: "rgba(245, 158, 11, 0.05)" }}
@@ -888,8 +941,92 @@ function LiveStatusView() {
                 style={{ ...$.btnDel, flex: 1, padding: "12px" }}
               >Delete Submission</button>
             </div>
-            <div style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-              Round 5 · Student Generated Canvas Turtle Art
+          </div>
+        </div>
+      )}
+
+      {/* CODE SUBMISSIONS MODAL */}
+      {selectedCode && (
+        <div 
+          className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-8"
+          onClick={() => setSelectedCode(null)}
+        >
+          <div 
+            className="bg-[#0c1117] border border-[#00dcff]/30 rounded-3xl w-full max-w-6xl h-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-bottom border-white/5 flex items-center justify-between bg-white/[0.02]">
+              <div>
+                <div className="text-[#00dcff] text-xs font-black tracking-widest uppercase mb-1">IDE Submission Explorer</div>
+                <h2 className="text-2xl font-black text-white leading-tight">
+                  {selectedCode.name}'s Solutions
+                </h2>
+              </div>
+              <button 
+                onClick={() => setSelectedCode(null)}
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 text-white/50 hover:text-white transition-all text-2xl"
+              >✕</button>
+            </div>
+
+            {/* Tab Selector */}
+            <div className="flex bg-black/40 p-2 gap-2 border-y border-white/5">
+              {[
+                { id: "r3", label: "Round 3 (Part A)", exists: !!selectedCode.r3, problem: config.round3 },
+                { id: "r3b", label: "Round 3 (Part B)", exists: !!selectedCode.r3b, problem: config.round3b || config.round3 },
+                { id: "r4", label: "Round 4", exists: !!selectedCode.r4, problem: config.round4 },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveCodeTab(tab.id as any)}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border ${
+                    activeCodeTab === tab.id 
+                      ? "bg-[#00dcff]/10 border-[#00dcff]/40 text-[#00dcff]" 
+                      : tab.exists 
+                        ? "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                        : "opacity-30 cursor-not-allowed border-transparent text-white/30"
+                  }`}
+                  disabled={!tab.exists}
+                >
+                  {tab.label} {tab.exists ? "✓" : "—"}
+                </button>
+              ))}
+            </div>
+
+            {/* IDE Preview Body */}
+            <div className="flex-1 overflow-auto p-6 bg-black/20">
+              {activeCodeTab === "r3" && selectedCode.r3 && (
+                <RoundCoding 
+                  problem={config.round3} 
+                  roundNum={3} 
+                  partLabel="Part A"
+                  initialCode={selectedCode.r3}
+                  onComplete={() => {}} 
+                  onWrong={() => {}} 
+                  isAdminPreview={true}
+                />
+              )}
+              {activeCodeTab === "r3b" && selectedCode.r3b && (
+                <RoundCoding 
+                  problem={config.round3b || config.round3} 
+                  roundNum={3} 
+                  partLabel="Part B"
+                  initialCode={selectedCode.r3b}
+                  onComplete={() => {}} 
+                  onWrong={() => {}} 
+                  isAdminPreview={true}
+                />
+              )}
+              {activeCodeTab === "r4" && selectedCode.r4 && (
+                <RoundCoding 
+                  problem={config.round4} 
+                  roundNum={4} 
+                  initialCode={selectedCode.r4}
+                  onComplete={() => {}} 
+                  onWrong={() => {}} 
+                  isAdminPreview={true}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1154,8 +1291,8 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
           </div>
 
           {/* Modal Content — Rendering the actual Student IDE component */}
-          <div style={{flex:1, padding:32, overflowY:"auto"}}>
-            <div style={{maxWidth:1400, margin:"0 auto"}}>
+          <div style={{flex:1, padding:0, overflowY:"auto"}}>
+            <div style={{width:"100%", height:"100%"}}>
               <RoundCoding 
                 problem={cfg[rk]}
                 roundNum={rn}
