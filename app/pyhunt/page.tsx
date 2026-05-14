@@ -550,7 +550,8 @@ export function RoundCoding({
       // ── Plan B: Local Pyodide Execution ──
       if (ready) {
         const { results, allPass: ap } = await runTests(code, problem.testCases);
-        const out = await runCode(code);
+        const defaultStdin = problem.testCases.length > 0 ? problem.testCases[0].input : "";
+        const out = await runCode(code, defaultStdin);
         const mapped = results.map((r, i) => ({
           ...r,
           input: problem.testCases[i]?.input || ""
