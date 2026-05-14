@@ -785,20 +785,52 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
 async def reset_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
     """Admin-only: Reset a specific student's PyHunt progress to Round 1."""
     db = get_supabase()
-    if not is_valid_uuid(student_id):
-        raise HTTPException(status_code=400, detail="Invalid student UUID")
     
-    db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
+    # Use flexible matching to avoid UUID syntax errors
+    query = db.table("pyhunt_progress").delete()
+    filters = [f"usn.eq.{student_id}", f"student_name.eq.{student_id}"]
+    
+    if is_valid_uuid(student_id):
+        filters.append(f"student_id.eq.{student_id}")
+    else:
+        # Try USN lookup to get actual UUID
+        s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
+        if s_res.data:
+            filters.append(f"student_id.eq.{s_res.data['id']}")
+            
+    try:
+        query.or_(",".join(filters)).execute()
+    except Exception as e:
+        print(f"[ADMIN] PyHunt Reset Error: {e}")
+        # Fallback for "anonymous" or weird strings if the column is text
+        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
+
     return {"reset": True}
 
 @router.delete("/pyhunt/progress/{student_id}")
 async def remove_pyhunt_progress(student_id: str, _: bool = Depends(verify_admin)):
     """Admin-only: Remove a specific student from the PyHunt progress table."""
     db = get_supabase()
-    if not is_valid_uuid(student_id):
-        raise HTTPException(status_code=400, detail="Invalid student UUID")
+    
+    # Use flexible matching to avoid UUID syntax errors
+    query = db.table("pyhunt_progress").delete()
+    filters = [f"usn.eq.{student_id}", f"student_name.eq.{student_id}"]
+    
+    if is_valid_uuid(student_id):
+        filters.append(f"student_id.eq.{student_id}")
+    else:
+        # Try USN lookup to get actual UUID
+        s_res = db.table("students").select("id").eq("usn", student_id).maybe_single().execute()
+        if s_res.data:
+            filters.append(f"student_id.eq.{s_res.data['id']}")
+            
+    try:
+        query.or_(",".join(filters)).execute()
+    except Exception as e:
+        print(f"[ADMIN] PyHunt Remove Error: {e}")
+        # Fallback
+        db.table("pyhunt_progress").delete().eq("usn", student_id).execute()
 
-    db.table("pyhunt_progress").delete().eq("student_id", student_id).execute()
     return {"deleted": True}
 
 
