@@ -197,6 +197,37 @@ const SUBTABS: { id:SubTab; label:string; icon:string }[] = [
 ];
 const ROUND_NAMES = ["Round 1 (MCQ)", "Round 2 (Jumble)", "Round 3 (Coding)", "Round 4 (Coding)"];
 
+function JsonSyncTextarea({ cfgKey, cfgValue, setCfg, accentColor = "#00dcff" }: { cfgKey: string, cfgValue: any, setCfg: any, accentColor?: string }) {
+  const [str, setStr] = useState(JSON.stringify(cfgValue, null, 2));
+
+  useEffect(() => {
+    try {
+      const currentInCfg = JSON.stringify(cfgValue, null, 2);
+      if (currentInCfg !== str && JSON.stringify(JSON.parse(str)) !== JSON.stringify(cfgValue)) {
+        setStr(currentInCfg);
+      }
+    } catch(e) {}
+  }, [cfgValue]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setStr(val);
+    try {
+      const parsed = JSON.parse(val);
+      setCfg((c: any) => ({...c, [cfgKey]: parsed}));
+    } catch(err) {}
+  };
+
+  return (
+    <textarea 
+      style={{...$.ta, minHeight:300, fontSize:12, background:"rgba(0,0,0,0.45)", color:accentColor, borderColor:`${accentColor}40`}}
+      value={str}
+      onChange={handleChange}
+      spellCheck={false}
+    />
+  );
+}
+
 export default function PyHuntAdminTab() {
   const [cfg, setCfg] = useState<PyHuntConfig>(DEFAULT);
   const [sub, setSub] = useState<SubTab>("clues");
@@ -523,17 +554,7 @@ export default function PyHuntAdminTab() {
             <div style={$.card}>
               <div style={$.cardTitle}>🛠️ Round {rn} {isR3 ? "Part 1" : ""} JSON Sync</div>
               <div style={$.info}>Directly edit the JSON for this problem below. It will update the editor above automatically.</div>
-              <textarea 
-                style={{...$.ta, minHeight:300, fontSize:12, background:"rgba(0,0,0,0.45)", color:"#00dcff", borderColor:"rgba(0,220,255,0.15)"}}
-                value={JSON.stringify(cfg[rk1], null, 2)}
-                onChange={(e) => {
-                  try {
-                    const parsed = JSON.parse(e.target.value);
-                    setCfg(c => ({...c, [rk1]: parsed}));
-                  } catch(err) {}
-                }}
-                spellCheck={false}
-              />
+              <JsonSyncTextarea cfgKey={rk1} cfgValue={cfg[rk1]} setCfg={setCfg} accentColor="#00dcff" />
             </div>
 
             {rk2 && (
@@ -542,17 +563,7 @@ export default function PyHuntAdminTab() {
                 <div style={$.card}>
                   <div style={{...$.cardTitle, color: "#a78bfa"}}>🛠️ Round {rn} Part 2 JSON Sync</div>
                   <div style={$.info}>Directly edit the JSON for the second part problem below.</div>
-                  <textarea 
-                    style={{...$.ta, minHeight:300, fontSize:12, background:"rgba(0,0,0,0.45)", color:"#a78bfa", borderColor:"rgba(167, 139, 250, 0.15)"}}
-                    value={JSON.stringify(cfg[rk2], null, 2)}
-                    onChange={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value);
-                        setCfg(c => ({...c, [rk2]: parsed}));
-                      } catch(err) {}
-                    }}
-                    spellCheck={false}
-                  />
+                  <JsonSyncTextarea cfgKey={rk2} cfgValue={cfg[rk2]} setCfg={setCfg} accentColor="#a78bfa" />
                 </div>
               </>
             )}
