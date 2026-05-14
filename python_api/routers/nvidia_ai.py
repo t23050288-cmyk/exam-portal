@@ -44,7 +44,7 @@ class HintRequest(BaseModel):
     code: str
     error: str | None = None
 
-@router.post("/ai/check-code")
+@router.post("/check-code")
 async def check_code(req: CodeCheckRequest):
     if not NVIDIA_API_KEY:
         raise HTTPException(status_code=500, detail="NVIDIA_API_KEY not configured")
@@ -94,7 +94,7 @@ Respond ONLY with this JSON (no markdown, no extra text):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/ai/hint")
+@router.post("/hint")
 async def get_hint(req: HintRequest):
     if not NVIDIA_API_KEY:
         raise HTTPException(status_code=500, detail="NVIDIA_API_KEY not configured")
