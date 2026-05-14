@@ -250,15 +250,17 @@ export default function PyHuntAdminTab() {
   const handleSave = async () => {
     try {
       PyHuntConfigSchema.parse(cfg);
+      await saveCfgAsync(cfg);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
     } catch (e: any) {
       if (e instanceof z.ZodError) {
         alert("❌ Cannot save! Config has validation errors:\n" + e.issues.map((err: any) => `${err.path.join('.')}: ${err.message}`).join('\n'));
+      } else {
+        console.error("Save failed:", e);
+        alert("❌ Save failed! Please ensure you have run the SQL script to add the 'config_json' column in Supabase.\n\nError: " + (e.message || "Unknown error"));
       }
-      return;
     }
-    await saveCfgAsync(cfg);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
   };
 
   /* ─ MCQ helpers ─ */

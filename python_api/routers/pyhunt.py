@@ -22,12 +22,23 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
     if rank is None:
         raise HTTPException(status_code=500, detail="Failed to assign rank")
     
-    # 2. Get clues config from global config
-    cfg_res = sb.table("exam_config").select("config_json").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").maybe_single().execute()
+    # 2. Get clues config from global config — with fallback to category column
+    cfg_res = sb.table("exam_config").select("config_json, category").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").maybe_single().execute()
     if not cfg_res.data:
         raise HTTPException(status_code=404, detail="PyHunt configuration not found")
     
-    cfg = cfg_res.data["config_json"]
+    # Try config_json first, then fallback to category (for pre-migration setups)
+    cfg = cfg_res.data.get("config_json")
+    if not cfg:
+        cat_raw = cfg_res.data.get("category")
+        if cat_raw and cat_raw not in [None, "", "PYHUNT"]:
+            try:
+                cfg = json.loads(cat_raw)
+            except:
+                cfg = None
+    
+    if not cfg:
+        raise HTTPException(status_code=404, detail="PyHunt config is empty. Please save config from Admin tab first.")
     
     # Determine clues for current round (e.g. round1Clues, round2Clues...)
     clue_key = f"round{req.round_id}Clues"
@@ -40,15 +51,20 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
     if not clues:
         raise HTTPException(status_code=400, detail="No clues defined for this round")
     
-    # 3. Determine which clue they SHOULD have
+    # 3. Determine which clue they SHOULD have (round-robin: rank 1→clue[0], rank 2→clue[1], etc.)
     clue_index = (rank - 1) % len(clues)
     expected_data = clues[clue_index]
     
-    # 4. Validate the pass-code (case-insensitive)
+    # 4. Validate the pass-code (case-insensitive, trimmed)
     submitted = req.submitted_pass_code.strip().upper()
-    expected = expected_data.get("unlockCode", "").strip().upper()
+    expected = str(expected_data.get("unlockCode", "")).strip().upper()
     
     is_success = submitted == expected
+    
+    # Detailed debug logging
+    print(f"[PyHunt Unlock] round={req.round_id}, user={user['id']}, rank={rank}, "
+          f"clue_index={clue_index}, total_clues={len(clues)}, "
+          f"submitted='{submitted}', expected='{expected}', match={is_success}")
     
     # Log the attempt
     try:
@@ -65,8 +81,9 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
     if not is_success:
         return {
             "status": "Fail",
-            "message": "Wrong Pass-Code! You must enter the code for YOUR assigned clue.",
-            "rank": rank # Inform student of their rank for debugging if needed
+            "message": f"Wrong code! Your clue is #{clue_index + 1}. Enter the code for YOUR assigned clue only.",
+            "rank": rank,
+            "clue_index": clue_index + 1  # 1-based for display
         }
     
     return {
@@ -75,4 +92,3 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
         "rank": rank,
         "clue": expected_data.get("clueText", "")
     }
-

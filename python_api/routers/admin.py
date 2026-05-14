@@ -725,13 +725,19 @@ async def get_pyhunt_config_public():
     try:
         # Include is_active column so student portal knows if the competition is live
         result = db.table("exam_config").select("config_json, category, updated_at, is_active").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
+        
         if result.data:
             row = result.data[0]
-            # Try config_json first, then fallback to category
+            # Try config_json first (the new standard)
             cfg = row.get("config_json")
-            if not cfg and row.get("category") and row["category"] != "PYHUNT":
+            
+            # Fallback to category only if config_json is truly empty/null
+            if not cfg and row.get("category") and row["category"] not in [None, "", "PYHUNT"]:
                 import json as _json
-                cfg = _json.loads(row["category"])
+                try:
+                    cfg = _json.loads(row["category"])
+                except:
+                    cfg = None
                 
             if cfg:
                 return {
@@ -761,30 +767,32 @@ async def save_pyhunt_config(request: Request, _: bool = Depends(verify_admin)):
         # Pull is_active from the JSON if provided (fallback to True)
         is_active = parsed.get("isActive", True)
 
+        # We set 'category' to a fixed small string 'PYHUNT' to clear the old large JSON
+        # and prevent 'index row size exceeds btree maximum' errors on idx_exam_config_category.
+        save_data = {
+            "config_json": parsed, 
+            "category": "PYHUNT",
+            "is_active": is_active, 
+            "duration_minutes": 0,
+            "scheduled_start": None,
+            "scheduled_end": None
+        }
+
         existing = db.table("exam_config").select("id").eq("exam_title", "PYHUNT_GLOBAL_CONFIG").limit(1).execute()
         if existing.data:
-            db.table("exam_config").update({
-                "config_json": parsed, 
-                "is_active": is_active, 
-                "duration_minutes": 0,
-                "scheduled_start": None,
-                "scheduled_end": None
-            }).eq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
+            db.table("exam_config").update(save_data).eq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
         else:
-            db.table("exam_config").insert({
-                "exam_title": "PYHUNT_GLOBAL_CONFIG", 
-                "config_json": parsed, 
-                "is_active": is_active, 
-                "duration_minutes": 0,
-                "scheduled_start": None,
-                "scheduled_end": None
-            }).execute()
+            save_data["exam_title"] = "PYHUNT_GLOBAL_CONFIG"
+            db.table("exam_config").insert(save_data).execute()
+            
         return {"ok": True}
-    except HTTPException:
-        raise
     except Exception as e:
         print(f"save_pyhunt_config error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a more descriptive error if it's a missing column issue
+        err_msg = str(e)
+        if "config_json" in err_msg:
+            err_msg = "Database column 'config_json' is missing. Please run the ALTER TABLE SQL command in Supabase."
+        raise HTTPException(status_code=500, detail=err_msg)
 
 
 @router.get("/pyhunt/status")
