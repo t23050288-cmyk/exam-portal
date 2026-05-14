@@ -652,7 +652,8 @@ async def get_exam_config_public():
     """Public exam config endpoint (no auth) — returns all configurations."""
     db = get_supabase()
     try:
-        result = db.table("exam_config").select("is_active, scheduled_start, duration_minutes, exam_title").neq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
+        # Include category and counts to avoid heavy frontend fetching
+        result = db.table("exam_config").select("id, is_active, scheduled_start, scheduled_end, duration_minutes, exam_title, category, total_questions, total_marks, max_attempts, branch").neq("exam_title", "PYHUNT_GLOBAL_CONFIG").execute()
         return result.data or []
     except Exception:
         return []
@@ -704,13 +705,22 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
     """Admin endpoint to see all PyHunt student progress, joined with student identity."""
     db = get_supabase()
     try:
-        # Fetch all progress with student identity join (Database-side Join)
-        res = db.table("pyhunt_progress").select("*, students(name, usn)").order("last_active", desc=True).execute()
+        # Fetch all progress (Manual join to prevent 500 errors if FK is missing)
+        progress_res = db.table("pyhunt_progress").select("*").order("last_active", desc=True).execute()
+        progress_data = progress_res.data or []
+        
+        if not progress_data:
+            return []
+            
+        # Fetch all students to join locally
+        student_ids = list(set(p["student_id"] for p in progress_data if p.get("student_id")))
+        student_res = db.table("students").select("id, name, usn").in_("id", student_ids).execute()
+        student_map = {s["id"]: s for s in (student_res.data or [])}
         
         rows = []
-        for p in (res.data or []):
-            s = p.get("students") or {}
-            # Prioritize joined data from 'students' table, fallback to cached columns in 'pyhunt_progress'
+        for p in progress_data:
+            sid = p.get("student_id")
+            s = student_map.get(sid) or {}
             rows.append({
                 **p,
                 "student_name": s.get("name") or p.get("student_name") or "Unknown",

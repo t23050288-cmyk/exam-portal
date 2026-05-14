@@ -219,148 +219,114 @@ export default function DashboardPage() {
     try {
       const configs = await fetchPublicExamConfig();
       const active = configs.filter((c: any) => c.is_active);
-      const { data: qData, error: qError } = await supabase.from("questions").select("branch, exam_name, category");
-      
-      if (qError) console.error("[DASHBOARD] Questions fetch error:", qError.message);
 
       const studentRaw = sessionStorage.getItem("exam_student");
       const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
       const studentId = studentObj?.id;
-      const studentBranch = studentObj?.branch?.trim().toUpperCase() || "";
       
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       
-      // IDENTITY CHECK: Ensure studentId is a valid UUID to prevent 400 Bad Request
       const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
 
       if (studentId && isValidUUID(studentId)) {
         try {
-          const token = sessionStorage.getItem("exam_token") || "";
-          
-          // Fetch status from our hardened proxy API (handles JWT auth + no-cache)
-          const statusResp = await apiFetch<{ data: any[] }>("/exam/status").catch(() => ({ data: [] }));
-          const statusData: any[] = statusResp.data || [];
-          
+          // 1. Fetch status and history via hardened proxy API (no more 400 Bad Request)
+          const [statusResp, historyResp] = await Promise.all([
+            apiFetch<{ data: any[] }>("/exam/status").catch(() => ({ data: [] })),
+            apiFetch<{ results: any[] }>("/exam/history").catch(() => ({ results: [] }))
+          ]);
 
-          // Fetch results (using studentId for history)
-          const { data: resultsData } = await supabase
-            .from("exam_results")
-            .select("score, total_marks, exam_title, correct_count, total_questions, submitted_at")
-            .eq("student_id", studentId);
+          const statusData = statusResp.data || [];
+          const resultsData = historyResp.results || [];
           
-          if (resultsData) {
+          if (resultsData.length > 0) {
             const histRecords: any[] = [];
             resultsData.forEach((r: any) => {
               if (r.exam_title) {
                 const title = r.exam_title.trim().toLowerCase();
                 
-                // Calculate question count as a fallback
-                const qs = (qData || []).filter((q: any) => (q.exam_name || "").trim().toLowerCase() === title);
-                let qCount = 0;
-                qs.forEach((q: any) => {
-                   const bStr = (q.branch || "").toUpperCase();
-                   if (!studentBranch || bStr.includes(studentBranch) || bStr === "" || bStr === "GLOBAL" || bStr === "ALL") {
-                     qCount++;
-                   }
-                });
-
-                // User specifically wants "How much got / Total Questions"
+                // Optimized: use columns directly from DB record instead of re-calculating from ALL questions
                 const displayScore = r.correct_count ?? r.score ?? 0;
-                const displayTotal = r.total_questions ?? (qCount > 0 ? qCount : r.total_marks) ?? 0;
+                const displayTotal = r.total_questions ?? r.total_marks ?? 0;
 
                 if (!submittedMap[title]) {
                   submittedMap[title] = { score: displayScore, total_marks: displayTotal, attempt_count: 0 };
                 }
                 submittedMap[title].attempt_count++;
-                submittedMap[title].score = displayScore;
-                submittedMap[title].total_marks = displayTotal;
+                
+                // Latest result takes priority for display in Exam List
+                if (submittedMap[title].attempt_count === 1) {
+                  submittedMap[title].score = displayScore;
+                  submittedMap[title].total_marks = displayTotal;
+                }
 
                 histRecords.push({
+                  id: r.id,
                   examName: r.exam_title,
                   score: displayScore,
                   totalMarks: displayTotal,
                   timestamp: r.submitted_at,
+                  category: r.category || "Others"
                 });
               }
             });
             setLocalHistory(histRecords);
           }
+
           if (statusData) {
             statusData.forEach((s: any) => {
               if ((s.status === "submitted" || s.status === "TERMINATED") && s.exam_title) {
                 const title = s.exam_title.trim().toLowerCase();
                 if (!submittedMap[title]) {
                   submittedMap[title] = { score: 0, total_marks: 0, attempt_count: 1 };
-                } else {
-                  submittedMap[title].attempt_count = Math.max(submittedMap[title].attempt_count, 1);
                 }
               }
             });
           }
         } catch (dbErr) {
-          console.error("[DASHBOARD] DB fetch failed:", dbErr);
+          console.error("[DASHBOARD] History sync error:", dbErr);
+        }
+      }
+        } catch (dbErr) {
+          console.error("[DASHBOARD] History sync error:", dbErr);
         }
       }
 
-
-
-      const nodes: ExamNode[] = []; const seen = new Set<string>();
+      const nodes: ExamNode[] = []; 
+      const seen = new Set<string>();
       
-      console.log(`[DASHBOARD] Processing ${active.length} active configs against ${qData?.length || 0} questions.`);
-
       if (active.length > 0) {
         for (const cfg of active) {
           const cfgTitle = (cfg.exam_title || "").trim().toLowerCase();
-          const qs = (qData || []).filter((q: any) => (q.exam_name || "").trim().toLowerCase() === cfgTitle);
-          
-          // Show the exam even if 0 questions are found (so they can see the error in instructions page)
-          // if (qs.length === 0) continue; 
+          if (seen.has(cfgTitle)) continue;
+          seen.add(cfgTitle);
 
-          // ── Branch-aware counting ──
-          let matchCount = 0;
-          let cat = "Others";
-          qs.forEach((q: any) => {
-            const branchStr = (q.branch || "").toUpperCase();
-            const qCat = q.category || "";
-            if (qCat === "Aptitude" || qCat === "Programming") cat = qCat;
-            // Match: branch field contains student's branch, or is empty/global/all
-            if (!studentBranch || branchStr.includes(studentBranch) || branchStr === "" || branchStr === "GLOBAL" || branchStr === "ALL") {
-              matchCount++;
-            }
+          const sub = submittedMap[cfgTitle] || { score: 0, total_marks: 0, attempt_count: 0 };
+          
+          nodes.push({
+            id: cfg.id || cfg.exam_title,
+            exam_name: cfg.exam_title,
+            branch: cfg.branch || "GLOBAL", 
+            is_active: cfg.is_active,
+            duration_minutes: cfg.duration_minutes,
+            scheduled_start: cfg.scheduled_start,
+            question_count: cfg.total_questions || 0,
+            category: cfg.category || "Others",
+            submitted: sub.attempt_count > 0,
+            score: sub.score,
+            total_marks: sub.total_marks || cfg.total_marks || 0,
+            max_attempts: cfg.max_attempts || 1,
+            attempt_count: sub.attempt_count
           });
-
-          // BRANCH ISOLATION: If the exam HAS questions but NONE match this
-          // student's branch, skip it entirely — don't show it to them.
-          if (qs.length > 0 && matchCount === 0 && studentBranch) {
-            console.log(`[DASHBOARD] Skipping exam ${cfgTitle} - no questions for branch ${studentBranch}`);
-            continue;
-          }
-          
-          // If no questions exist at all for any branch, we usually skip it too 
-          // unless it's a global/shared exam config with no questions yet.
-          if (qs.length === 0) {
-            console.log(`[DASHBOARD] Skipping exam ${cfgTitle} - no questions found.`);
-            continue;
-          }
-
-          const finalMatchCount = matchCount > 0 ? matchCount : qs.length;
-
-          const nid = cfg.exam_title;
-          if (!seen.has(nid)) {
-            const sub = submittedMap[cfg.exam_title.trim().toLowerCase()];
-            nodes.push({ id: nid, exam_name: cfg.exam_title, branch: "ALL", is_active: cfg.is_active,
-              duration_minutes: cfg.duration_minutes, scheduled_start: cfg.scheduled_start,
-              question_count: finalMatchCount, category: cat,
-              submitted: !!sub, score: sub?.score, total_marks: sub?.total_marks,
-              max_attempts: cfg.max_attempts || 1, attempt_count: sub?.attempt_count || 0,
-            });
-            seen.add(nid);
-          }
         }
       }
       setAllExams(nodes);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [supabase]);
+    } catch (err) {
+      console.error("[DASHBOARD] loadExams failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchPublicExamConfig, apiFetch]);
 
   useEffect(() => {
     loadExams();
