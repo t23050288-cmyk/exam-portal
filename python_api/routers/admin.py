@@ -793,8 +793,8 @@ async def get_pyhunt_status_admin(_: bool = Depends(verify_admin)):
         if not progress_data:
             return []
             
-        # Fetch all students to join locally
-        student_ids = list(set(p["student_id"] for p in progress_data if p.get("student_id")))
+        # Fetch all students to join locally (Filter only valid UUIDs to prevent 500 errors)
+        student_ids = list(set(p["student_id"] for p in progress_data if p.get("student_id") and is_valid_uuid(str(p["student_id"]))))
         student_res = db.table("students").select("id, name, usn").in_("id", student_ids).execute()
         student_map = {s["id"]: s for s in (student_res.data or [])}
         

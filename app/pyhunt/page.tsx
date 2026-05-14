@@ -442,9 +442,13 @@ function shuffle<T>(arr: T[]): T[] {
    - Groq AI strict grader → Piston fallback
    - Bigger editor, status bar, run/submit buttons
 ═══════════════════════════════════════════════ */
-export function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false }: {
+export function RoundCoding({ 
+  problem, roundNum, partLabel = "", onComplete, onWrong, showNextPartOnPass = false, 
+  isAdminPreview = false 
+}: {
   problem: CodingProblem; roundNum: number; partLabel?: string;
   onComplete: () => void; onWrong: () => void; showNextPartOnPass?: boolean;
+  isAdminPreview?: boolean;
 }) {
   const { ready, loadError, runCode, runTests } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
@@ -495,7 +499,10 @@ export function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onW
       setVerifying(true);
       const resp = await fetch("/api/exam/pyhunt/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(isAdminPreview ? { "X-Admin-Secret": "rudranshsarvam" } : {})
+        },
         body: JSON.stringify({
           problem_title: problem.title,
           code,

@@ -1162,6 +1162,7 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
                 onComplete={() => alert("Success! This problem is fully solved and working.")}
                 onWrong={() => {}} // No-op for admin preview
                 showNextPartOnPass={false}
+                isAdminPreview={true}
               />
             </div>
           </div>
