@@ -83,6 +83,7 @@ export async function streamAICompletion(
       const payload = trimmed.slice(5).trim();
       if (payload === "[DONE]") break;
 
+      try {
         const chunk = JSON.parse(payload);
         const content = chunk.choices?.[0]?.delta?.content;
 

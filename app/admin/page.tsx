@@ -1506,7 +1506,6 @@ function QuestionsTab() {
           <div className={adminStyles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <h3>{editing ? "Edit Question" : "Add Question"}</h3>
 
-            {/* Question Text */}
             <div className={adminStyles.formGroup}>
               <label>Question Text</label>
               <textarea
@@ -1518,7 +1517,6 @@ function QuestionsTab() {
               />
             </div>
 
-            {/* Options - 2x2 grid */}
             <div className={adminStyles.formGroup}>
               <label>Options</label>
               <div className={adminStyles.optionsGrid}>
@@ -1538,7 +1536,6 @@ function QuestionsTab() {
               </div>
             </div>
 
-            {/* Row: Order Index | Marks | Correct Answer */}
             <div className={adminStyles.threeColRow}>
               <div className={adminStyles.formGroup}>
                 <label>Order Index</label>
@@ -1575,7 +1572,6 @@ function QuestionsTab() {
               </div>
             </div>
 
-            {/* Row: Exam Identity | Branch | Category */}
             <div className={adminStyles.threeColRow}>
               <div className={adminStyles.formGroup}>
                 <label>Exam Identity (Anchor)</label>
@@ -1634,11 +1630,9 @@ function QuestionsTab() {
               </div>
             </div>
 
-            {/* Media Assets: Image + Audio side by side */}
             <div className={adminStyles.formGroup}>
               <label>Media Assets</label>
               <div className={adminStyles.mediaAssetRow}>
-                {/* Image Asset */}
                 <div>
                   <div className={adminStyles.mediaAssetTitle}>📷 Image Asset (Optional)</div>
                   {formData.image_url ? (
@@ -1687,7 +1681,6 @@ function QuestionsTab() {
                   )}
                 </div>
 
-                {/* Audio Asset */}
                 <div>
                   <div className={adminStyles.mediaAssetTitle}>🎵 Audio Asset (Optional)</div>
                   {(formData as any).audio_url ? (
