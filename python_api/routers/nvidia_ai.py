@@ -4,8 +4,9 @@ Routes: POST /api/ai/check-code
         POST /api/ai/hint
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import os, httpx, json, re, logging
+import os, httpx, json, re, logging, asyncio
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 logger = logging.getLogger("examguard.nvidia_ai")
@@ -69,7 +70,7 @@ Respond ONLY with this JSON (no markdown, no extra text):
 {{"correct": true, "feedback": "One short encouraging sentence. If wrong, hint at what to fix — no answer."}}"""
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 f"{NVIDIA_BASE_URL}/chat/completions",
                 headers={"Authorization": f"Bearer {NVIDIA_API_KEY}", "Content-Type": "application/json"},
@@ -136,30 +137,127 @@ Give ONE short encouraging hint (max 2 sentences) nudging them toward the soluti
 async def proctor_chat(req: ProctorRequest):
     """
     General AI proctor/assistant chat endpoint.
-    Bypasses Vercel timeouts if used with streaming (optional).
+    - stream=false → returns full JSON response (non-streaming)
+    - stream=true  → returns SSE stream, proxied directly from NVIDIA NIM
+    Timeout: 90s to accommodate DeepSeek reasoning phase.
     """
     if not NVIDIA_API_KEY:
         raise HTTPException(status_code=500, detail="NVIDIA_API_KEY not configured")
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + req.messages
 
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            # We don't implement full streaming here yet for simplicity, 
-            # but we could return a StreamingResponse if needed.
-            resp = await client.post(
-                f"{NVIDIA_BASE_URL}/chat/completions",
-                headers={"Authorization": f"Bearer {NVIDIA_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": MODEL,
-                    "messages": messages,
-                    "temperature": 1.0,
-                    "top_p": 0.95,
-                    "max_tokens": 4096,
-                }
-            )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as e:
-        logger.error(f"AI proctor error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    payload = {
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "max_tokens": 4096,
+        "stream": req.stream,
+    }
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    # ── NON-STREAMING ──────────────────────────────────────────────────────
+    if not req.stream:
+        try:
+            async with httpx.AsyncClient(timeout=90) as client:
+                resp = await client.post(
+                    f"{NVIDIA_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+            resp.raise_for_status()
+            data = resp.json()
+            # Strip <think>…</think> from non-streaming content
+            for choice in data.get("choices", []):
+                msg = choice.get("message", {})
+                raw = msg.get("content", "")
+                think_match = re.search(r"<think>(.*?)</think>", raw, re.DOTALL)
+                if think_match:
+                    msg["reasoning_content"] = think_match.group(1).strip()
+                    msg["content"] = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            return data
+        except Exception as e:
+            logger.error(f"AI proctor (non-stream) error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── STREAMING ─────────────────────────────────────────────────────────
+    async def stream_generator():
+        try:
+            async with httpx.AsyncClient(timeout=90) as client:
+                async with client.stream(
+                    "POST",
+                    f"{NVIDIA_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                ) as resp:
+                    resp.raise_for_status()
+                    in_think = False
+                    async for line in resp.aiter_lines():
+                        if not line.strip():
+                            continue
+                        if not line.startswith("data:"):
+                            yield f"{line}\n\n"
+                            continue
+                        payload_str = line[5:].strip()
+                        if payload_str == "[DONE]":
+                            yield "data: [DONE]\n\n"
+                            break
+                        try:
+                            chunk = json.loads(payload_str)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            reasoning = delta.get("reasoning_content", "") or delta.get("reasoning", "")
+
+                            # Handle inline <think> tags in streaming content
+                            if "<think>" in content:
+                                in_think = True
+                                parts = content.split("<think>", 1)
+                                if parts[0]:
+                                    chunk["choices"][0]["delta"]["content"] = parts[0]
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                reasoning_start = parts[1] if len(parts) > 1 else ""
+                                if reasoning_start:
+                                    chunk["choices"][0]["delta"]["content"] = ""
+                                    chunk["choices"][0]["delta"]["reasoning_content"] = reasoning_start
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                continue
+                            if "</think>" in content:
+                                in_think = False
+                                parts = content.split("</think>", 1)
+                                if parts[0]:
+                                    chunk["choices"][0]["delta"]["content"] = ""
+                                    chunk["choices"][0]["delta"]["reasoning_content"] = parts[0]
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                after = parts[1] if len(parts) > 1 else ""
+                                if after:
+                                    chunk["choices"][0]["delta"]["content"] = after
+                                    chunk["choices"][0]["delta"]["reasoning_content"] = ""
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                continue
+                            if in_think:
+                                # Route to reasoning_content
+                                chunk["choices"][0]["delta"]["content"] = ""
+                                chunk["choices"][0]["delta"]["reasoning_content"] = content
+                                yield f"data: {json.dumps(chunk)}\n\n"
+                                continue
+
+                            yield f"data: {json.dumps(chunk)}\n\n"
+                        except json.JSONDecodeError:
+                            yield f"data: {json.dumps({'error': 'parse_error', 'raw': payload_str[:100]})}\n\n"
+        except Exception as e:
+            logger.error(f"AI stream error: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # Disable nginx buffering
+            "Connection": "keep-alive",
+        },
+    )
