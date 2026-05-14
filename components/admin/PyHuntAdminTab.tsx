@@ -565,6 +565,7 @@ export default function PyHuntAdminTab() {
       {sub==="marks" && <MarksView cfg={cfg} />}
 
       {/* ══ PROTOCOL JSON EDITOR ══ */}
+      {/* 
       <div style={{ marginTop: 60, borderTop: "1px solid rgba(40, 215, 214, 0.1)", paddingTop: 40 }}>
         <div style={$.cardTitle}>
           <span>📡 PROTOCOL JSON (Direct Configuration)</span>
@@ -606,6 +607,7 @@ export default function PyHuntAdminTab() {
           spellCheck={false}
         />
       </div>
+      */}
     </div>
   );
 }
