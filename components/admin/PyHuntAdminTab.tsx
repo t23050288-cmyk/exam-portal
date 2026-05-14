@@ -439,156 +439,12 @@ export default function PyHuntAdminTab() {
         const rk2 = isR3 ? "round3b" as const : null;
         const rn = isR3?3:4;
 
-        const CodingProblemEditor = ({ rk, accentColor = "#00dcff", label }: { rk: "round3"|"round3b"|"round4"; accentColor?: string; label: string }) => (
-          <div style={{...$.card, borderColor: `${accentColor}22`}}>
-            {/* Header */}
-            <div style={{...$.cardTitle, color: accentColor, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-              <span>Round {rn} — {label}</span>
-              <span style={{fontSize:10, color:"#3a5578", fontWeight:700, letterSpacing:1}}>IDE EDITOR</span>
-            </div>
 
-            {/* Title & Description */}
-            <label htmlFor={`${rk}_title`} style={$.lbl}>Problem Title</label>
-            <input id={`${rk}_title`} style={$.inp} value={cfg[rk].title}
-              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],title:e.target.value}}))} />
-            <label htmlFor={`${rk}_desc`} style={$.lbl}>Problem Description</label>
-            <textarea id={`${rk}_desc`} style={{...$.ta,minHeight:70}} value={cfg[rk].description}
-              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
-              
-            <label htmlFor={`${rk}_hint`} style={$.lbl}>Optional Hint (Displayed during coding)</label>
-            <textarea id={`${rk}_hint`} style={{...$.ta,minHeight:50, borderColor: "rgba(245, 158, 11, 0.3)", background: "rgba(245, 158, 11, 0.05)"}} value={cfg[rk].hint || ""} placeholder="e.g. You might want to use the .replace() string method..."
-              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],hint:e.target.value}}))} />
-
-            {/* Starter Code — monospace IDE-style */}
-            <label htmlFor={`${rk}_starter`} style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-              <span>🐍 Starter Code</span>
-              <span style={{fontSize:10, color:"#3a5578"}}>Python 3 · Tab = 4 spaces</span>
-            </label>
-            <textarea
-              id={`${rk}_starter`}
-              style={{
-                width:"100%", minHeight:220,
-                background:"#0d1117", color:"#e6edf3",
-                fontFamily:"'JetBrains Mono','Fira Code',monospace",
-                fontSize:13, lineHeight:1.7,
-                padding:"14px 16px",
-                border:`1px solid ${accentColor}22`,
-                borderRadius:10, resize:"vertical",
-                boxSizing:"border-box", outline:"none",
-                tabSize:4,
-              }}
-              value={cfg[rk].starterCode}
-              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],starterCode:e.target.value}}))}
-              onKeyDown={e => {
-                if (e.key === "Tab") {
-                  e.preventDefault();
-                  const ta = e.currentTarget;
-                  const s = ta.selectionStart, en = ta.selectionEnd;
-                  const val = ta.value;
-                  const newVal = val.substring(0, s) + "    " + val.substring(en);
-                  setCfg(c=>({...c,[rk]:{...c[rk],starterCode:newVal}}));
-                  requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 4; });
-                }
-              }}
-              spellCheck={false}
-            />
-
-            {/* Test Cases — LeetCode style */}
-            <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:20, marginBottom:8}}>
-              <div style={{...$.cardTitle as any, color: accentColor, margin:0}}>
-                🧪 Test Cases (Protocol JSON)
-              </div>
-              <button style={{...$.btnAdd, color: accentColor, borderColor:`${accentColor}44`}} onClick={()=>addTC(rk)}>
-                + Add Case
-              </button>
-            </div>
-
-            {/* Column headers */}
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 32px", gap:6, marginBottom:4}}>
-              <div style={{fontSize:10, fontWeight:800, color:"#3a5578", letterSpacing:1, paddingLeft:4}}>INPUT</div>
-              <div style={{fontSize:10, fontWeight:800, color:"#3a5578", letterSpacing:1, paddingLeft:4}}>EXPECTED OUTPUT</div>
-              <div/>
-            </div>
-            {cfg[rk].testCases.map((tc,i)=>(
-              <div key={i} style={{display:"grid", gridTemplateColumns:"1fr 1fr 32px", gap:6, marginBottom:6, alignItems:"center"}}>
-                <input
-                  style={{...$.inp, margin:0, fontFamily:"'JetBrains Mono',monospace", fontSize:12}}
-                  value={tc.input}
-                  onChange={e=>setTC(rk,i,"input",e.target.value)}
-                  placeholder={`e.g. "hello" or 5`}
-                />
-                <input
-                  style={{...$.inp, margin:0, fontFamily:"'JetBrains Mono',monospace", fontSize:12, borderColor:`${accentColor}33`}}
-                  value={tc.expected}
-                  onChange={e=>setTC(rk,i,"expected",e.target.value)}
-                  placeholder={`e.g. "True" or 120`}
-                />
-                <button style={{...$.btnDel, padding:"6px 10px"}} onClick={()=>delTC(rk,i)}>✕</button>
-              </div>
-            ))}
-
-            {/* Live Problem View (Student-Faced) */}
-            <div style={{marginTop:24, padding:20, background:"rgba(0,0,0,0.2)", borderRadius:16, border:"1px solid rgba(255,255,255,0.05)"}}>
-              <div style={{fontSize:10, fontWeight:900, color:accentColor, letterSpacing:2, marginBottom:16, opacity:0.6, textTransform:"uppercase"}}>
-                ✨ LIVE PROBLEM PREVIEW
-              </div>
-              <h3 style={{fontSize:20, fontWeight:800, color:"#fff", marginBottom:8}}>{cfg[rk].title || "Untitled Problem"}</h3>
-              <div style={{fontSize:14, color:"#94a3b8", lineHeight:1.6, marginBottom:20, whiteSpace:"pre-wrap"}}>
-                {cfg[rk].description || "No description provided."}
-              </div>
-              
-              <div style={{marginBottom:16}}>
-                <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>STARTER CODE</div>
-                <div style={{background:"#0d1117", borderRadius:10, padding:14, border:"1px solid rgba(255,255,255,0.1)"}}>
-                  <pre style={{margin:0, fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:"#e2e8f0"}}>
-                    {cfg[rk].starterCode || "# No starter code"}
-                  </pre>
-                </div>
-              </div>
-
-              <div>
-                <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>VERIFICATION CASES</div>
-                <div style={{display:"flex", flexDirection:"column", gap:8}}>
-                  {cfg[rk].testCases.map((tc, idx) => (
-                    <div key={idx} style={{display:"flex", gap:12, alignItems:"center", background:"rgba(255,255,255,0.02)", padding:"8px 12px", borderRadius:8, border:"1px solid rgba(255,255,255,0.05)"}}>
-                      <div style={{fontSize:10, fontWeight:900, color:accentColor, minWidth:20}}>#{idx+1}</div>
-                      <div style={{flex:1}}>
-                        <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>IN:</span>
-                        <code style={{fontSize:12, color:"#7adaa0"}}>{tc.input || "None"}</code>
-                      </div>
-                      <div style={{flex:1}}>
-                        <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>OUT:</span>
-                        <code style={{fontSize:12, color:accentColor}}>{tc.expected || "None"}</code>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* JSON utility */}
-            <div style={{marginTop:20, display:"flex", justifyContent:"flex-end"}}>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(JSON.stringify(cfg[rk].testCases, null, 2));
-                  alert("Test cases copied to clipboard!");
-                }}
-                style={{
-                  padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#fff", cursor: "pointer"
-                }}
-              >
-                📋 Copy Test Cases JSON
-              </button>
-            </div>
-          </div>
-        );
 
         return (
           <div>
-            <CodingProblemEditor rk={rk1} label={isR3 ? "Part 1 Problem" : "Coding Problem"} />
-            {rk2 && <CodingProblemEditor rk={rk2} accentColor="#a78bfa" label="Part 2 Problem" />}
+            <CodingProblemEditor cfg={cfg} setCfg={setCfg} rk={rk1} rn={rn} label={isR3 ? "Part 1 Problem" : "Coding Problem"} />
+            {rk2 && <CodingProblemEditor cfg={cfg} setCfg={setCfg} rk={rk2} rn={rn} accentColor="#a78bfa" label="Part 2 Problem" />}
           </div>
         );
       })()}
@@ -1029,6 +885,182 @@ function LiveStatusView() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── Coding Problem Editor Component ───────────────── */
+function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", label }: { 
+  cfg: PyHuntConfig; 
+  setCfg: React.Dispatch<React.SetStateAction<PyHuntConfig>>;
+  rk: "round3"|"round3b"|"round4"; 
+  rn: number;
+  accentColor?: string; 
+  label: string 
+}) {
+  const [tcJson, setTcJson] = useState(JSON.stringify(cfg[rk].testCases, null, 2));
+
+  // Sync tcJson if cfg[rk].testCases changes from elsewhere
+  useEffect(() => {
+    try {
+      const currentInCfg = JSON.stringify(cfg[rk].testCases, null, 2);
+      // Only sync if they are actually different to avoid cursor jumps
+      if (currentInCfg !== tcJson && JSON.stringify(JSON.parse(tcJson)) !== JSON.stringify(cfg[rk].testCases)) {
+        setTcJson(currentInCfg);
+      }
+    } catch(e) {}
+  }, [cfg[rk].testCases]);
+
+  const handleTcChange = (val: string) => {
+    setTcJson(val);
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        setCfg(c => ({
+          ...c,
+          [rk]: { ...c[rk], testCases: parsed }
+        }));
+      }
+    } catch (err) {}
+  };
+
+  return (
+    <div style={{...$.card, borderColor: `${accentColor}22`}}>
+      {/* Header */}
+      <div style={{...$.cardTitle, color: accentColor, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+        <span>Round {rn} — {label}</span>
+        <span style={{fontSize:10, color:"#3a5578", fontWeight:700, letterSpacing:1}}>IDE EDITOR</span>
+      </div>
+
+      {/* Title & Description */}
+      <label htmlFor={`${rk}_title`} style={$.lbl}>Problem Title</label>
+      <input id={`${rk}_title`} style={$.inp} value={cfg[rk].title}
+        onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],title:e.target.value}}))} />
+      <label htmlFor={`${rk}_desc`} style={$.lbl}>Problem Description</label>
+      <textarea id={`${rk}_desc`} style={{...$.ta,minHeight:70}} value={cfg[rk].description}
+        onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
+        
+      <label htmlFor={`${rk}_hint`} style={$.lbl}>Optional Hint (Displayed during coding)</label>
+      <textarea id={`${rk}_hint`} style={{...$.ta,minHeight:50, borderColor: "rgba(245, 158, 11, 0.3)", background: "rgba(245, 158, 11, 0.05)"}} value={cfg[rk].hint || ""} placeholder="e.g. You might want to use the .replace() string method..."
+        onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],hint:e.target.value}}))} />
+
+      {/* Starter Code — monospace IDE-style */}
+      <label htmlFor={`${rk}_starter`} style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+        <span>🐍 Starter Code</span>
+        <span style={{fontSize:10, color:"#3a5578"}}>Python 3 · Tab = 4 spaces</span>
+      </label>
+      <textarea
+        id={`${rk}_starter`}
+        style={{
+          width:"100%", minHeight:220,
+          background:"#0d1117", color:"#e6edf3",
+          fontFamily:"'JetBrains Mono','Fira Code',monospace",
+          fontSize:13, lineHeight:1.7,
+          padding:"14px 16px",
+          border:`1px solid ${accentColor}22`,
+          borderRadius:10, resize:"vertical",
+          boxSizing:"border-box", outline:"none",
+          tabSize:4,
+        }}
+        value={cfg[rk].starterCode}
+        onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],starterCode:e.target.value}}))}
+        onKeyDown={e => {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const ta = e.currentTarget;
+            const s = ta.selectionStart, en = ta.selectionEnd;
+            const val = ta.value;
+            const newVal = val.substring(0, s) + "    " + val.substring(en);
+            setCfg(c=>({...c,[rk]:{...c[rk],starterCode:newVal}}));
+            requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 4; });
+          }
+        }}
+        spellCheck={false}
+      />
+
+      {/* Test Cases — Raw JSON Editor */}
+      <div style={{marginTop:20, marginBottom:8}}>
+        <div style={{...$.cardTitle as any, color: accentColor, margin:0, fontSize:13}}>
+          🧪 Test Cases (Raw JSON Array)
+        </div>
+        <div style={{fontSize:11, color:"#3a5578", marginBottom:10}}>
+          Format: <code>{`[{"input": "...", "expected": "..."}]`}</code>
+        </div>
+      </div>
+
+      <textarea
+        style={{
+          ...$.ta,
+          minHeight: 150,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 12,
+          background: "rgba(0,0,0,0.45)",
+          borderColor: `${accentColor}66`,
+          color: accentColor,
+          lineHeight: 1.5,
+          padding: "12px"
+        }}
+        value={tcJson}
+        onChange={e => handleTcChange(e.target.value)}
+        spellCheck={false}
+        placeholder='[{"input": "5", "expected": "120"}]'
+      />
+
+      {/* Live Problem View (Student-Faced) */}
+      <div style={{marginTop:24, padding:20, background:"rgba(0,0,0,0.2)", borderRadius:16, border:"1px solid rgba(255,255,255,0.05)"}}>
+        <div style={{fontSize:10, fontWeight:900, color:accentColor, letterSpacing:2, marginBottom:16, opacity:0.6, textTransform:"uppercase"}}>
+          ✨ LIVE PROBLEM PREVIEW
+        </div>
+        <h3 style={{fontSize:20, fontWeight:800, color:"#fff", marginBottom:8}}>{cfg[rk].title || "Untitled Problem"}</h3>
+        <div style={{fontSize:14, color:"#94a3b8", lineHeight:1.6, marginBottom:20, whiteSpace:"pre-wrap"}}>
+          {cfg[rk].description || "No description provided."}
+        </div>
+        
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>STARTER CODE</div>
+          <div style={{background:"#0d1117", borderRadius:10, padding:14, border:"1px solid rgba(255,255,255,0.1)"}}>
+            <pre style={{margin:0, fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:"#e2e8f0"}}>
+              {cfg[rk].starterCode || "# No starter code"}
+            </pre>
+          </div>
+        </div>
+
+        <div>
+          <div style={{fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", marginBottom:6}}>VERIFICATION CASES</div>
+          <div style={{display:"flex", flexDirection:"column", gap:8}}>
+            {cfg[rk].testCases.map((tc, idx) => (
+              <div key={idx} style={{display:"flex", gap:12, alignItems:"center", background:"rgba(255,255,255,0.02)", padding:"8px 12px", borderRadius:8, border:"1px solid rgba(255,255,255,0.05)"}}>
+                <div style={{fontSize:10, fontWeight:900, color:accentColor, minWidth:20}}>#{idx+1}</div>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>IN:</span>
+                  <code style={{fontSize:12, color:"#7adaa0"}}>{tc.input || "None"}</code>
+                </div>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:10, color:"rgba(255,255,255,0.3)", marginRight:6}}>IN:</span>
+                  <code style={{fontSize:12, color:accentColor}}>{tc.expected || "None"}</code>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* JSON utility */}
+      <div style={{marginTop:20, display:"flex", justifyContent:"flex-end"}}>
+        <button 
+          onClick={() => {
+            navigator.clipboard.writeText(JSON.stringify(cfg[rk].testCases, null, 2));
+            alert("Test cases copied to clipboard!");
+          }}
+          style={{
+            padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "#fff", cursor: "pointer"
+          }}
+        >
+          📋 Copy Test Cases JSON
+        </button>
+      </div>
     </div>
   );
 }
