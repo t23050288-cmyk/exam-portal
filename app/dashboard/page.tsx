@@ -130,6 +130,116 @@ export default function DashboardPage() {
     }
   }, [router]);
 
+  const loadExams = useCallback(async () => {
+    try {
+      const configs = await fetchPublicExamConfig();
+      const active = configs.filter((c: any) => 
+        c.is_active === true || 
+        c.is_active === "true" || 
+        c.is_active === 1 || 
+        c.is_active === "1"
+      );
+
+      const studentRaw = sessionStorage.getItem("exam_student");
+      const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
+      const studentId = studentObj?.id;
+      
+      let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
+      
+      const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+
+      if (studentId && isValidUUID(studentId)) {
+        try {
+          const [statusResp, historyResp] = await Promise.all([
+            apiFetch<{ data: any[] }>("/exam/status").catch(() => ({ data: [] })),
+            apiFetch<{ results: any[] }>("/exam/history").catch(() => ({ results: [] }))
+          ]);
+
+          const statusData = statusResp.data || [];
+          const resultsData = historyResp.results || [];
+          
+          if (resultsData.length > 0) {
+            const histRecords: any[] = [];
+            resultsData.forEach((r: any) => {
+              if (r.exam_title) {
+                const title = r.exam_title.trim().toLowerCase();
+                const displayScore = r.correct_count ?? r.score ?? 0;
+                const displayTotal = r.total_questions ?? r.total_marks ?? 0;
+
+                if (!submittedMap[title]) {
+                  submittedMap[title] = { score: displayScore, total_marks: displayTotal, attempt_count: 0 };
+                }
+                submittedMap[title].attempt_count++;
+                
+                if (submittedMap[title].attempt_count === 1) {
+                  submittedMap[title].score = displayScore;
+                  submittedMap[title].total_marks = displayTotal;
+                }
+
+                histRecords.push({
+                  id: r.id,
+                  examName: r.exam_title,
+                  score: displayScore,
+                  totalMarks: displayTotal,
+                  timestamp: r.submitted_at,
+                  category: r.category || "Others"
+                });
+              }
+            });
+            setLocalHistory(histRecords);
+          }
+
+          if (statusData) {
+            statusData.forEach((s: any) => {
+              if ((s.status === "submitted" || s.status === "TERMINATED") && s.exam_title) {
+                const title = s.exam_title.trim().toLowerCase();
+                if (!submittedMap[title]) {
+                  submittedMap[title] = { score: 0, total_marks: 0, attempt_count: 1 };
+                }
+              }
+            });
+          }
+        } catch (dbErr) {
+          console.error("[DASHBOARD] History sync error:", dbErr);
+        }
+      }
+
+      const nodes: ExamNode[] = []; 
+      const seen = new Set<string>();
+      
+      if (active.length > 0) {
+        for (const cfg of active) {
+          const cfgTitle = (cfg.exam_title || "").trim().toLowerCase();
+          if (seen.has(cfgTitle)) continue;
+          seen.add(cfgTitle);
+
+          const sub = submittedMap[cfgTitle] || { score: 0, total_marks: 0, attempt_count: 0 };
+          
+          nodes.push({
+            id: cfg.id || cfg.exam_title,
+            exam_name: cfg.exam_title,
+            branch: cfg.branch || "GLOBAL", 
+            is_active: cfg.is_active,
+            duration_minutes: cfg.duration_minutes,
+            scheduled_start: cfg.scheduled_start,
+            question_count: cfg.total_questions || 0,
+            category: cfg.category || "Others",
+            submitted: sub.attempt_count > 0,
+            score: sub.score,
+            total_marks: sub.total_marks || cfg.total_marks || 0,
+            max_attempts: cfg.max_attempts || 1,
+            attempt_count: sub.attempt_count
+          });
+        }
+      }
+      setAllExams(nodes);
+    } catch (err) {
+      console.error("[DASHBOARD] loadExams failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchPublicExamConfig, apiFetch]);
+
   const refreshData = useCallback(async (isManual = false) => {
     if (isManual) setLoading(true);
     try {
@@ -209,129 +319,20 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const loadExams = useCallback(async () => {
-    try {
-      const configs = await fetchPublicExamConfig();
-      const active = configs.filter((c: any) => 
-        c.is_active === true || 
-        c.is_active === "true" || 
-        c.is_active === 1 || 
-        c.is_active === "1"
-      );
 
-      const studentRaw = sessionStorage.getItem("exam_student");
-      const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
-      const studentId = studentObj?.id;
-      
-      let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
-      
-      const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
-
-      if (studentId && isValidUUID(studentId)) {
-        try {
-          // 1. Fetch status and history via hardened proxy API (no more 400 Bad Request)
-          const [statusResp, historyResp] = await Promise.all([
-            apiFetch<{ data: any[] }>("/exam/status").catch(() => ({ data: [] })),
-            apiFetch<{ results: any[] }>("/exam/history").catch(() => ({ results: [] }))
-          ]);
-
-          const statusData = statusResp.data || [];
-          const resultsData = historyResp.results || [];
-          
-          if (resultsData.length > 0) {
-            const histRecords: any[] = [];
-            resultsData.forEach((r: any) => {
-              if (r.exam_title) {
-                const title = r.exam_title.trim().toLowerCase();
-                
-                // Optimized: use columns directly from DB record instead of re-calculating from ALL questions
-                const displayScore = r.correct_count ?? r.score ?? 0;
-                const displayTotal = r.total_questions ?? r.total_marks ?? 0;
-
-                if (!submittedMap[title]) {
-                  submittedMap[title] = { score: displayScore, total_marks: displayTotal, attempt_count: 0 };
-                }
-                submittedMap[title].attempt_count++;
-                
-                // Latest result takes priority for display in Exam List
-                if (submittedMap[title].attempt_count === 1) {
-                  submittedMap[title].score = displayScore;
-                  submittedMap[title].total_marks = displayTotal;
-                }
-
-                histRecords.push({
-                  id: r.id,
-                  examName: r.exam_title,
-                  score: displayScore,
-                  totalMarks: displayTotal,
-                  timestamp: r.submitted_at,
-                  category: r.category || "Others"
-                });
-              }
-            });
-            setLocalHistory(histRecords);
-          }
-
-          if (statusData) {
-            statusData.forEach((s: any) => {
-              if ((s.status === "submitted" || s.status === "TERMINATED") && s.exam_title) {
-                const title = s.exam_title.trim().toLowerCase();
-                if (!submittedMap[title]) {
-                  submittedMap[title] = { score: 0, total_marks: 0, attempt_count: 1 };
-                }
-              }
-            });
-          }
-        } catch (dbErr) {
-          console.error("[DASHBOARD] History sync error:", dbErr);
-        }
-      }
-
-      const nodes: ExamNode[] = []; 
-      const seen = new Set<string>();
-      
-      if (active.length > 0) {
-        for (const cfg of active) {
-          const cfgTitle = (cfg.exam_title || "").trim().toLowerCase();
-          if (seen.has(cfgTitle)) continue;
-          seen.add(cfgTitle);
-
-          const sub = submittedMap[cfgTitle] || { score: 0, total_marks: 0, attempt_count: 0 };
-          
-          nodes.push({
-            id: cfg.id || cfg.exam_title,
-            exam_name: cfg.exam_title,
-            branch: cfg.branch || "GLOBAL", 
-            is_active: cfg.is_active,
-            duration_minutes: cfg.duration_minutes,
-            scheduled_start: cfg.scheduled_start,
-            question_count: cfg.total_questions || 0,
-            category: cfg.category || "Others",
-            submitted: sub.attempt_count > 0,
-            score: sub.score,
-            total_marks: sub.total_marks || cfg.total_marks || 0,
-            max_attempts: cfg.max_attempts || 1,
-            attempt_count: sub.attempt_count
-          });
-        }
-      }
-      setAllExams(nodes);
-    } catch (err) {
-      console.error("[DASHBOARD] loadExams failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchPublicExamConfig, apiFetch]);
+  const onHistoryUpdated = useCallback(() => loadExams(), [loadExams]);
 
   useEffect(() => {
     loadExams();
     const ch1 = supabase.channel("ec").on("postgres_changes", { event: "*", schema: "public", table: "exam_config" }, () => loadExams()).subscribe();
     const ch2 = supabase.channel("qc").on("postgres_changes", { event: "*", schema: "public", table: "questions" }, () => loadExams()).subscribe();
-    // Re-run loadExams when student returns from exam (history updated = exam now completed)
-    const onHistoryUpdated = () => loadExams();
     window.addEventListener("exam-history-updated", onHistoryUpdated);
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
-  }, [loadExams]);
+    return () => { 
+      supabase.removeChannel(ch1); 
+      supabase.removeChannel(ch2); 
+      window.removeEventListener("exam-history-updated", onHistoryUpdated);
+    };
+  }, [loadExams, onHistoryUpdated]);
 
   const filteredExams = useMemo(() => allExams.filter(e => {
     // ── Branch Filter ──
