@@ -45,6 +45,7 @@ export interface ExamConfig {
   enable_end_schedule?: boolean;
   category?: string;
   max_attempts?: number;
+  branch?: string;
 }
 
 export interface TestCase {
