@@ -1299,7 +1299,6 @@ export default function PyHuntPage() {
       .subscribe();
 
     return () => {
-      clearTimeout(t);
       supabase.removeChannel(channel);
     };
   }, []);
