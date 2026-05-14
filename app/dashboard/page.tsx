@@ -113,92 +113,82 @@ export default function DashboardPage() {
     const s: StudentInfo = JSON.parse(raw);
     setStudent(s);
     
-    // Identity Hardening: NEVER fallback to localStorage for student identity in a multi-user environment.
-    // Stale data in localStorage causes identity leakage between different students.
     const prof: ProfileData = {
       name: s.name || "Student", 
       email: s.email || "",
       course: s.branch || "", 
-      photo: null, // Photos should be session-bound or fetched from DB
+      photo: null,
     };
     setProfile(prof); setDraft(prof);
     setWarpActive(false);
 
-    // ── Auto-switch to History tab if redirected from exam submit ──
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab");
     if (tabParam === "History") {
       setActiveNav("History");
-      // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
     }
+  }, [router]);
 
-    // Force a fresh fetch of everything
-    const refreshData = useCallback(async (isManual = false) => {
-      if (isManual) setLoading(true);
-      try {
-        console.log("[DASHBOARD] Refreshing all data...");
-        // 1. Sync Student Profile (Branch/Name) from DB to handle admin edits
-        const freshProfile = await fetchProfile().catch(() => null);
-        if (freshProfile && freshProfile.id) {
-          setStudent(freshProfile);
-          sessionStorage.setItem("exam_student", JSON.stringify(freshProfile));
-          
-          // Identity Hardening: Update profile state for UI
-          const prof: ProfileData = {
-            name: freshProfile.name || "Student", 
-            email: freshProfile.email || "",
-            course: freshProfile.branch || "", 
-            photo: profile.photo || null,
-          };
-          setProfile(prof);
-          setDraft(prof);
-        }
+  const refreshData = useCallback(async (isManual = false) => {
+    if (isManual) setLoading(true);
+    try {
+      console.log("[DASHBOARD] Refreshing all data...");
+      const freshProfile = await fetchProfile().catch(() => null);
+      if (freshProfile && freshProfile.id) {
+        setStudent(freshProfile);
+        sessionStorage.setItem("exam_student", JSON.stringify(freshProfile));
         
-        // 2. Load Exams (which also loads history/status)
-        await loadExams();
-      } catch (e) {
-        console.error("[Dashboard] Refresh failed:", e);
-      } finally {
-        if (isManual) setLoading(false);
+        const prof: ProfileData = {
+          name: freshProfile.name || "Student", 
+          email: freshProfile.email || "",
+          course: freshProfile.branch || "", 
+          photo: profile.photo || null,
+        };
+        setProfile(prof);
+        setDraft(prof);
       }
-    }, [loadExams, profile.photo]);
+      await loadExams();
+    } catch (e) {
+      console.error("[Dashboard] Refresh failed:", e);
+    } finally {
+      if (isManual) setLoading(false);
+    }
+  }, [loadExams, profile.photo]);
 
-    useEffect(() => {
-      refreshData();
+  useEffect(() => {
+    refreshData();
 
-      // Auto-refresh when tab becomes visible or window gains focus
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          console.log("[DASHBOARD] Tab visible, refreshing...");
-          refreshData();
-        }
-      };
-      const handleFocus = () => {
-        console.log("[DASHBOARD] Window focus, refreshing...");
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("[DASHBOARD] Tab visible, refreshing...");
         refreshData();
-      };
-
-      window.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-
-      return () => {
-        window.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-    }, [refreshData]);
-
-    // Check for direct tab deep-linking (e.g. ?tab=History)
-    useEffect(() => {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get("tab");
-        if (tab && NAV_ITEMS.find(n => n.id === tab)) {
-          setActiveNav(tab);
-          window.history.replaceState({}, "", window.location.pathname);
-        }
       }
-    }, []);
+    };
+    const handleFocus = () => {
+      console.log("[DASHBOARD] Window focus, refreshing...");
+      refreshData();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshData]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab && NAV_ITEMS.find(n => n.id === tab)) {
+        setActiveNav(tab);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, []);
 
   const deleteHistoryItem = useCallback(async (r: any, i: number) => {
     if (!confirm(`Delete "${r.examName || "this result"}" from your history? This cannot be undone.`)) return;
