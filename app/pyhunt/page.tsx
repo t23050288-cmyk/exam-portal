@@ -294,8 +294,6 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
     );
   }
 
-  const MAX_CODE_ATTEMPTS = 5;
-  
   const handleSubmit = async () => {
     if (!input.trim() || loading) return;
     setLoading(true);
@@ -320,16 +318,10 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
         setUnlocked(true);
         setTimeout(onUnlock, 1200);
       } else {
-        const next = attempts + 1;
-        setAttempts(next);
+        setAttempts(a => a + 1);
         setShaking(true);
         setErrorMsg(data.message || "Wrong code!");
         setTimeout(() => setShaking(false), 600);
-        
-        if (next >= MAX_CODE_ATTEMPTS) {
-          // Hard limit reached
-          setTimeout(onUnlock, 2000);
-        }
       }
     } catch (err) {
       setErrorMsg("Connection error. Try again.");
@@ -364,10 +356,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
             />
             {errorMsg && (
               <div className={styles.clueWrongMsg}>
-                {attempts >= MAX_CODE_ATTEMPTS
-                  ? "🚫 Too many wrong attempts! Moving to next round..."
-                  : `❌ ${errorMsg} (${MAX_CODE_ATTEMPTS - attempts} remaining)`
-                }
+                ❌ {errorMsg}
               </div>
             )}
             <button className={styles.primaryBtn} onClick={handleSubmit} disabled={loading}>
