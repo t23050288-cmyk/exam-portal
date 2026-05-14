@@ -1,21 +1,22 @@
 /**
- * /api/ai/hint — Single-sentence hint for stuck students in PyHunt
+ * /api/ai/hint — One-sentence hint for stuck PyHunt students
+ * Returns: { hint: string }
  */
-import { NextRequest, NextResponse } from "next/server";
+import { createGroq } from '@ai-sdk/groq';
+import { generateText } from 'ai';
 
-const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
-const MODEL = "deepseek-ai/deepseek-v4-flash";
+export const runtime = 'edge';
+export const maxDuration = 15;
 
-export const runtime = "nodejs";
-export const maxDuration = 30;
+export async function POST(req: Request) {
+  const apiKey = (process.env as Record<string, string | undefined>).GROQ_API_KEY;
+  if (!apiKey) return Response.json({ error: 'GROQ_API_KEY not configured' }, { status: 500 });
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "NVIDIA_API_KEY not configured" }, { status: 500 });
+  const groq = createGroq({ apiKey });
 
   const { problem_title, code, error: errMsg } = await req.json();
 
-  const prompt = `You are a helpful Python mentor in a treasure hunt game.
+  const prompt = `You are a helpful Python mentor in a student coding competition.
 
 Problem: ${problem_title}
 
@@ -24,27 +25,16 @@ Student code:
 ${code}
 \`\`\`
 
-Error/issues: ${errMsg || "Logic might be wrong"}
+Issue: ${errMsg || 'Logic might be incorrect'}
 
-Give ONE short encouraging hint (max 2 sentences) nudging them toward the solution. No code snippets.`;
+Give ONE short, encouraging hint (1-2 sentences max) nudging toward the solution. No code. No spoilers.`;
 
-  try {
-    const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-        max_tokens: 120,
-      }),
-      signal: AbortSignal.timeout(28_000),
-    });
-    const data = await res.json();
-    let hint: string = data.choices?.[0]?.message?.content ?? "";
-    hint = hint.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-    return NextResponse.json({ hint: hint.slice(0, 300) });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  const result = await generateText({
+    model: groq('llama-3.1-70b-versatile'),
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.4,
+    maxTokens: 80,
+  });
+
+  return Response.json({ hint: result.text.trim().slice(0, 300) });
 }

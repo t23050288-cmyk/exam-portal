@@ -5,8 +5,7 @@
       "src": "python_api/index.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "150mb",
-        "maxDuration": 60
+        "maxLambdaSize": "150mb"
       }
     },
     {
@@ -93,7 +92,10 @@
     },
     {
       "src": "/api/ai/(.*)",
-      "dest": "python_api/index.py"
+      "dest": "/api/ai/$1",
+      "headers": {
+        "x-nextjs-page": "/api/ai/$1"
+      }
     },
     {
       "src": "/api/(.*)",
@@ -110,10 +112,5 @@
       "src": "/(.*)",
       "dest": "/$1"
     }
-  ],
-  "functions": {
-    "python_api/index.py": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }

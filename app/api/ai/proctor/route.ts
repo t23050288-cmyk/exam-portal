@@ -1,183 +1,108 @@
 /**
- * /api/ai/proctor — Next.js edge-compatible proxy to NVIDIA NIM DeepSeek
- * Supports both streaming (SSE) and non-streaming JSON responses.
- * Timeout: 90s (DeepSeek reasoning phase can take 30-40s)
+ * /api/ai/proctor — Groq Edge streaming endpoint
+ * Streams in OpenAI-compatible SSE format ("data: {...}\n\n")
+ * so the existing ai-client.ts works without changes.
+ * Runtime: Edge — bypasses Vercel's 10s serverless limit
  */
+import { createGroq } from '@ai-sdk/groq';
+import { streamText, generateText } from 'ai';
 
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = 'edge';
+export const maxDuration = 60;
 
-const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
-const MODEL = "deepseek-ai/deepseek-v4-flash";
+const SYSTEM_PROMPT = `You are ExamPortal Intelligence — a sharp, fair AI proctor and study assistant for a competitive coding exam called PyHunt.
 
-const SYSTEM_PROMPT = `You are the 'ExamPortal Intelligence', a high-performance AI proctor and study assistant for the ExamPortal project.
+Rules:
+- If a student asks for direct code answers during an exam, refuse and give a conceptual hint instead.
+- For general Python/aptitude questions, be fully helpful and clear.
+- Keep responses concise. Use bullet points for multi-step explanations.
+- When explaining code, focus on WHY and HOW.
+- Be encouraging. Students are under exam pressure.`;
 
-Your Mission:
-- Provide strictly helpful, concise, and academic guidance.
-- Act as a supportive proctor or study guide.
-- NEVER leak direct answers if the user is in an active exam session. Instead, provide hints, concepts, or logic-based explanations to guide them.
-- Use your deep reasoning capabilities to ensure technical accuracy in programming (Python) and aptitude.
-
-Response Style:
-- Professional, encouraging, and highly structured.
-- Use bullet points or numbered lists for clarity.
-- When explaining code, focus on the "why" and "how" rather than just the "what".`;
-
-export const runtime = "nodejs";
-export const maxDuration = 90;
-
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.NVIDIA_API_KEY;
+export async function POST(req: Request) {
+  const apiKey = (process.env as Record<string, string | undefined>).GROQ_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "NVIDIA_API_KEY not configured" }, { status: 500 });
+    return Response.json({ error: 'GROQ_API_KEY not configured' }, { status: 500 });
   }
+
+  const groq = createGroq({ apiKey });
 
   let body: { messages: Array<{ role: string; content: string }>; stream?: boolean };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...body.messages];
-  const stream = body.stream ?? false;
+  const messages = [
+    { role: 'system' as const, content: SYSTEM_PROMPT },
+    ...body.messages.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+  ];
 
-  const payload = {
-    model: MODEL,
-    messages,
-    temperature: 1.0,
-    top_p: 0.95,
-    max_tokens: 4096,
-    stream,
-  };
+  const shouldStream = body.stream !== false;
 
-  let nvidiaRes: Response;
-  try {
-    nvidiaRes = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      // @ts-ignore — Node 18+ fetch supports signal
-      signal: AbortSignal.timeout(88_000),
+  // ── NON-STREAMING ────────────────────────────────────────────────────────
+  if (!shouldStream) {
+    const result = await generateText({
+      model: groq('llama-3.1-70b-versatile'),
+      messages,
+      temperature: 0.3,
+      maxTokens: 1024,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: `NVIDIA request failed: ${err.message}` }, { status: 502 });
+    // Return OpenAI-compatible format (what getAICompletion() expects)
+    return Response.json({
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: result.text },
+        finish_reason: 'stop',
+      }],
+      usage: result.usage,
+    });
   }
 
-  if (!nvidiaRes.ok) {
-    const errText = await nvidiaRes.text().catch(() => "unknown");
-    return NextResponse.json(
-      { error: `NVIDIA API error ${nvidiaRes.status}: ${errText}` },
-      { status: nvidiaRes.status }
-    );
-  }
+  // ── STREAMING — OpenAI SSE format ────────────────────────────────────────
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-  // ── STREAMING ─────────────────────────────────────────────────────────────
-  if (stream) {
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const encoder = new TextEncoder();
+  (async () => {
+    try {
+      const result = await streamText({
+        model: groq('llama-3.1-70b-versatile'),
+        messages,
+        temperature: 0.3,
+        maxTokens: 1024,
+      });
 
-    (async () => {
-      const reader = nvidiaRes.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let inThink = false;
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            writer.write(encoder.encode("data: [DONE]\n\n"));
-            break;
-          }
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data:")) continue;
-            const payload = trimmed.slice(5).trim();
-            if (payload === "[DONE]") {
-              writer.write(encoder.encode("data: [DONE]\n\n"));
-              continue;
-            }
-            try {
-              const chunk = JSON.parse(payload);
-              const delta = chunk.choices?.[0]?.delta ?? {};
-              let content: string = delta.content ?? "";
-              const reasoning: string = delta.reasoning_content ?? delta.reasoning ?? "";
-
-              // Route <think> inline tags to reasoning_content field
-              if (content.includes("<think>")) {
-                inThink = true;
-                const [before, after] = content.split("<think>", 2);
-                if (before) {
-                  const c = structuredClone(chunk);
-                  c.choices[0].delta.content = before;
-                  writer.write(encoder.encode(`data: ${JSON.stringify(c)}\n\n`));
-                }
-                content = after ?? "";
-                chunk.choices[0].delta.content = "";
-                chunk.choices[0].delta.reasoning_content = content;
-                if (content) writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                continue;
-              }
-              if (content.includes("</think>")) {
-                inThink = false;
-                const [reasonPart, answerPart] = content.split("</think>", 2);
-                if (reasonPart) {
-                  const c = structuredClone(chunk);
-                  c.choices[0].delta.content = "";
-                  c.choices[0].delta.reasoning_content = reasonPart;
-                  writer.write(encoder.encode(`data: ${JSON.stringify(c)}\n\n`));
-                }
-                chunk.choices[0].delta.content = answerPart ?? "";
-                chunk.choices[0].delta.reasoning_content = "";
-                if (answerPart) writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                continue;
-              }
-              if (inThink && content && !reasoning) {
-                chunk.choices[0].delta.content = "";
-                chunk.choices[0].delta.reasoning_content = content;
-              }
-              writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-            } catch {
-              // skip malformed chunk
-            }
-          }
-        }
-      } catch (e) {
-        writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(e) })}\n\n`));
-        writer.write(encoder.encode("data: [DONE]\n\n"));
-      } finally {
-        writer.close();
+      for await (const delta of result.textStream) {
+        const chunk = {
+          choices: [{
+            index: 0,
+            delta: { role: 'assistant', content: delta },
+            finish_reason: null,
+          }],
+        };
+        writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
       }
-    })();
-
-    return new NextResponse(readable, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-        Connection: "keep-alive",
-      },
-    });
-  }
-
-  // ── NON-STREAMING ─────────────────────────────────────────────────────────
-  const data = await nvidiaRes.json();
-  for (const choice of data.choices ?? []) {
-    const msg = choice.message ?? {};
-    const raw: string = msg.content ?? "";
-    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/);
-    if (thinkMatch) {
-      msg.reasoning_content = thinkMatch[1].trim();
-      msg.content = raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      writer.write(encoder.encode('data: [DONE]\n\n'));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      writer.write(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
+      writer.write(encoder.encode('data: [DONE]\n\n'));
+    } finally {
+      writer.close();
     }
-  }
-  return NextResponse.json(data);
+  })();
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+      Connection: 'keep-alive',
+    },
+  });
 }
