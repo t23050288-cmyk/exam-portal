@@ -16,7 +16,7 @@ import { adminFetch } from "@/lib/api";
 interface MCQOption { label: string; text: string; }
 interface MCQQuestion { id: string; question: string; options: MCQOption[]; correct: string; explanation: string; }
 interface JumbleProblem { title: string; description: string; lines: string[]; }
-interface CodingProblem { title: string; description: string; starterCode: string; testCases: {input:string;expected:string}[]; }
+interface CodingProblem { title: string; description: string; hint?: string; starterCode: string; testCases: {input:string;expected:string}[]; }
 interface ClueConfig { clueText: string; unlockCode: string; }
 interface TurtleProblem { title: string; description: string; starterCode: string; }
 interface PyHuntConfig {
@@ -49,9 +49,9 @@ const DEFAULT: PyHuntConfig = {
   ],
   jumbleProblem: { title:"Fibonacci! (Round 2 Part 1)", description:"Drag lines into correct order so the function prints 13.", lines:["def fibonacci(n):","    if n <= 1:","        return n","    return fibonacci(n-1) + fibonacci(n-2)","","print(fibonacci(7))  # should print 13"] },
   jumbleProblemB: { title:"Factorial! (Round 2 Part 2)", description:"Drag lines into correct order so the function prints 120.", lines:["def factorial(n):","    if n <= 1:","        return 1","    return n * factorial(n-1)","","print(factorial(5))  # should print 120"] },
-  round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
-  round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
-  round4: { title:"FizzBuzz Remix (Round 4)", description:"Write fizzbuzz(n) → list", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
+  round3: { title:"Palindrome Checker (Part 1)", description:"Write is_palindrome(s) → bool", hint: "", starterCode:"def is_palindrome(s: str) -> bool:\n    pass\n", testCases:[{input:"racecar",expected:"True"},{input:"Hello",expected:"False"}] },
+  round3b: { title:"Count Vowels (Part 2)", description:"Write count_vowels(s) → int", hint: "", starterCode:"def count_vowels(s: str) -> int:\n    pass\n", testCases:[{input:"hello",expected:"2"}] },
+  round4: { title:"FizzBuzz Remix (Round 4)", description:"Write fizzbuzz(n) → list", hint: "", starterCode:"def fizzbuzz(n: int) -> list:\n    pass\n\nprint(fizzbuzz(15))\n", testCases:[{input:"5",expected:"['1', '2', 'Fizz', '4', 'Buzz']"}] },
   round1Clues: [
     { clueText:"🗝️ Round 1 Complete! Find your next code in the Library.", unlockCode:"LIBRARY" }
   ],
@@ -454,6 +454,10 @@ export default function PyHuntAdminTab() {
             <label htmlFor={`${rk}_desc`} style={$.lbl}>Problem Description</label>
             <textarea id={`${rk}_desc`} style={{...$.ta,minHeight:70}} value={cfg[rk].description}
               onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
+              
+            <label htmlFor={`${rk}_hint`} style={$.lbl}>Optional Hint (Displayed during coding)</label>
+            <textarea id={`${rk}_hint`} style={{...$.ta,minHeight:50, borderColor: "rgba(245, 158, 11, 0.3)", background: "rgba(245, 158, 11, 0.05)"}} value={cfg[rk].hint || ""} placeholder="e.g. You might want to use the .replace() string method..."
+              onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],hint:e.target.value}}))} />
 
             {/* Starter Code — monospace IDE-style */}
             <label htmlFor={`${rk}_starter`} style={{...$.lbl, display:"flex", alignItems:"center", justifyContent:"space-between"}}>

@@ -19,7 +19,7 @@ interface MCQQuestion {
   correct: string; explanation?: string;
 }
 interface CodingProblem {
-  title: string; description: string; starterCode: string;
+  title: string; description: string; hint?: string; starterCode: string;
   testCases: { input: string; expected: string; }[];
 }
 interface TurtleProblem { title: string; description: string; starterCode: string; }
@@ -28,6 +28,21 @@ interface ClueConfig {
   clueText: string;     // Shown after round completes — physical location clue
   unlockCode: string;   // Student must type this code to proceed
 }
+interface PyHuntConfig {
+  competitionName: string;
+  startTime: string;
+  entryAccessCode: string;
+  mcqQuestions: MCQQuestion[];
+  jumbleProblem: JumbleProblem;
+  jumbleProblemB: JumbleProblem;
+  round3: CodingProblem;
+  round3b: CodingProblem;        // Round 3 Part 2
+  round4: CodingProblem;
+  round4UnlockCode: string;
+  round1Clues: ClueConfig[];
+  round2Clues: ClueConfig[];
+  round3Clues: ClueConfig[];
+  round4Clues: ClueConfig[];
   finishMessage: string;
   isActive: boolean;
 }
@@ -36,6 +51,8 @@ interface ClueConfig {
    DEFAULTS
 ═══════════════════════════════════════════════ */
 const DEFAULT_CONFIG: PyHuntConfig = {
+  competitionName: "PyHunt 2024",
+  startTime: "10:00 AM",
   entryAccessCode: "NEXUS24",
   mcqQuestions: [
     { id: "q1", question: "What is the output of print(2**3**2)?", options: [{ label: "A", text: "64" }, { label: "B", text: "512" }, { label: "C", text: "81" }, { label: "D", text: "4096" }], correct: "B", explanation: "Exponentiation is right-associative: 2**(3**2) = 2**9 = 512." },
@@ -46,9 +63,9 @@ const DEFAULT_CONFIG: PyHuntConfig = {
   ],
   jumbleProblem: { title: "Fibonacci Logic (Part 1)", description: "Reorder the lines to correctly implement a recursive Fibonacci function that prints the 7th number (13).", lines: ["def fib(n):", "    if n <= 1:", "        return n", "    return fib(n-1) + fib(n-2)", "", "print(fib(7))"] },
   jumbleProblemB: { title: "Factorial Logic (Part 2)", description: "Reorder the lines to correctly implement a recursive Factorial function that prints 5! (120).", lines: ["def fact(n):", "    if n <= 1:", "        return 1", "    return n * fact(n-1)", "", "print(fact(5))"] },
-  round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
-  round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
-  round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
+  round3: { title: "The Palindrome Trial (Part 1)", description: "Write a function `is_palindrome(s)` that returns True if a string is a palindrome, ignoring case.", hint: "", starterCode: "def is_palindrome(s: str) -> bool:\n    # Your code here\n    pass\n", testCases: [{ input: "Racecar", expected: "True" }, { input: "Python", expected: "False" }] },
+  round3b: { title: "Vowel Counter (Part 2)", description: "Write a function `count_vowels(s)` that returns the number of vowels (a, e, i, o, u) in a string.", hint: "", starterCode: "def count_vowels(s: str) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "Hello World", expected: "3" }] },
+  round4: { title: "Factorial Mastery (Round 4)", description: "Write a recursive function `factorial(n)`.", hint: "", starterCode: "def factorial(n: int) -> int:\n    # Your code here\n    pass\n", testCases: [{ input: "5", expected: "120" }] },
   round4UnlockCode: "FINISH",
   round1Clues: [{ clueText: "🗝️ Round 1 Complete! Go to Library.", unlockCode: "LIBRARY" }],
   round2Clues: [{ clueText: "🗝️ Round 2 Complete! Go to Lab 2.", unlockCode: "LAB2" }],
@@ -65,6 +82,8 @@ const DEFAULT_CONFIG: PyHuntConfig = {
 
 function parseCfg(parsed: any): PyHuntConfig {
   return {
+    competitionName: parsed.competitionName || DEFAULT_CONFIG.competitionName,
+    startTime: parsed.startTime || DEFAULT_CONFIG.startTime,
     mcqQuestions: parsed.mcqQuestions || DEFAULT_CONFIG.mcqQuestions,
     jumbleProblem: parsed.jumbleProblem || DEFAULT_CONFIG.jumbleProblem,
     jumbleProblemB: parsed.jumbleProblemB || DEFAULT_CONFIG.jumbleProblemB,
@@ -526,6 +545,12 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
           <div className={styles.ideSection}>
             <div className={styles.ideProblemTitle}>{problem.title}</div>
             <div className={styles.ideProblemDesc}>{problem.description}</div>
+            {problem.hint && (
+              <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 8, background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#fcd34d", fontSize: 14, lineHeight: 1.5 }}>
+                <strong>💡 Instructor Hint:</strong><br/>
+                {problem.hint}
+              </div>
+            )}
           </div>
 
           <div className={styles.ideSection}>
