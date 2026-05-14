@@ -40,7 +40,7 @@ or
 {"correct": false, "feedback": "One sentence hint pointing toward what's wrong — no solution."}`;
 
   const result = await generateText({
-    model: groq('llama-3.1-70b-versatile'),
+    model: groq('llama3-70b-8192'),
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.1,
     maxOutputTokens: 150,

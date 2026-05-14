@@ -374,30 +374,40 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
       
       if (ap) {
         // Verify logic protocol even if tests pass
-        const res = await checkCodeAI({
-          problem_title: problem.title,
-          problem_description: problem.description,
-          code,
-          test_cases: problem.testCases,
-          round_num: roundNum
-        });
-        setAiFeedback(res.feedback);
-        // Strict logic enforcement: only pass if AI agrees
-        setAllPass(res.correct === true);
+        try {
+          const res = await checkCodeAI({
+            problem_title: problem.title,
+            problem_description: problem.description,
+            code,
+            test_cases: problem.testCases,
+            round_num: roundNum
+          });
+          setAiFeedback(res.feedback);
+          // Strict logic enforcement: only pass if AI agrees OR if AI is down but tests pass
+          setAllPass(res.correct === true);
+        } catch (aiErr) {
+          console.warn("AI verification failed, falling back to local tests", aiErr);
+          setAiFeedback("🤖 AI logic engine temporarily offline — passing based on test cases.");
+          setAllPass(true);
+        }
       } else {
         // Get help hint
-        const res = await getAIHint({
-          problem_title: problem.title,
-          code,
-          error: results.find(r => !r.pass)?.got || out.error || out.stderr
-        });
-        setAiHint(res.hint);
+        try {
+          const res = await getAIHint({
+            problem_title: problem.title,
+            code,
+            error: results.find(r => !r.pass)?.got || out.error || out.stderr
+          });
+          setAiHint(res.hint);
+        } catch (hintErr) {
+          console.warn("AI hint failed", hintErr);
+        }
         setAllPass(false);
         onWrong();
       }
     } catch (err) {
-      console.error("AI Error:", err);
-      setAiFeedback("🤖 AI currently unavailable — keep going!");
+      console.error("Execution Error:", err);
+      setOutput({ stdout: "", stderr: String(err) });
     } finally { setRunning(false); setAiLoading(false); }
   };
 
@@ -414,15 +424,36 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
           <div className={styles.problemTitle}>{problem.title}</div>
           <div className={styles.problemDesc}>{problem.description}</div>
           <div className={styles.testCasesList}>
-            <div className={styles.tcHeader}>Test Cases</div>
-            {problem.testCases.slice(0,3).map((tc,i) => (
-              <div key={i} className={styles.tcRow}>
-                <span className={styles.tcLabel}>input:</span>
-                <code>"{tc.input}"</code>
-                <span className={styles.tcArrow}>→</span>
-                <code>{tc.expected}</code>
-              </div>
-            ))}
+            <div className={styles.tcHeader}>Verification Protocol (Test Cases)</div>
+            <div className={styles.tcGrid}>
+              {problem.testCases.map((tc, i) => {
+                const res = testResults[i];
+                return (
+                  <div key={i} className={`${styles.tcCard} ${res ? (res.pass ? styles.tcCardPass : styles.tcCardFail) : ""}`}>
+                    <div className={styles.tcCardHeader}>
+                      <span>Test Case {i + 1}</span>
+                      {res && (res.pass ? <span className={styles.passChip}>PASS</span> : <span className={styles.failChip}>FAIL</span>)}
+                    </div>
+                    <div className={styles.tcCardBody}>
+                      <div className={styles.tcField}>
+                        <span className={styles.tcLabel}>Input:</span>
+                        <code>{tc.input}</code>
+                      </div>
+                      <div className={styles.tcField}>
+                        <span className={styles.tcLabel}>Expected:</span>
+                        <code>{tc.expected}</code>
+                      </div>
+                      {res && !res.pass && (
+                        <div className={styles.tcField}>
+                          <span className={styles.tcLabel}>Got:</span>
+                          <code className={styles.codeFail}>{res.got || "(empty)"}</code>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
         <div className={styles.editorPane}>

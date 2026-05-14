@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   // ── NON-STREAMING ────────────────────────────────────────────────────────
   if (!shouldStream) {
     const result = await generateText({
-      model: groq('llama-3.1-70b-versatile'),
+      model: groq('llama3-70b-8192'),
       messages,
       temperature: 0.3,
       maxOutputTokens: 1024,
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   (async () => {
     try {
       const result = await streamText({
-        model: groq('llama-3.1-70b-versatile'),
+        model: groq('llama3-70b-8192'),
         messages,
         temperature: 0.3,
         maxOutputTokens: 1024,

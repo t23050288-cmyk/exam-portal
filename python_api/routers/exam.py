@@ -424,14 +424,31 @@ def submit_exam(
         .eq("exam_title", exam_title)
         .execute()
     )
+    # Calculate total questions from the correct_map (questions that were served and evaluated)
+    total_q_count = len(correct_map)
+
     if existing.data:
-        db.table("exam_results").update(
-            {"answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).eq("student_id", student_id).eq("exam_title", exam_title).execute()
+        db.table("exam_results").update({
+            "answers": answers, 
+            "score": score, 
+            "total_marks": total_marks, 
+            "correct_count": correct_count,
+            "wrong_count": wrong_count,
+            "total_questions": total_q_count,
+            "submitted_at": submitted_at
+        }).eq("student_id", student_id).eq("exam_title", exam_title).execute()
     else:
-        db.table("exam_results").insert(
-            {"student_id": student_id, "exam_title": exam_title, "answers": answers, "score": score, "total_marks": total_marks, "submitted_at": submitted_at}
-        ).execute()
+        db.table("exam_results").insert({
+            "student_id": student_id, 
+            "exam_title": exam_title, 
+            "answers": answers, 
+            "score": score, 
+            "total_marks": total_marks,
+            "correct_count": correct_count,
+            "wrong_count": wrong_count,
+            "total_questions": total_q_count,
+            "submitted_at": submitted_at
+        }).execute()
 
     # 5. Clean up active session for THIS exam
     # Instead of global "submitted", we clear the record or mark it finished for this title

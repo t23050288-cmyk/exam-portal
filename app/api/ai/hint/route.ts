@@ -30,7 +30,7 @@ Issue: ${errMsg || 'Logic might be incorrect'}
 Give ONE short, encouraging hint (1-2 sentences max) nudging toward the solution. No code. No spoilers.`;
 
   const result = await generateText({
-    model: groq('llama-3.1-70b-versatile'),
+    model: groq('llama3-70b-8192'),
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.4,
     maxOutputTokens: 80,

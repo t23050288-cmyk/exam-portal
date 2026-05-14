@@ -12,16 +12,15 @@ import "./theme.css";
 import styles from "./dashboard.module.css";
 
 // Components
-import Background from "@/components/dashboard/Background";
-import Sidebar from "@/components/dashboard/Sidebar";
-import ExamCard from "@/components/dashboard/ExamCard";
-import ProfileChip from "@/components/dashboard/ProfileChip";
-import FloatingDiamond from "@/components/dashboard/FloatingDiamond";
-
+const Background = nextDynamic(() => import("@/components/dashboard/Background"), { ssr: false });
 const Mountain = nextDynamic(() => import("@/components/dashboard/Mountain"), { 
   ssr: false,
   loading: () => <div style={{ height: '150px' }} />
 });
+const FloatingDiamond = nextDynamic(() => import("@/components/dashboard/FloatingDiamond"), { ssr: false });
+const Sidebar = nextDynamic(() => import("@/components/dashboard/Sidebar"), { ssr: false });
+const ExamCard = nextDynamic(() => import("@/components/dashboard/ExamCard"), { ssr: false });
+const ProfileChip = nextDynamic(() => import("@/components/dashboard/ProfileChip"), { ssr: false });
 
 interface ExamNode {
   id: string; exam_name: string; branch: string; is_active: boolean;
@@ -231,7 +230,10 @@ export default function DashboardPage() {
       
       let submittedMap: Record<string, { score: number; total_marks: number; attempt_count: number }> = {};
       
-      if (studentId) {
+      // IDENTITY CHECK: Ensure studentId is a valid UUID to prevent 400 Bad Request
+      const isValidUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+
+      if (studentId && isValidUUID(studentId)) {
         try {
           const token = sessionStorage.getItem("exam_token") || "";
           
