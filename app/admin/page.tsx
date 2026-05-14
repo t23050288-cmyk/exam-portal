@@ -48,6 +48,8 @@ const GradingQueue      = nextDynamic(() => import("@/components/admin/grading/G
 const SOSAdminPage      = nextDynamic(() => import("@/app/admin/sos/page"),                         { ssr: false });
 const PyHuntAdminTab    = nextDynamic(() => import("@/components/admin/PyHuntAdminTab"),                { ssr: false });
 const AdminBackground   = nextDynamic(() => import("@/components/admin/AdminBackground"),                { ssr: false });
+const AITestTool        = nextDynamic(() => import("@/components/admin/AITestTool"),                    { ssr: false });
+
 
 
 // ── Types ─────────────────────────────────────────────────────
@@ -93,7 +95,7 @@ function isStale(lastActive: string | null): boolean {
 
 const BRANCHES = BRANCH_IDS;
 const ALL_BRANCH_DATA = BRANCH_LIST;
-type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos" | "pyhunt" | "analytics";
+type Tab = "monitor" | "dashboard" | "questions" | "students" | "leaderboard" | "ingest" | "control" | "grading" | "sos" | "pyhunt" | "analytics" | "ai_test";
 const ADMIN_AUTH_KEY = "examguard_admin_auth";
 
 function getStoredAuth(): boolean {
@@ -199,16 +201,17 @@ function ExportButton({ quizzes }: { quizzes: BranchExamSummary[] }) {
               top: "calc(100% + 8px)",
               right: 0,
               width: 240,
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
+              background: "rgba(8, 12, 24, 0.98)",
+              backdropFilter: "blur(24px)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
               borderRadius: 12,
-              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
               padding: "8px",
               zIndex: 100,
               overflow: "hidden",
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", padding: "4px 8px 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", padding: "4px 8px 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Select Quiz to Download
             </div>
             <button 
@@ -222,7 +225,7 @@ function ExportButton({ quizzes }: { quizzes: BranchExamSummary[] }) {
             <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
             <div style={{ maxHeight: 200, overflowY: "auto" }}>
               {quizNames.length === 0 ? (
-                <div style={{ padding: "12px", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>No quizzes discovered</div>
+                <div style={{ padding: "12px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>No quizzes discovered</div>
               ) : quizNames.map(name => (
                 <button 
                   key={name}
@@ -495,8 +498,8 @@ export default function AdminPage() {
     // { id: "control",     label: "Control",     icon: "🛸" },  // Commented out – not needed yet
     // { id: "grading",     label: "Grading",     icon: "⚙️" },
     { id: "sos",         label: "SOS",         icon: "🆘" },
-    { id: "pyhunt",      label: "PyHunt",      icon: "🐍" },
-    // { id: "analytics",   label: "Analytics",   icon: "📊" },
+    { id: "pyhunt",      label: "PyHunt",      icon: "🪄" },
+    { id: "ai_test",     label: "AI Test",     icon: "🤖" },
   ];
 
   return (
@@ -752,6 +755,20 @@ export default function AdminPage() {
       {activeTab === "students"    && <StudentsTab />}
       {activeTab === "sos"         && <SOSAdminPage />}
       {activeTab === "pyhunt"      && <PyHuntAdminTab />}
+      {activeTab === "ai_test"     && (
+        <div className={adminStyles.managementPage}>
+          <div className={adminStyles.header}>
+            <h2 className={adminStyles.headerTitle}>AI Engine Diagnostic</h2>
+          </div>
+          <div className={adminStyles.card} style={{ maxWidth: 600, margin: "0 auto" }}>
+            <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: 20, fontSize: 14 }}>
+              This tool tests the connectivity to the <strong>Groq Cloud</strong> engine. 
+              Ensure you have added your <code>GROQ_API_KEY</code> to the <code>.env</code> file.
+            </p>
+            <AITestTool />
+          </div>
+        </div>
+      )}
       {/* activeTab === "analytics"   && <AnalyticsTab /> */}
     </div>
   );
@@ -2052,7 +2069,7 @@ function StudentsTab() {
       ) : (() => {
         const filtered = branchFilter === "all" ? students : students.filter(s => (s.branch||"CS") === branchFilter);
         // Helper: count completed exams for a student based on branch assignments
-        const getCompletion = (sid: string, studentBranch: string) => {
+        const getCompletion = (sid: string, usn: string, studentBranch: string) => {
           const qMap = (window as any).__examBranchMap || [];
           
           // Get unique exam titles from ALL configs (active or inactive)
@@ -2071,7 +2088,7 @@ function StudentsTab() {
             .map((q: any) => q.exam_name)
           );
 
-          const completed = new Set(examResults.filter((r: any) => r.student_id === sid).map((r: any) => r.exam_title));
+          const completed = new Set(examResults.filter((r: any) => r.student_id === sid || r.student_id === usn).map((r: any) => r.exam_title));
           
           // Count done exams that are actually in the branchExams set
           const done = Array.from(completed).filter(title => branchExams.has(title)).length;
@@ -2088,7 +2105,7 @@ function StudentsTab() {
             </thead>
             <tbody>
               {filtered.map((s, i) => {
-                const comp = getCompletion(s.student_id, s.branch || "CS");
+                const comp = getCompletion(s.student_id, s.usn, s.branch || "CS");
                 return (
                 <tr key={s.student_id}>
                   <td className="mono text-muted">{i + 1}</td>
@@ -2103,7 +2120,7 @@ function StudentsTab() {
                   </td>
                   <td>
                     {(() => {
-                      const sResults = examResults.filter((r: any) => r.student_id === s.student_id);
+                      const sResults = examResults.filter((r: any) => r.student_id === s.student_id || r.student_id === s.usn);
                       if (sResults.length === 0) return <span style={{ opacity: 0.2 }}>—</span>;
                       let totalPct = 0;
                       sResults.forEach((r: any) => {
@@ -2122,7 +2139,7 @@ function StudentsTab() {
                   </td>
                   <td>
                     {(() => {
-                      const ph = (window as any).__pyHuntSessions?.find((p: any) => p.student_id === s.usn);
+                      const ph = (window as any).__pyHuntSessions?.find((p: any) => p.student_id === s.student_id || p.student_id === s.usn);
                       if (!ph) return <span style={{ opacity: 0.2 }}>—</span>;
                       const isDone = ph.status === "finished" || ph.current_round >= 5;
                       return (

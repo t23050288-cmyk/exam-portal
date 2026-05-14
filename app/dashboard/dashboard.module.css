@@ -82,6 +82,41 @@
   transform: translateX(-2px);
 }
 
+.refreshBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--nexus-cyan, #28D7D6);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-size: 20px;
+  margin-left: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.refreshBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--nexus-cyan, #28D7D6);
+  transform: rotate(180deg) scale(1.1);
+  box-shadow: 0 0 15px rgba(40, 215, 214, 0.2);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Theme Toggle */
 .themeToggle {
   position: fixed;

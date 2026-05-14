@@ -286,6 +286,10 @@ export async function loginStudent(
   });
 }
 
+export async function fetchProfile(): Promise<any> {
+  return apiFetch<any>("/auth/me");
+}
+
 export async function fetchQuestions(title: string, _cacheBust?: number): Promise<any> {
   const bust = _cacheBust || Date.now();
   // We return the whole object now so the UI can use .questions and .available_exams

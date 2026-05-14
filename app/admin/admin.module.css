@@ -9,6 +9,16 @@
   color: #D8EAF2;
 }
 
+.menuItem {
+  color: #fff !important;
+  transition: all 0.2s ease !important;
+}
+
+.menuItem:hover {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #a78bfa !important;
+}
+
 .adminTitle {
   font-size: 32px;
   font-weight: 800;

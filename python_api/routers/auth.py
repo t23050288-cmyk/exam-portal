@@ -253,3 +253,17 @@ async def logout(current: dict = Depends(get_current_student)):
     except Exception:
         pass
     return {"logged_out": True}
+    
+@router.get("/me")
+async def get_me(current: dict = Depends(get_current_student)):
+    """Fetch fresh profile data for the current student."""
+    db = get_supabase()
+    try:
+        # Fetch fresh data from DB to avoid stale sessionStorage
+        result = db.table("students").select("id, usn, email, name, branch").eq("id", current["student_id"]).maybe_single().execute()
+        if result.data:
+            return result.data
+        return current
+    except Exception as e:
+        print(f"[AUTH] Error fetching profile: {e}")
+        return current

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import nextDynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
-import { fetchPublicExamConfig, apiFetch } from "@/lib/api";
+import { fetchPublicExamConfig, apiFetch, fetchProfile } from "@/lib/api";
 
 // Styles
 import "./theme.css";
@@ -133,68 +133,72 @@ export default function DashboardPage() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    // Load exam history from Supabase DB (centralized — works across all devices)
-    const loadHistory = async () => {
-      const token2 = sessionStorage.getItem("exam_token") || "";
-      const histResp = await fetch("/api/exam/history", {
-        headers: { "Authorization": `Bearer ${token2}` }
-      }).then(r => r.ok ? r.json() : null).catch(() => null);
-      const data = histResp?.results || null;
-
-      if (data && data.length > 0) {
-        const dbHistory = data.map((r: any) => ({
-          examName: r.exam_title,
-          score: r.correct_count ?? r.score ?? 0,
-          totalMarks: r.total_questions ?? r.total_marks ?? 0,
-          category: r.category || "Others",
-          timestamp: r.submitted_at,
-        }));
-        setLocalHistory(dbHistory);
+    // Force a fresh fetch of everything
+    const refreshData = useCallback(async (isManual = false) => {
+      if (isManual) setLoading(true);
+      try {
+        console.log("[DASHBOARD] Refreshing all data...");
+        // 1. Sync Student Profile (Branch/Name) from DB to handle admin edits
+        const freshProfile = await fetchProfile().catch(() => null);
+        if (freshProfile && freshProfile.id) {
+          setStudent(freshProfile);
+          sessionStorage.setItem("exam_student", JSON.stringify(freshProfile));
+          
+          // Identity Hardening: Update profile state for UI
+          const prof: ProfileData = {
+            name: freshProfile.name || "Student", 
+            email: freshProfile.email || "",
+            course: freshProfile.branch || "", 
+            photo: profile.photo || null,
+          };
+          setProfile(prof);
+          setDraft(prof);
+        }
+        
+        // 2. Load Exams (which also loads history/status)
+        await loadExams();
+      } catch (e) {
+        console.error("[Dashboard] Refresh failed:", e);
+      } finally {
+        if (isManual) setLoading(false);
       }
-    };
-    loadHistory();
+    }, [loadExams, profile.photo]);
+
+    useEffect(() => {
+      refreshData();
+
+      // Auto-refresh when tab becomes visible or window gains focus
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          console.log("[DASHBOARD] Tab visible, refreshing...");
+          refreshData();
+        }
+      };
+      const handleFocus = () => {
+        console.log("[DASHBOARD] Window focus, refreshing...");
+        refreshData();
+      };
+
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+
+      return () => {
+        window.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+      };
+    }, [refreshData]);
 
     // Check for direct tab deep-linking (e.g. ?tab=History)
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab");
-      if (tab && NAV_ITEMS.find(n => n.id === tab)) {
-        setActiveNav(tab);
-        window.history.replaceState({}, "", window.location.pathname);
+    useEffect(() => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get("tab");
+        if (tab && NAV_ITEMS.find(n => n.id === tab)) {
+          setActiveNav(tab);
+          window.history.replaceState({}, "", window.location.pathname);
+        }
       }
-    }
-
-    // Reload history + exam list when student returns (e.g. after exam submission)
-    const onFocus = async () => {
-      const token2 = sessionStorage.getItem("exam_token") || "";
-      // Aggressively bypass all caches on window focus
-      const cacheBust = `?_=${Date.now()}`;
-      const histResp = await fetch(`/api/exam/history${cacheBust}`, {
-        headers: { "Authorization": `Bearer ${token2}` },
-        cache: "no-store",
-      }).then(r => r.ok ? r.json() : null).catch(() => null);
-      const data = histResp?.results || null;
-      if (data && data.length > 0) {
-        setLocalHistory(data.map((r: any) => ({
-          examName: r.exam_title,
-          score: r.correct_count ?? r.score ?? 0,
-          totalMarks: r.total_questions ?? r.total_marks ?? 0,
-          category: r.category || "Others",
-          timestamp: r.submitted_at,
-        })));
-      }
-      // Also refresh exam list so completed exams disappear from Home immediately
-      try {
-        const { fetchPublicExamConfig } = await import("@/lib/api");
-        const configs = await fetchPublicExamConfig();
-        const active = configs.filter((c: any) => c.is_active);
-        // Trigger loadExams side-effect by dispatching a custom event
-        window.dispatchEvent(new CustomEvent("exam-history-updated"));
-      } catch {}
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [router]);
+    }, []);
 
   const deleteHistoryItem = useCallback(async (r: any, i: number) => {
     if (!confirm(`Delete "${r.examName || "this result"}" from your history? This cannot be undone.`)) return;
@@ -218,7 +222,12 @@ export default function DashboardPage() {
   const loadExams = useCallback(async () => {
     try {
       const configs = await fetchPublicExamConfig();
-      const active = configs.filter((c: any) => c.is_active);
+      const active = configs.filter((c: any) => 
+        c.is_active === true || 
+        c.is_active === "true" || 
+        c.is_active === 1 || 
+        c.is_active === "1"
+      );
 
       const studentRaw = sessionStorage.getItem("exam_student");
       const studentObj = studentRaw ? JSON.parse(studentRaw) : null;
@@ -338,8 +347,19 @@ export default function DashboardPage() {
     // ── Branch Filter ──
     if (student) {
       const sb = student.branch.trim().toUpperCase();
-      const eb = e.branch.trim().toUpperCase();
-      const branchMatch = eb === sb || eb === "GLOBAL" || eb === "" || eb === "ALL" || eb.includes(sb);
+      const eb = (e.branch || "GLOBAL").trim().toUpperCase();
+      
+      // Split by comma and check for exact match or special keywords
+      const branches = eb.split(',').map(b => b.trim());
+      const branchMatch = 
+        eb === "GLOBAL" || 
+        eb === "ALL" || 
+        eb === "" || 
+        branches.includes(sb) || 
+        branches.includes("ALL") || 
+        branches.includes("GLOBAL") ||
+        eb.includes(sb); // Fallback for partial matches
+
       if (!branchMatch) return false;
     }
 
@@ -491,6 +511,14 @@ export default function DashboardPage() {
                   </button>
                 )}
                 <h1 className={styles.pageTitle}>{hdr.title}</h1>
+                <button 
+                  className={styles.refreshBtn} 
+                  onClick={() => refreshData(true)}
+                  disabled={loading}
+                  title="Force Sync"
+                >
+                  {loading ? "⌛" : "↻"}
+                </button>
               </div>
               <p className={styles.pageSub}>{hdr.sub}</p>
             </div>

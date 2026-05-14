@@ -1,13 +1,11 @@
 /**
- * /api/ai/proctor — Groq Edge streaming endpoint
- * Streams in OpenAI-compatible SSE format ("data: {...}\n\n")
- * so the existing ai-client.ts works without changes.
- * Runtime: Edge — bypasses Vercel's 10s serverless limit
+ * /api/ai/proctor — Groq AI proctor endpoint (streaming + non-streaming)
+ * Uses direct Groq REST API (no SDK) for maximum reliability.
+ * Runtime: serverless (NOT edge)
  */
-import { createGroq } from '@ai-sdk/groq';
-import { streamText, generateText } from 'ai';
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = 'edge';
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `You are ExamPortal Intelligence — a sharp, fair AI proctor and study assistant for a competitive coding exam called PyHunt.
@@ -19,90 +17,109 @@ Rules:
 - When explaining code, focus on WHY and HOW.
 - Be encouraging. Students are under exam pressure.`;
 
-export async function POST(req: Request) {
-  const apiKey = (process.env as Record<string, string | undefined>).GROQ_API_KEY;
-  if (!apiKey) {
-    return Response.json({ error: 'GROQ_API_KEY not configured' }, { status: 500 });
-  }
-
-  const groq = createGroq({ apiKey });
-
-  let body: { messages: Array<{ role: string; content: string }>; stream?: boolean };
+export async function POST(req: NextRequest) {
   try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || apiKey === "gsk_your_key_here") {
+      return NextResponse.json(
+        { error: "GROQ_API_KEY not configured. Add your key to .env and Vercel dashboard." },
+        { status: 500 }
+      );
+    }
 
-  const messages = [
-    { role: 'system' as const, content: SYSTEM_PROMPT },
-    ...body.messages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
-  ];
-
-  const shouldStream = body.stream !== false;
-
-  // ── NON-STREAMING ────────────────────────────────────────────────────────
-  if (!shouldStream) {
-    const result = await generateText({
-      model: groq('llama3-70b-8192'),
-      messages,
-      temperature: 0.3,
-      maxOutputTokens: 1024,
-    });
-    // Return OpenAI-compatible format (what getAICompletion() expects)
-    return Response.json({
-      choices: [{
-        index: 0,
-        message: { role: 'assistant', content: result.text },
-        finish_reason: 'stop',
-      }],
-      usage: result.usage,
-    });
-  }
-
-  // ── STREAMING — OpenAI SSE format ────────────────────────────────────────
-  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
-
-  (async () => {
+    let body: { messages: Array<{ role: string; content: string }>; stream?: boolean };
     try {
-      const result = await streamText({
-        model: groq('llama3-70b-8192'),
-        messages,
-        temperature: 0.3,
-        maxOutputTokens: 1024,
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...body.messages.map(m => ({
+        role: m.role as string,
+        content: m.content,
+      })),
+    ];
+
+    const shouldStream = body.stream !== false;
+
+    // ── NON-STREAMING ──────────────────────────────────────────
+    if (!shouldStream) {
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages,
+          temperature: 0.3,
+          max_tokens: 1024,
+          stream: false,
+        }),
       });
 
-      for await (const delta of result.textStream) {
-        const chunk = {
-          choices: [{
-            index: 0,
-            delta: { role: 'assistant', content: delta },
-            finish_reason: null,
-          }],
-        };
-        writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+      if (!groqRes.ok) {
+        const errBody = await groqRes.text();
+        console.error("[AI/proctor] Groq API error:", groqRes.status, errBody);
+        return NextResponse.json(
+          { error: `Groq API error: ${groqRes.status}`, detail: errBody },
+          { status: 502 }
+        );
       }
-      writer.write(encoder.encode('data: [DONE]\n\n'));
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      writer.write(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
-      writer.write(encoder.encode('data: [DONE]\n\n'));
-    } finally {
-      writer.close();
-    }
-  })();
 
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'X-Accel-Buffering': 'no',
-      Connection: 'keep-alive',
-    },
-  });
+      const data = await groqRes.json();
+      return NextResponse.json({
+        choices: [{
+          index: 0,
+          message: { role: "assistant", content: data.choices?.[0]?.message?.content || "" },
+          finish_reason: "stop",
+        }],
+        usage: data.usage,
+      });
+    }
+
+    // ── STREAMING — OpenAI SSE format ──────────────────────────
+    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama3-70b-8192",
+        messages,
+        temperature: 0.3,
+        max_tokens: 1024,
+        stream: true,
+      }),
+    });
+
+    if (!groqRes.ok) {
+      const errBody = await groqRes.text();
+      console.error("[AI/proctor] Groq streaming error:", groqRes.status, errBody);
+      return NextResponse.json(
+        { error: `Groq API error: ${groqRes.status}` },
+        { status: 502 }
+      );
+    }
+
+    // Pass through the SSE stream from Groq directly
+    return new Response(groqRes.body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
+      },
+    });
+  } catch (err: any) {
+    console.error("[AI/proctor] Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Internal server error", detail: err.message },
+      { status: 500 }
+    );
+  }
 }
