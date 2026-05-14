@@ -405,6 +405,7 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const { ready, loadError, runCode, runTests } = usePyodide();
   const [code, setCode] = useState(problem.starterCode);
   const [running, setRunning] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [output, setOutput] = useState<{stdout:string;stderr:string;error?:string}|null>(null);
   const [testResults, setTestResults] = useState<{pass:boolean;got:string;expected:string}[]>([]);
   const [allPass, setAllPass] = useState(false);
@@ -414,9 +415,17 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
   const [showReasoning, setShowReasoning] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
+  useEffect(() => {
+    if (cooldown > 0) {
+      const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [cooldown]);
+
   const handleRun = async () => {
-    if (running) return;
+    if (running || cooldown > 0) return;
     setRunning(true); setOutput(null); setTestResults([]); setAiFeedback(null); setAiHint(null);
+    setCooldown(10); // HCOL Cooldown
     try {
       const examToken = sessionStorage.getItem("exam_token") || "";
       
@@ -516,8 +525,8 @@ function RoundCoding({ problem, roundNum, partLabel = "", onComplete, onWrong, s
             onChange={e => setCode(e.target.value)}
             spellCheck={false}
           />
-          <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running}>
-            {running ? "⟳ Processing..." : "EXECUTE LOGIC PROTOCOL"}
+          <button className={styles.runBtn} onClick={handleRun} disabled={!ready||running||cooldown>0}>
+            {running ? "⟳ Processing..." : (cooldown > 0 ? `COOLDOWN: ${cooldown}s` : "EXECUTE LOGIC PROTOCOL")}
           </button>
           {output && (
             <div className={styles.outputBox}>
@@ -1037,6 +1046,7 @@ export default function PyHuntPage() {
               setWarningCount(data.warnings || 0);
               if (data.round1_rank) {
                 setClueRank(data.round1_rank);
+                localStorage.setItem("pyhunt_clue_rank_cache", data.round1_rank.toString());
                 setEntryUnlocked(true);
               }
               if (data.current_round && data.current_round.startsWith("Round")) {
@@ -1158,9 +1168,16 @@ export default function PyHuntPage() {
 
       // ORBITAL DISTRIBUTION: Assign rank atomically
       try {
-        const { data: rank, error } = await supabase.rpc("get_pyhunt_round_rank", { target_student_id: studentId });
-        if (!error && rank) {
-          setClueRank(rank);
+        // HCOL: Check cache first to prevent redundant DB calls
+        const cached = localStorage.getItem("pyhunt_clue_rank_cache");
+        if (cached) {
+          setClueRank(parseInt(cached));
+        } else {
+          const { data: rank, error } = await supabase.rpc("get_pyhunt_round_rank", { target_student_id: studentId });
+          if (!error && rank) {
+            setClueRank(rank);
+            localStorage.setItem("pyhunt_clue_rank_cache", rank.toString());
+          }
         }
       } catch (err) {
         console.warn("Rank assignment failed:", err);
