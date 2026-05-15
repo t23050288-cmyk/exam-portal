@@ -51,8 +51,14 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
     if not clues:
         raise HTTPException(status_code=400, detail="No clues defined for this round")
     
-    # 3. Determine which clue they SHOULD have (round-robin: rank 1→clue[0], rank 2→clue[1], etc.)
-    clue_index = (rank - 1) % len(clues)
+    # 3. Determine which clue they SHOULD have (round-robin with Divergent Path)
+    # Odd rounds (1,3): forward orbit 1→2→3→4
+    # Even rounds (2,4): reverse orbit 4→3→2→1
+    base_index = (rank - 1) % len(clues)
+    if req.round_id % 2 == 0:
+        clue_index = len(clues) - 1 - base_index
+    else:
+        clue_index = base_index
     expected_data = clues[clue_index]
     
     # 4. Validate the pass-code (case-insensitive, trimmed)

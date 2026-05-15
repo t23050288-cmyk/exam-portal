@@ -1507,7 +1507,9 @@ export default function PyHuntPage() {
                     if (!clues || clues.length === 0) return null;
                     const rankForRound = perRoundRanks[roundId] || 1;
                     const idx = (rankForRound - 1) % clues.length;
-                    return clues[idx];
+                    // Divergent Path: even rounds reverse the orbit (1→2→3→4 vs 4→3→2→1)
+                    const finalIdx = roundId % 2 === 0 ? (clues.length - 1 - idx) : idx;
+                    return clues[finalIdx];
                   };
 
                   if (round === 0) activeClue = getDynamicClue(cfg.round1Clues, 1);
