@@ -278,7 +278,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
   const [shaking, setShaking] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [attempts, setAttempts] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   // If no unlock code needed (last round), auto-show unlock button
@@ -294,9 +294,9 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
     );
   }
 
-  const handleSubmit = async () => {
-    if (!input.trim() || loading) return;
-    setLoading(true);
+  const handleClueSubmit = async () => {
+    if (!input.trim() || isUnlocking) return;
+    setIsUnlocking(true);
     setErrorMsg("");
 
     try {
@@ -326,7 +326,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
     } catch (err) {
       setErrorMsg("Connection error. Try again.");
     } finally {
-      setLoading(false);
+      setIsUnlocking(false);
     }
   };
 
@@ -350,7 +350,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
               placeholder="Enter unlock code…"
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()}
+              onKeyDown={e => e.key === "Enter" && handleClueSubmit()}
               autoFocus
               autoComplete="off"
             />
@@ -359,8 +359,8 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
                 ❌ {errorMsg}
               </div>
             )}
-            <button className={styles.primaryBtn} onClick={handleSubmit} disabled={loading}>
-              {loading ? "⌛ Verifying..." : "🔓 Unlock Next Round"}
+            <button className={styles.primaryBtn} onClick={handleClueSubmit} disabled={isUnlocking}>
+              {isUnlocking ? "⌛ Verifying..." : "🔓 Unlock Next Round"}
             </button>
           </div>
         ) : (
