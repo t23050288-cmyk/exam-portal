@@ -728,7 +728,7 @@ async def get_exam_config_public():
     try:
         # Include category and counts to avoid heavy frontend fetching
         # REMOVED: .neq("exam_title", "PYHUNT_GLOBAL_CONFIG") so PyHunt shows up in Admin dashboard lists
-        result = db.table("exam_config").select("id, is_active, scheduled_start, scheduled_end, duration_minutes, exam_title, category, total_questions, total_marks, max_attempts, branch").execute()
+        result = db.table("exam_config").select("id, is_active, scheduled_start, scheduled_end, duration_minutes, exam_title, category, total_questions, total_marks, max_attempts").execute()
         return result.data or []
     except Exception:
         return []
