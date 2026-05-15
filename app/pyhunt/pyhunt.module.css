@@ -245,7 +245,7 @@
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #4a9fd4;
 }
-.jumbleLine code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; flex: 1; }
+.jumbleLine code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; flex: 1; white-space: pre-wrap; }
 .dragHandle { color: #2a4060; font-size: 16px; margin-left: auto; }
 
 /* ── Coding Layout ── */
