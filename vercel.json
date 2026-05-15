@@ -91,6 +91,10 @@
       "dest": "python_api/index.py"
     },
     {
+      "src": "/api/ai/complete-round",
+      "dest": "/api/ai/complete-round"
+    },
+    {
       "src": "/api/ai/check-code",
       "dest": "/api/ai/check-code"
     },
