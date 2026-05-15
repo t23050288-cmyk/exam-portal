@@ -99,29 +99,43 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
     """
     async with httpx.AsyncClient() as client:
         # Tier 1: Piston
+        piston_res = None
         try:
-            return await verify_piston(client, request.code, request.test_cases)
+            piston_res = await verify_piston(client, request.code, request.test_cases)
+            if piston_res and piston_res.get("all_pass"):
+                return piston_res
+            else:
+                print(f"[HCOL] Code failed strict Piston tests. Sending to Groq AI for logic evaluation...")
         except Exception as e:
-            print(f"[HCOL] Piston Failed: {e}. Falling back to Emergency Regex...")
+            print(f"[HCOL] Piston Failed: {e}. Falling back to Groq...")
 
         # Tiers 2 & 3 (Groq AI)
         try:
             res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
             if res: 
-                res["engine"] = "Groq Llama 3.1 70B"
-                res["ok"] = True
-                return res
+                if res.get("all_pass"):
+                    res["engine"] = "Groq Llama 3.1 70B (AI Override)"
+                    res["ok"] = True
+                    return res
+                elif piston_res:
+                    return piston_res
         except Exception as e:
             print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
 
         try:
             res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
             if res:
-                res["engine"] = "Groq Llama 3.1 8B"
-                res["ok"] = True
-                return res
+                if res.get("all_pass"):
+                    res["engine"] = "Groq Llama 3.1 8B (AI Override)"
+                    res["ok"] = True
+                    return res
+                elif piston_res:
+                    return piston_res
         except Exception as e:
             print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
+            
+        if piston_res:
+            return piston_res
 
         # Tier 4: Emergency Regex (Now returns ok: False to trigger frontend fallback)
         emergency = verify_regex_emergency(request.code, request.test_cases)
