@@ -37,3 +37,16 @@ BEGIN
     RETURN final_rank;
 END;
 $$;
+
+-- 3. Extend pyhunt_progress with performance metrics and identity caching
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS student_name TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS usn TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round1_score INTEGER DEFAULT 0;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round1_time TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS total_time TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round1_rank INTEGER;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round3_code TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round3b_code TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS round4_code TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS last_violation TEXT;
+ALTER TABLE pyhunt_progress ADD COLUMN IF NOT EXISTS warnings INTEGER DEFAULT 0;

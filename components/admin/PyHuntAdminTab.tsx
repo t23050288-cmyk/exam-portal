@@ -653,7 +653,30 @@ function MarksView({ cfg }: { cfg: PyHuntConfig }) {
           <span style={{fontSize: 20}}>📊</span>
           <span>Final Marks Dashboard</span>
         </div>
-        <button style={$.btnAdd} onClick={fetchStatus}>🔄 Refresh</button>
+        <div style={{display:"flex", gap:10}}>
+          <button style={{...$.btnAdd, background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)"}} 
+            onClick={() => {
+              const headers = ["USN", "Name", "R1 Score", "R1 Time", "Total Time", "Status"];
+              const rows = students.map(s => [
+                s.student_usn,
+                s.student_name,
+                `${s.round1_score || 0}/${cfg.mcqQuestions.length}`,
+                s.round1_time || "-",
+                s.total_time || "-",
+                s.status || "active"
+              ]);
+              const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `pyhunt_marks_${new Date().toISOString().slice(0,10)}.csv`;
+              a.click();
+            }}>
+            📥 Export CSV
+          </button>
+          <button style={$.btnAdd} onClick={fetchStatus}>🔄 Refresh</button>
+        </div>
       </div>
 
       {loading && students.length === 0 ? (
@@ -662,11 +685,11 @@ function MarksView({ cfg }: { cfg: PyHuntConfig }) {
         <table style={{width:"100%", borderCollapse:"collapse", color:"#c8daf0", fontSize:13}}>
           <thead>
             <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>MCQ SCORE</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>MCQ TIME</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>TOTAL TIME</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>STUDENT</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>R1 SCORE</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>R1 TIME</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>TOTAL TIME</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>STATUS</th>
             </tr>
           </thead>
           <tbody>
@@ -849,6 +872,31 @@ function LiveStatusView({ cfg }: { cfg: PyHuntConfig }) {
         </div>
         <div style={{display:"flex", gap:10}}>
           <button 
+            style={{...$.btnAdd, background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)"}} 
+            onClick={() => {
+              const headers = ["USN", "Name", "Round", "R1 Score", "R1 Time", "Warnings", "Status", "Last Active"];
+              const rows = students.map(s => [
+                s.student_usn || s.student_id,
+                s.student_name || "Unknown",
+                s.current_round,
+                s.round1_score || 0,
+                s.round1_time || "-",
+                s.warnings || 0,
+                s.status || "active",
+                new Date(s.last_active).toLocaleString()
+              ]);
+              const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `pyhunt_live_status_${new Date().toISOString().slice(0,10)}.csv`;
+              a.click();
+            }}
+          >
+            📥 Export CSV
+          </button>
+          <button 
             style={{...$.btnDel, padding: "8px 16px", fontSize: 12, fontWeight: 900}} 
             onClick={globalReset}
           >
@@ -866,18 +914,16 @@ function LiveStatusView({ cfg }: { cfg: PyHuntConfig }) {
         <table style={{width:"100%", borderCollapse:"collapse", color:"#c8daf0", fontSize:13}}>
           <thead>
             <tr style={{textAlign:"left", borderBottom:"1px solid rgba(0,220,255,0.1)"}}>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>STUDENT NAME</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>R1 SCORE</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>R1 TIME</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>ROUND STATUS</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>WARNINGS</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST VIOLATION</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>LAST ACTIVE</th>
-              <th style={{padding:"12px 8px", color:"#3a5578"}}>STATUS</th>
-              <th style={{padding:"12px 8px", color:"#3a5578", textAlign:"right"}}>ACTIONS</th>
-
-            </tr>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>STUDENT NAME</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>ROUND</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>R1 SCORE</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>R1 TIME</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>ROUND STATUS</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>WARNINGS</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>LAST VIOLATION</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>LAST ACTIVE</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em"}}>STATUS</th>
+              <th style={{padding:"12px 8px", color:"var(--text-muted)", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textAlign:"right"}}>ACTIONS</th>            </tr>
           </thead>
           <tbody>
             {students.map((s, i) => {
