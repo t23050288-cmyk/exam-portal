@@ -310,7 +310,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
         const examToken = sessionStorage.getItem("exam_token") || "";
         fetch("/api/exam/pyhunt/unlock", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": \`Bearer \${examToken}\` },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
           body: JSON.stringify({ round_id: roundId, submitted_pass_code: submitted })
         }).catch(() => {}); // silent — just for logging
       } catch {}
