@@ -1203,7 +1203,7 @@ export default function PyHuntPage() {
   const [mcqStartTime] = useState(Date.now());
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0, round1Score: "", round1Time: "" });
   const [scoreText, setScoreText] = useState("");
-  const [clueRank, setClueRank] = useState<number | null>(null);
+  const [perRoundRanks, setPerRoundRanks] = useState<Record<number, number>>({});
 
   // CODE STORAGE FOR ADMIN VISIBILITY
   const [round3Code, setRound3Code] = useState("");
@@ -1222,8 +1222,10 @@ export default function PyHuntPage() {
     setPyhuntLoading(true);
     const t = setTimeout(() => setPyhuntLoading(false), 3000);
 
-    const cachedRank = localStorage.getItem("pyhunt_clue_rank_cache");
-    if (cachedRank) setClueRank(parseInt(cachedRank));
+    const cachedRanks = localStorage.getItem("pyhunt_per_round_ranks");
+    if (cachedRanks) {
+      try { setPerRoundRanks(JSON.parse(cachedRanks)); } catch {}
+    }
 
     const syncConfig = async () => {
       try {
@@ -1271,7 +1273,7 @@ export default function PyHuntPage() {
               }
               setWarningCount(data.warnings || 0);
               if (data.round1_rank) {
-                setClueRank(data.round1_rank);
+                setPerRoundRanks(prev => ({ ...prev, 1: data.round1_rank }));
                 setEntryUnlocked(true);
               }
               if (data.current_round && data.current_round.startsWith("Round")) {
@@ -1293,7 +1295,9 @@ export default function PyHuntPage() {
   const handleRoundComplete = async (score?: string) => {
     if (score) setScoreText(score);
     
-    // Sync rank with server immediately
+    const currentRoundId = round + 1; // 1-based round ID
+    
+    // Sync rank with server immediately — per-round rank assignment
     try {
       const examToken = sessionStorage.getItem("exam_token") || "";
       const resp = await fetch("/api/exam/pyhunt/complete-round", {
@@ -1302,12 +1306,15 @@ export default function PyHuntPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${examToken}`
         },
-        body: JSON.stringify({ round_id: round + 1 })
+        body: JSON.stringify({ round_id: currentRoundId })
       });
       const data = await resp.json();
       if (data.rank) {
-        setClueRank(data.rank);
-        localStorage.setItem("pyhunt_clue_rank_cache", data.rank.toString());
+        setPerRoundRanks(prev => {
+          const updated = { ...prev, [currentRoundId]: data.rank };
+          localStorage.setItem("pyhunt_per_round_ranks", JSON.stringify(updated));
+          return updated;
+        });
       }
     } catch (e) {
       console.error("Failed to sync round completion:", e);
@@ -1347,7 +1354,7 @@ export default function PyHuntPage() {
           terminated,
           warning_count: warningCount,
           round1_score: scoreText,
-          round1_rank: clueRank,
+          round1_rank: perRoundRanks[1] || null,
           round3_code: round3Code || undefined,
           round3b_code: round3bCode || undefined,
           round4_code: round4Code || undefined,
@@ -1363,7 +1370,7 @@ export default function PyHuntPage() {
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, showingClue, clueRank, scoreText, round3Code, round3bCode, round4Code]);
+  }, [round, finished, terminated, warningCount, showingClue, perRoundRanks, scoreText, round3Code, round3bCode, round4Code]);
 
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -1494,18 +1501,19 @@ export default function PyHuntPage() {
               )}
 
               {showingClue && (
-                (() => {
+              (() => {
                   let activeClue: ClueConfig | null = null;
-                  const getDynamicClue = (clues: ClueConfig[]) => {
+                  const getDynamicClue = (clues: ClueConfig[], roundId: number) => {
                     if (!clues || clues.length === 0) return null;
-                    const idx = clueRank ? (clueRank - 1) % clues.length : 0;
+                    const rankForRound = perRoundRanks[roundId] || 1;
+                    const idx = (rankForRound - 1) % clues.length;
                     return clues[idx];
                   };
 
-                  if (round === 0) activeClue = getDynamicClue(cfg.round1Clues);
-                  else if (round === 1) activeClue = getDynamicClue(cfg.round2Clues);
-                  else if (round === 2) activeClue = getDynamicClue(cfg.round3Clues);
-                  else if (round === 3) activeClue = getDynamicClue(cfg.round4Clues);
+                  if (round === 0) activeClue = getDynamicClue(cfg.round1Clues, 1);
+                  else if (round === 1) activeClue = getDynamicClue(cfg.round2Clues, 2);
+                  else if (round === 2) activeClue = getDynamicClue(cfg.round3Clues, 3);
+                  else if (round === 3) activeClue = getDynamicClue(cfg.round4Clues, 4);
 
                   return activeClue ? <ClueScreen roundId={round + 1} clue={activeClue} onUnlock={handleUnlock} /> : null;
                 })()

@@ -107,12 +107,16 @@ async def complete_round(req: CompleteRequest, user=Depends(get_current_student)
     if rank is None:
         raise HTTPException(status_code=500, detail="Failed to assign rank")
         
-    # 2. Update pyhunt_progress with the score/rank
-    # Note: frontend will sync other details later, but rank is critical for clue
-    sb.table("pyhunt_progress").upsert({
+    # 2. Update pyhunt_progress with the rank for this round
+    # We store the rank in round1_rank as a last-known-rank field
+    # The frontend tracks per-round ranks separately via the API response
+    upsert_data: dict = {
         "student_id": user["id"],
-        "round1_rank": rank if req.round_id == 1 else None, # Only round 1 rank matters for clues for now
+        "round1_rank": rank,
         "last_active": "now()"
-    }).execute()
+    }
+    sb.table("pyhunt_progress").upsert(upsert_data).execute()
+    
+    print(f"[PyHunt Complete] round={req.round_id}, user={user['id']}, rank={rank}")
     
     return {"status": "Success", "rank": rank}
