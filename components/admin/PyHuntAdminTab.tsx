@@ -514,11 +514,11 @@ export default function PyHuntAdminTab() {
             <label htmlFor="jumble_title_a" style={$.lbl}>Title</label>
             <input id="jumble_title_a" style={$.inp} value={cfg.jumbleProblem.title} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,title:e.target.value}}))} />
             <label htmlFor="jumble_desc_a" style={$.lbl}>Description</label>
-            <textarea id="jumble_desc_a" style={{...$.ta,minHeight:60}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
+            <textarea id="jumble_desc_a" style={{...$.ta,minHeight:150}} value={cfg.jumbleProblem.description} onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,description:e.target.value}}))} />
             <label htmlFor="jumble_lines_a" style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
             <textarea
               id="jumble_lines_a"
-              style={{...$.ta,minHeight:180}}
+              style={{...$.ta,minHeight:300}}
               value={cfg.jumbleProblem.lines.join("\n")}
               onChange={e=>setCfg(c=>({...c,jumbleProblem:{...c.jumbleProblem,lines:e.target.value.split("\n")}}))}
             />
@@ -529,11 +529,11 @@ export default function PyHuntAdminTab() {
             <label htmlFor="jumble_title_b" style={$.lbl}>Title</label>
             <input id="jumble_title_b" style={$.inp} value={cfg.jumbleProblemB.title} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,title:e.target.value}}))} />
             <label htmlFor="jumble_desc_b" style={$.lbl}>Description</label>
-            <textarea id="jumble_desc_b" style={{...$.ta,minHeight:60}} value={cfg.jumbleProblemB.description} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,description:e.target.value}}))} />
+            <textarea id="jumble_desc_b" style={{...$.ta,minHeight:150}} value={cfg.jumbleProblemB.description} onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,description:e.target.value}}))} />
             <label htmlFor="jumble_lines_b" style={$.lbl}>Code Lines — enter in CORRECT order (one per line). Students see them shuffled.</label>
             <textarea
               id="jumble_lines_b"
-              style={{...$.ta,minHeight:180}}
+              style={{...$.ta,minHeight:300}}
               value={cfg.jumbleProblemB.lines.join("\n")}
               onChange={e=>setCfg(c=>({...c,jumbleProblemB:{...c.jumbleProblemB,lines:e.target.value.split("\n")}}))}
             />
@@ -1163,7 +1163,7 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
 
       {/* QUESTION / PROMPT */}
       <label htmlFor={`${rk}_desc`} style={{...$.lbl, textTransform:"uppercase", letterSpacing:1}}>Question / Prompt</label>
-      <textarea id={`${rk}_desc`} style={{...$.ta, minHeight:100, marginBottom:20}} 
+      <textarea id={`${rk}_desc`} style={{...$.ta, minHeight:300, marginBottom:20}} 
         placeholder="Enter the problem statement here..."
         value={cfg[rk].description}
         onChange={e=>setCfg(c=>({...c,[rk]:{...c[rk],description:e.target.value}}))} />
@@ -1218,7 +1218,7 @@ function CodingProblemEditor({ cfg, setCfg, rk, rn, accentColor = "#00dcff", lab
       <textarea
         id={`${rk}_starter`}
         style={{
-          width:"100%", minHeight:180,
+          width:"100%", minHeight:300,
           background:"#0d1117", color:"#e6edf3",
           fontFamily:"'JetBrains Mono','Fira Code',monospace",
           fontSize:13, lineHeight:1.7,

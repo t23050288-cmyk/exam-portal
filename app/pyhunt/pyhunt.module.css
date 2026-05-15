@@ -106,6 +106,13 @@
   max-width: 900px; margin: 0 auto;
   padding: 32px 24px 60px;
 }
+.contentWide {
+  width: 98%;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 10px 0;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 /* ── Round Wrapper ── */
 .roundWrap { display: flex; flex-direction: column; gap: 20px; }
@@ -713,6 +720,7 @@
   padding: 16px;
 }
 
+
 .loadingTag {
   font-size: 11px;
   color: #f59e0b;
@@ -733,21 +741,21 @@
   font-weight: 600;
 }
 
-
 /* ════════════════════════════════════════════════
    LEET CODE-STYLE IDE  (Rounds 3 & 4)
 ════════════════════════════════════════════════ */
 
 /* Outer wrapper */
 .ideWrap {
-  display: flex; flex-direction: column; gap: 0;
-  background: #0d1117;
-  border: 1px solid rgba(0,220,255,0.15);
-  border-radius: 16px; overflow: hidden;
-  height: calc(100vh - 80px);
-  min-height: 600px;
-  position: relative;
-  box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 100px);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* Top status bar */
@@ -766,10 +774,13 @@
 
 /* Split pane */
 .ideMain {
-  display: grid; grid-template-columns: 35% 65%;
-  flex: 1; min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 38% 62%;
+  min-height: 0;
+  background: rgba(2, 6, 23, 0.3);
 }
-@media (max-width: 800px) { .ideMain { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .ideMain { grid-template-columns: 1fr; } }
 
 /* LEFT — problem pane */
 .ideLeft {

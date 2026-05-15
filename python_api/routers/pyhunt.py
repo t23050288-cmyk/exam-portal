@@ -92,3 +92,27 @@ async def unlock_round(req: UnlockRequest, user=Depends(get_current_student)):
         "rank": rank,
         "clue": expected_data.get("clueText", "")
     }
+
+class CompleteRequest(BaseModel):
+    round_id: int
+
+@router.post("/complete-round")
+async def complete_round(req: CompleteRequest, user=Depends(get_current_student)):
+    sb = get_supabase()
+    
+    # 1. Assign rank atomically
+    res = sb.rpc("get_strict_rank", {"p_round_id": req.round_id, "p_user_id": user["id"]}).execute()
+    rank = res.data
+    
+    if rank is None:
+        raise HTTPException(status_code=500, detail="Failed to assign rank")
+        
+    # 2. Update pyhunt_progress with the score/rank
+    # Note: frontend will sync other details later, but rank is critical for clue
+    sb.table("pyhunt_progress").upsert({
+        "student_id": user["id"],
+        "round1_rank": rank if req.round_id == 1 else None, # Only round 1 rank matters for clues for now
+        "last_active": "now()"
+    }).execute()
+    
+    return {"status": "Success", "rank": rank}

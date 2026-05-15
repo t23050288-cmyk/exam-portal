@@ -791,7 +791,7 @@ function JumblePart({
   partIndex: number;
   runCode: (code: string) => Promise<{ stdout: string; stderr: string; error?: string }>;
   ready: boolean;
-  onPartComplete: () => void;
+  onPartComplete: (arg?: string) => void;
   onWrong: () => void;
 }) {
   const correct = problem.lines;
@@ -835,7 +835,7 @@ function JumblePart({
       <div className={styles.doneIcon}>🔀</div>
       <h2>{partLabel} Complete!</h2>
       <p className={styles.scoreText}>You unscrambled the code correctly!</p>
-      <button className={styles.primaryBtn} onClick={onPartComplete}>
+      <button className={styles.primaryBtn} onClick={() => onPartComplete()}>
         {partIndex === 0 ? "Next Part →" : "Get Clue →"}
       </button>
     </div>
@@ -919,6 +919,17 @@ function JumblePart({
 
 function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem; onComplete: () => void; onWrong: () => void }) {
   const { ready, runCode } = usePyodide();
+  const handleComplete = async () => {
+    try {
+      const examToken = sessionStorage.getItem("exam_token") || "";
+      await fetch("/api/exam/pyhunt/complete-round", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
+        body: JSON.stringify({ round_id: 2 })
+      });
+    } catch {}
+    onComplete();
+  };
   return (
     <JumblePart
       problem={problem}
@@ -926,7 +937,7 @@ function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem;
       partIndex={1}
       runCode={runCode}
       ready={ready}
-      onPartComplete={onComplete}
+      onPartComplete={handleComplete}
       onWrong={onWrong}
     />
   );
@@ -946,6 +957,21 @@ function RoundJumbleDual({
   const { ready, runCode } = usePyodide();
   const [part, setPart] = useState<0 | 1>(0);
 
+  const handlePartComplete = async () => {
+    if (part === 0) setPart(1);
+    else {
+      try {
+        const examToken = sessionStorage.getItem("exam_token") || "";
+        await fetch("/api/exam/pyhunt/complete-round", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
+          body: JSON.stringify({ round_id: 2 })
+        });
+      } catch {}
+      onComplete();
+    }
+  };
+
   return part === 0 ? (
     <JumblePart
       key="part1"
@@ -954,7 +980,7 @@ function RoundJumbleDual({
       partIndex={0}
       runCode={runCode}
       ready={ready}
-      onPartComplete={() => setPart(1)}
+      onPartComplete={handlePartComplete}
       onWrong={onWrong}
     />
   ) : (
@@ -965,7 +991,7 @@ function RoundJumbleDual({
       partIndex={1}
       runCode={runCode}
       ready={ready}
-      onPartComplete={onComplete}
+      onPartComplete={handlePartComplete}
       onWrong={onWrong}
     />
   );
@@ -1183,6 +1209,7 @@ export default function PyHuntPage() {
   const [startTime] = useState(Date.now());
   const [mcqStartTime] = useState(Date.now());
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0, round1Score: "", round1Time: "" });
+  const [scoreText, setScoreText] = useState("");
   const [clueRank, setClueRank] = useState<number | null>(null);
 
   // CODE STORAGE FOR ADMIN VISIBILITY
@@ -1195,7 +1222,6 @@ export default function PyHuntPage() {
   const [resultTimerSeconds, setResultTimerSeconds] = useState(10);
   const [studentId, setStudentId] = useState("");
   const [entryUnlocked, setEntryUnlocked] = useState(false);
-  const [assignedClue, setAssignedClue] = useState<ClueConfig | null>(null);
 
   const recordWrong = useCallback(() => setTotalWrongs(w => w + 1), []);
 
@@ -1203,9 +1229,8 @@ export default function PyHuntPage() {
     setPyhuntLoading(true);
     const t = setTimeout(() => setPyhuntLoading(false), 3000);
 
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("nexus_pyhunt_config_v2");
-    }
+    const cachedRank = localStorage.getItem("pyhunt_clue_rank_cache");
+    if (cachedRank) setClueRank(parseInt(cachedRank));
 
     const syncConfig = async () => {
       try {
@@ -1218,17 +1243,10 @@ export default function PyHuntPage() {
 
     syncConfig();
 
-    // REALTIME CONFIG: Listen for any changes in the pyhunt_config table
+    // REALTIME CONFIG
     const configChannel = supabase
       .channel('pyhunt-config-sync')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'pyhunt_config' },
-        (payload: any) => {
-          console.log("[PyHunt] Configuration updated remotely, syncing...");
-          syncConfig();
-        }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pyhunt_config' }, () => syncConfig())
       .subscribe();
 
     return () => {
@@ -1241,16 +1259,14 @@ export default function PyHuntPage() {
     try {
       const examStudent = sessionStorage.getItem("exam_student");
       const examStudentData = examStudent ? JSON.parse(examStudent) : {};
-      const n = examStudentData.name || null;
       const sid = examStudentData.id || null;
-      if (n) setStudentName(n);
+      if (examStudentData.name) setStudentName(examStudentData.name);
       if (sid) setStudentId(sid);
 
-      const effectiveId = sid || examStudentData.id;
-      if (effectiveId) {
+      if (sid) {
         supabase.from("pyhunt_progress")
-          .select("warnings, current_round, status")
-          .eq("student_id", effectiveId)
+          .select("warnings, current_round, status, round1_rank")
+          .eq("student_id", sid)
           .maybeSingle()
           .then(({ data }: { data: any }) => {
             if (data) {
@@ -1263,7 +1279,6 @@ export default function PyHuntPage() {
               setWarningCount(data.warnings || 0);
               if (data.round1_rank) {
                 setClueRank(data.round1_rank);
-                localStorage.setItem("pyhunt_clue_rank_cache", data.round1_rank.toString());
                 setEntryUnlocked(true);
               }
               if (data.current_round && data.current_round.startsWith("Round")) {
@@ -1274,24 +1289,56 @@ export default function PyHuntPage() {
                   if (currentR > 0) setEntryUnlocked(true);
                 }
               }
+              // Resume state: if user finished a round but not started the next, show clue
+              if (data.status === "CLUE_WAITING") setShowingClue(true);
             }
           });
       }
     } catch {}
-
-    const channel = supabase
-      .channel("pyhunt-realtime-config")
-      .on("postgres_changes", { event: "*", schema: "public", table: "exam_config", filter: "exam_title=eq.PYHUNT_GLOBAL_CONFIG" },
-        () => {
-          loadPyHuntConfigAsync().then(fresh => setCfg(fresh)).catch(() => {});
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
+
+  const handleRoundComplete = async (score?: string) => {
+    if (score) setScoreText(score);
+    
+    // Sync rank with server immediately
+    try {
+      const examToken = sessionStorage.getItem("exam_token") || "";
+      const resp = await fetch("/api/exam/pyhunt/complete-round", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${examToken}`
+        },
+        body: JSON.stringify({ round_id: round + 1 })
+      });
+      const data = await resp.json();
+      if (data.rank) {
+        setClueRank(data.rank);
+        localStorage.setItem("pyhunt_clue_rank_cache", data.rank.toString());
+      }
+    } catch (e) {
+      console.error("Failed to sync round completion:", e);
+    }
+
+    setShowingClue(true);
+  };
+
+  const handleUnlock = useCallback(() => {
+    setShowingClue(false);
+    if (round === 3) {
+      const totalDuration = Math.floor((Date.now() - startTime) / 60000);
+      setFinishStats({
+        minutes: totalDuration,
+        wrongs: totalWrongs,
+        warnings: warningCount,
+        round1Score: scoreText,
+        round1Time: "N/A"
+      });
+      setFinished(true);
+    } else {
+      setRound(r => r + 1);
+    }
+  }, [round, startTime, totalWrongs, warningCount, scoreText]);
 
   // Track Progress to Supabase
   useEffect(() => {
@@ -1300,43 +1347,31 @@ export default function PyHuntPage() {
         const examToken = sessionStorage.getItem("exam_token") || "";
         if (!examToken) return;
 
-        const currentRound = finished ? (terminated ? `Round ${round + 1}` : "COMPLETED") : `Round ${round + 1}`;
-        
         const payload = {
-          current_round: currentRound,
+          current_round: finished ? "COMPLETED" : `Round ${round + 1}`,
+          status: showingClue ? "CLUE_WAITING" : "ACTIVE",
           finished,
           terminated,
           warning_count: warningCount,
-          last_violation: lastViolation || undefined,
-          round1_score: finishStats.round1Score,
-          round1_time: finishStats.round1Time,
+          round1_score: scoreText,
           round1_rank: clueRank,
-          total_time: finished ? `${finishStats.minutes}m` : undefined,
           round3_code: round3Code || undefined,
           round3b_code: round3bCode || undefined,
           round4_code: round4Code || undefined,
         };
 
-        const res = await fetch("/api/exam/pyhunt/sync-progress", {
+        await fetch("/api/exam/pyhunt/sync-progress", {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": `Bearer ${examToken}` 
-          },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
           body: JSON.stringify(payload),
         });
-
-        if (res.ok) {
-          console.log(`[PyHuntSync] Successfully synced: ${currentRound}`);
-        }
       } catch (err) {
         console.error("[PyHuntSync] Network/Logic error:", err);
       }
     };
     updateProgress();
-  }, [round, finished, terminated, warningCount, lastViolation, finishStats, clueRank, round3Code, round3bCode, round4Code]);
+  }, [round, finished, terminated, warningCount, showingClue, clueRank, scoreText, round3Code, round3bCode, round4Code]);
 
-  // Fullscreen Watcher
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
@@ -1345,13 +1380,10 @@ export default function PyHuntPage() {
 
   const enterFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => {});
     }
   }, []);
 
-  // Auto-Redirect Timer
   useEffect(() => {
     if (!finished) return;
     const interval = setInterval(() => {
@@ -1362,89 +1394,6 @@ export default function PyHuntPage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [finished, router]);
-
-  // Grace period
-  const gracePeriodRef = useRef(true);
-  useEffect(() => {
-    const t = setTimeout(() => { gracePeriodRef.current = false; }, 8000);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Round complete → show clue (rounds 0–3)
-  const handleRoundComplete = useCallback(async (arg1?: any, arg2?: any) => {
-    // If round 0 (MCQ), arg1 is mcqScore
-    if (round === 0 && typeof arg1 === "string") {
-      const timeMs = Date.now() - mcqStartTime;
-      const m = Math.floor(timeMs / 60000);
-      const s = Math.floor((timeMs % 60000) / 1000);
-      setFinishStats(prev => ({
-        ...prev,
-        round1Score: arg1,
-        round1Time: `${m}m ${s}s`
-      }));
-    }
-    // If round 2 (Coding Dual), arg1=code3a, arg2=code3b
-    if (round === 2) {
-      if (arg1) setRound3Code(arg1);
-      if (arg2) setRound3bCode(arg2);
-    }
-    // If round 3 (Coding Single), arg1=code4
-    if (round === 3) {
-      if (arg1) setRound4Code(arg1);
-    }
-
-    // ORBITAL DISTRIBUTION: Assign rank atomically for the round just completed
-    setPyhuntLoading(true); 
-    try {
-      // Always fetch fresh rank for the current round to ensure strict sequence
-      let rank = null;
-      for (let i = 0; i < 3; i++) {
-        // Use the new strict rank function from migration v9
-        const { data, error } = await supabase.rpc("get_strict_rank", { 
-          p_round_id: round + 1, 
-          p_user_id: studentId 
-        });
-        if (!error && data) {
-          rank = data;
-          break;
-        }
-        console.warn(`Rank fetch attempt ${i+1} failed:`, error);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      if (rank) {
-        setClueRank(rank);
-        // We don't cache this in localStorage anymore because it's per-round
-      } else {
-        console.error("Critical: Atomic rank assignment failed after retries.");
-        setClueRank(1); // Emergency fallback
-      }
-    } catch (err) {
-      console.warn("Rank assignment failed:", err);
-      setClueRank(1);
-    } finally {
-      setPyhuntLoading(false);
-    }
-    setShowingClue(true);
-  }, [round, mcqStartTime, studentId]);
-
-  // Clue unlocked → next round or finish
-  const handleUnlock = useCallback(() => {
-    setShowingClue(false);
-    if (round === 3) {
-      // Round 4 complete -> Finish!
-      const totalDuration = Math.floor((Date.now() - startTime) / 60000);
-      setFinishStats(prev => ({
-        ...prev,
-        minutes: totalDuration,
-        wrongs: totalWrongs,
-        warnings: warningCount
-      }));
-      setFinished(true);
-    } else {
-      setRound(r => r + 1);
-    }
-  }, [round, startTime, totalWrongs, warningCount]);
 
   if (pyhuntLoading) {
     return (
@@ -1462,7 +1411,6 @@ export default function PyHuntPage() {
       <div className={styles.stars} />
       <div className={styles.nebula1} /><div className={styles.nebula2} />
       
-      {/* INACTIVE GUARD */}
       {!cfg.isActive && !finished && (
         <div className={styles.fsOverlay} style={{ zIndex: 9999 }}>
           <div className={styles.fsCard} style={{ background: "rgba(10, 15, 30, 0.98)", border: "1px solid rgba(244, 63, 94, 0.3)", boxShadow: "0 20px 80px rgba(0,0,0,0.8)" }}>
@@ -1494,21 +1442,16 @@ export default function PyHuntPage() {
         extraMetadata={{ pyhunt: true }}
         onAutoSubmit={() => {
           setWarningCount(3);
-          setLastViolation("TERMINATED");
           setTerminated(true);
           setFinished(true);
-          const duration = Math.floor((Date.now() - startTime) / 60000);
-          setFinishStats(prev => ({ ...prev, minutes: duration, wrongs: totalWrongs, warnings: 3 }));
         }}
-        onViolation={(type, meta) => {
+        onViolation={(type) => {
           setLastViolation(type);
-          if (meta && typeof meta.strike === "number") setWarningCount(meta.strike);
-          else setWarningCount(prev => Math.min(prev + 1, 3));
+          setWarningCount(prev => Math.min(prev + 1, 3));
         }}
         initialWarningCount={warningCount}
       >
         {finished ? (
-          /* ── Finished: show congratulations if not terminated ── */
           <FinishScreen 
             message={cfg.finishMessage} 
             stats={finishStats} 
@@ -1530,14 +1473,10 @@ export default function PyHuntPage() {
                   Enter Secure Mode
                 </button>
               </div>
-              <div style={{ marginTop: "24px", fontSize: "11px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.05em", fontWeight: 700 }}>
-                VIOLATIONS ARE RECORDED IN REAL-TIME
-              </div>
             </div>
           </div>
         ) : (
           <>
-            {/* Header */}
             <header className={styles.header}>
               <div className={styles.logo}>
                 <span className={styles.logoIcon}>🐍</span>
@@ -1556,14 +1495,11 @@ export default function PyHuntPage() {
               </div>
             </header>
 
-            {/* Content */}
-            <main className={styles.content}>
-              {/* ENTRY GATE */}
+            <main className={(entryUnlocked || showingClue) ? styles.contentWide : styles.content}>
               {!entryUnlocked && round === 0 && (
                 <EntryGate correctCode={cfg.entryAccessCode} onUnlock={() => setEntryUnlocked(true)} />
               )}
 
-              {/* CLUE SCREEN (ORBITAL DISTRIBUTION FOR ROUND 1) */}
               {showingClue && (
                 (() => {
                   let activeClue: ClueConfig | null = null;
