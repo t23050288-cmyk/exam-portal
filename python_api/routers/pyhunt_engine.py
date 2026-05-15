@@ -17,6 +17,7 @@ class TestCase(BaseModel):
 class VerifyRequest(BaseModel):
     code: str
     test_cases: List[TestCase]
+    question_text: Optional[str] = None
 
 async def verify_piston(client: httpx.AsyncClient, code: str, test_cases: List[TestCase]):
     """Tier 1: Piston API (Gold Standard)"""
@@ -47,15 +48,18 @@ async def verify_piston(client: httpx.AsyncClient, code: str, test_cases: List[T
         
     return {"ok": True, "results": results, "all_pass": all_pass, "engine": "Piston v2"}
 
-async def verify_groq(client: httpx.AsyncClient, code: str, test_cases: List[TestCase], model: str):
+async def verify_groq(client: httpx.AsyncClient, code: str, test_cases: List[TestCase], model: str, question_text: Optional[str] = None):
     """Tier 2 & 3: Groq AI (Intelligence Fallback)"""
     settings = get_settings()
     if not settings.groq_api_key or "your_key" in settings.groq_api_key: return None
     
-    prompt = "You are a strict Python Code Judge. Verify the following Python code against the provided test cases.\n"
-    prompt += "Requirements:\n"
-    prompt += "1. Strict Indentation & Syntax: Ensure the code has correct Python indentation and structure.\n"
-    prompt += "2. Logical Correctness: Evaluate if the code logic calculates the correct answer according to the expected logic. If the core logic is correct and produces the expected output value, mark it as 'pass: true', EVEN IF the student's print statements have extra formatting or extra text.\n"
+    prompt = "You are a strict Python Code Judge. Verify the following Python code against the provided test cases and question context.\n"
+    if question_text:
+        prompt += f"\n[QUESTION CONTEXT]\n{question_text}\n"
+    
+    prompt += "\nRequirements:\n"
+    prompt += "1. Logical Correctness: Evaluate if the code logic solves the problem described in the context. If the core logic is correct and produces the expected output value, mark it as 'pass: true', EVEN IF the student's output has extra formatting or if Piston failed due to environment issues.\n"
+    prompt += "2. Security Check: Ensure the code is not attempting to bypass tests by hardcoding outputs for specific inputs.\n"
     prompt += f"\nCode:\n{code}\n\nTest Cases:\n"
     for i, tc in enumerate(test_cases):
         prompt += f"{i+1}. Input: {tc.input} | Expected Core Value: {tc.expected}\n"
@@ -111,7 +115,7 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
 
         # Tiers 2 & 3 (Groq AI)
         try:
-            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
+            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile", request.question_text)
             if res: 
                 if res.get("all_pass"):
                     res["engine"] = "Groq Llama 3.1 70B (AI Override)"
@@ -123,7 +127,7 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
             print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
 
         try:
-            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
+            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant", request.question_text)
             if res:
                 if res.get("all_pass"):
                     res["engine"] = "Groq Llama 3.1 8B (AI Override)"

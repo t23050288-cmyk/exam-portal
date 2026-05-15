@@ -593,42 +593,47 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
         raise HTTPException(status_code=400, detail="exam_title is required for configuration")
 
     # ── Build update payload — only include columns that exist in the DB ──────
-    # Core columns always present
+    # Use model_fields_set to distinguish between "not provided" and "explicitly null"
     update_data: dict = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "exam_title": request.exam_title,
     }
-    if request.is_active is not None:
-        update_data["is_active"] = request.is_active
-    if request.scheduled_start is not None:
-        update_data["scheduled_start"] = request.scheduled_start
-    if request.duration_minutes is not None:
-        update_data["duration_minutes"] = request.duration_minutes
-    if request.category is not None:
-        update_data["category"] = request.category
+    
+    # Map request fields to DB columns
+    field_to_col = {
+        "is_active": "is_active",
+        "scheduled_start": "scheduled_start",
+        "scheduled_end": "scheduled_end",
+        "duration_minutes": "duration_minutes",
+        "category": "category",
+        "marks_per_question": "marks_per_question",
+        "negative_marks": "negative_marks",
+        "shuffle_questions": "shuffle_questions",
+        "shuffle_options": "shuffle_options",
+        "max_attempts": "max_attempts",
+        "show_answers_after": "show_answers_after",
+        "total_questions": "total_questions",
+        "total_marks": "total_marks",
+        "exam_description": "exam_description"
+    }
 
-    # Extended columns — only add if they exist in the actual DB schema
-    # We discover this by doing a test SELECT; if columns missing, skip gracefully
+    # Discover schema to avoid errors on missing columns
+    db_columns = []
     try:
-        _schema_check = db.table("exam_config").select("scheduled_end").limit(1).execute()
-        if request.scheduled_end is not None:
-            update_data["scheduled_end"] = request.scheduled_end
+        sample = db.table("exam_config").select("*").limit(1).execute()
+        if sample.data:
+            db_columns = list(sample.data[0].keys())
+        else:
+            # Fallback check for common columns
+            _check = db.table("exam_config").select("scheduled_end").limit(1).execute()
+            db_columns = ["scheduled_end", "is_active", "exam_title"] # minimal set
     except Exception:
-        pass  # column doesn't exist yet
+        pass
 
-    for col, val in [
-        ("marks_per_question", request.marks_per_question),
-        ("negative_marks", request.negative_marks),
-        ("shuffle_questions", request.shuffle_questions),
-        ("shuffle_options", request.shuffle_options),
-        ("max_attempts", request.max_attempts),
-        ("show_answers_after", request.show_answers_after),
-        ("total_questions", request.total_questions),
-        ("total_marks", request.total_marks),
-        ("exam_description", request.exam_description),
-    ]:
-        if val is not None:
-            update_data[col] = val
+    for field in request.model_fields_set:
+        col = field_to_col.get(field)
+        if col and (not db_columns or col in db_columns):
+            update_data[col] = getattr(request, field)
 
     try:
         # ── Activation Intelligence ──
@@ -640,16 +645,20 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
                 update_data["scheduled_end"] = None
                 print(f"[ADMIN] Cleared PyHunt schedules for manual activation.")
             else:
-                # Check if scheduled_end exists and is in the past
-                # If it's in the past, we clear the schedule to keep it active
+                # ── Activation Intelligence ──
+                # If the user is manually activating an exam, ensure it's not immediately deactivated by the schedule cron
                 try:
                     now = datetime.now(timezone.utc)
                     
-                    # Check current DB state for this exam's schedule
-                    curr = db.table("exam_config").select("scheduled_end").eq("exam_title", request.exam_title).maybe_single().execute()
+                    # Fetch current schedule from DB to check if it's in the past
+                    curr = db.table("exam_config").select("scheduled_end, scheduled_start").eq("exam_title", request.exam_title).maybe_single().execute()
                     
-                    # We also check the request payload
-                    target_end = request.scheduled_end or (curr.data.get("scheduled_end") if curr.data else None)
+                    # Determine what the resulting scheduled_end will be after this update
+                    # If request.scheduled_end is provided (even as None), it takes precedence
+                    if "scheduled_end" in request.model_fields_set:
+                        target_end = request.scheduled_end
+                    else:
+                        target_end = curr.data.get("scheduled_end") if curr.data else None
                     
                     if target_end:
                         end_dt = datetime.fromisoformat(target_end.replace("Z", "+00:00"))
@@ -658,6 +667,14 @@ async def update_exam_config(request: ExamConfigUpdate, _: bool = Depends(verify
                             update_data["scheduled_start"] = None
                             update_data["scheduled_end"] = None
                             print(f"[ADMIN] Cleared expired schedule for '{request.exam_title}' during manual activation.")
+                    elif not target_end and curr.data and (curr.data.get("scheduled_start") or curr.data.get("scheduled_end")):
+                        # If no schedule in request but there's an old schedule in DB, 
+                        # and we are activating, we might want to clear it if it's "stale".
+                        # For handleActivateFolder (which sends no schedule), this ensures a clean activation.
+                        if "scheduled_start" not in request.model_fields_set:
+                            update_data["scheduled_start"] = None
+                            update_data["scheduled_end"] = None
+                            print(f"[ADMIN] Resetting stale schedule for '{request.exam_title}' on manual activation.")
                 except Exception as e:
                     print(f"[ADMIN] Activation Intelligence error: {e}")
 

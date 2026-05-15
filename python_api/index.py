@@ -103,17 +103,34 @@ try:
     async def cron_evict():
         try:
             db = get_supabase()
-            result = db.table("exam_config").select("id,is_active,scheduled_end").eq("is_active", True).not_.is_("scheduled_end", "null").execute()
-            deactivated = 0
-            for cfg in (result.data or []):
-                end_str = cfg["scheduled_end"].replace("Z", "+00:00")
-                try:
-                    if datetime.now(timezone.utc) >= datetime.fromisoformat(end_str):
-                        db.table("exam_config").update({"is_active": False}).eq("id", cfg["id"]).execute()
-                        deactivated += 1
-                except Exception:
-                    continue
-            return {"status": "success", "deactivated": deactivated}
+            # Fetch only active exams that HAVE a schedule
+            result = db.table("exam_config").select("id,is_active,scheduled_end,exam_title").eq("is_active", True).not_.is_("scheduled_end", "null").execute()
+            
+            deactivated_count = 0
+            if result.data:
+                ids_to_deactivate = []
+                now = datetime.now(timezone.utc)
+                
+                for cfg in result.data:
+                    end_str = cfg.get("scheduled_end")
+                    if not end_str:
+                        continue
+                    
+                    try:
+                        # Parse and handle 'Z' suffix
+                        end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                        if now >= end_dt:
+                            ids_to_deactivate.append(cfg["id"])
+                            print(f"[CRON] Evicting expired exam: {cfg.get('exam_title')} (ID: {cfg['id']})")
+                    except Exception as e:
+                        print(f"[CRON] Error parsing schedule for {cfg.get('exam_title')}: {e}")
+
+                if ids_to_deactivate:
+                    db.table("exam_config").update({"is_active": False}).in_("id", ids_to_deactivate).execute()
+                    deactivated_count = len(ids_to_deactivate)
+                    print(f"[CRON] Successfully deactivated {deactivated_count} exams.")
+            
+            return {"status": "ok", "deactivated": deactivated_count}
         except Exception as e:
             return JSONResponse(status_code=500, content={"error": str(e)})
 
