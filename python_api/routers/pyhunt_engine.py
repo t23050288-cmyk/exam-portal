@@ -52,9 +52,14 @@ async def verify_groq(client: httpx.AsyncClient, code: str, test_cases: List[Tes
     settings = get_settings()
     if not settings.groq_api_key or "your_key" in settings.groq_api_key: return None
     
-    prompt = f"Verify this Python code against these test cases. Return ONLY a JSON object with 'results' (list of {{'pass': bool, 'got': string, 'expected': string}}) and 'all_pass': bool.\n\nCode:\n{code}\n\nTest Cases:\n"
+    prompt = "You are a strict Python Code Judge. Verify the following Python code against the provided test cases.\n"
+    prompt += "Requirements:\n"
+    prompt += "1. Strict Indentation & Syntax: Ensure the code has correct Python indentation and structure.\n"
+    prompt += "2. Logical Correctness: Evaluate if the code logic calculates the correct answer according to the expected logic. If the core logic is correct and produces the expected output value, mark it as 'pass: true', EVEN IF the student's print statements have extra formatting or extra text.\n"
+    prompt += f"\nCode:\n{code}\n\nTest Cases:\n"
     for i, tc in enumerate(test_cases):
-        prompt += f"{i+1}. Input: {tc.input} | Expected: {tc.expected}\n"
+        prompt += f"{i+1}. Input: {tc.input} | Expected Core Value: {tc.expected}\n"
+    prompt += "\nReturn ONLY a JSON object with 'results' (list of {'pass': bool, 'got': string, 'expected': string}) and 'all_pass': bool."
 
     headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
     payload = {
@@ -99,24 +104,24 @@ async def verify_code(request: VerifyRequest, current: dict = Depends(get_curren
         except Exception as e:
             print(f"[HCOL] Piston Failed: {e}. Falling back to Emergency Regex...")
 
-        # Tiers 2 & 3 (Groq AI) - COMMENTED OUT AS REQUESTED
-        # try:
-        #     res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
-        #     if res: 
-        #         res["engine"] = "Groq Llama 3.1 70B"
-        #         res["ok"] = True
-        #         return res
-        # except Exception as e:
-        #     print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
-        #
-        # try:
-        #     res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
-        #     if res:
-        #         res["engine"] = "Groq Llama 3.1 8B"
-        #         res["ok"] = True
-        #         return res
-        # except Exception as e:
-        #     print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
+        # Tiers 2 & 3 (Groq AI)
+        try:
+            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-70b-versatile")
+            if res: 
+                res["engine"] = "Groq Llama 3.1 70B"
+                res["ok"] = True
+                return res
+        except Exception as e:
+            print(f"[HCOL] Groq 70B Failed: {e}. Falling back to Groq 8B...")
+
+        try:
+            res = await verify_groq(client, request.code, request.test_cases, "llama-3.1-8b-instant")
+            if res:
+                res["engine"] = "Groq Llama 3.1 8B"
+                res["ok"] = True
+                return res
+        except Exception as e:
+            print(f"[HCOL] Groq 8B Failed: {e}. Falling back to Emergency Regex...")
 
         # Tier 4: Emergency Regex (Now returns ok: False to trigger frontend fallback)
         emergency = verify_regex_emergency(request.code, request.test_cases)
