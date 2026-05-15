@@ -506,65 +506,69 @@ export function RoundCoding({
     if (isSubmit) setCooldown(8);
 
     try {
-      // ── Plan A: Backend Piston API ──
+      // ── Groq AI Grader (primary) ──
       setVerifying(true);
-      const resp = await fetch("/api/exam/pyhunt/verify", {
+      setFeedback("🤖 AI is reading your code...");
+      
+      const aiResp = await fetch("/api/ai/check-code", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(isAdminPreview ? { "X-Admin-Secret": "rudranshsarvam" } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           problem_title: problem.title,
+          problem_description: problem.description,
           code,
           test_cases: problem.testCases,
-          is_submit: isSubmit
+          round_num: roundNum
         })
       });
-      
-      const data = await resp.json();
+
       setVerifying(false);
 
-      if (data.ok && !data.engine?.includes("Regex")) {
-        setTestResults(data.results || []);
-        setAllPass(data.all_pass);
-        setEngine(data.engine || "Backend API");
-        
-        if (data.all_pass) {
-          setFeedback(`🎯 LOGIC VERIFIED: ${data.engine} confirmed your solution.`);
-        } else {
-          onWrong();
-          setHint("Focus on the test case error above! You can do it.");
+      if (aiResp.ok) {
+        const aiData = await aiResp.json();
+        const passed = aiData.correct === true || aiData.status === "Pass";
+        setEngine("🤖 Groq AI");
+        setFeedback(aiData.feedback || (passed ? "✅ Correct!" : "❌ Check your logic."));
+        if (aiData.errors && aiData.errors !== "None") setHint(`💡 ${aiData.errors}`);
+
+        // Show synthetic test results based on AI verdict
+        const synth = problem.testCases.map(tc => ({
+          pass: passed,
+          got: passed ? tc.expected : (aiData.errors || "Logic error"),
+          expected: tc.expected,
+          input: tc.input
+        }));
+        setTestResults(synth);
+        setActiveBottomTab("testcases");
+
+        if (isSubmit) {
+          setAllPass(passed);
+          if (!passed) onWrong();
         }
         setRunning(false);
         return;
       }
 
-      // ── Plan B: Local Pyodide Execution ──
+      // ── Fallback: Local Pyodide ──
+      setFeedback("⚠ AI unavailable, running locally...");
       if (ready) {
         const { results, allPass: ap } = await runTests(code, problem.testCases);
         const defaultStdin = problem.testCases.length > 0 ? problem.testCases[0].input : "";
         const out = await runCode(code, defaultStdin);
-        const mapped = results.map((r, i) => ({
-          ...r,
-          input: problem.testCases[i]?.input || ""
-        }));
-        setTestResults(mapped);
+        setTestResults(results.map((r, i) => ({ ...r, input: problem.testCases[i]?.input || "" })));
         setOutput(out);
-        setActiveBottomTab(isSubmit ? "testcases" : "console");
         setEngine("⚙️ Local Python");
+        setFeedback(ap ? "✅ All tests passed locally!" : "❌ Some tests failed.");
+        setActiveBottomTab(isSubmit ? "testcases" : "console");
         if (isSubmit) {
           setAllPass(ap);
-          if (!ap) {
-            onWrong();
-            setHint("Check your logic against the failed test cases!");
-          }
+          if (!ap) onWrong();
         }
       } else {
-        setFeedback("⚠ Python engine still loading. Try again in a moment.");
+        setFeedback("⚠ AI unavailable and Python engine still loading. Try again shortly.");
       }
     } catch (err: any) {
-      setFeedback("⚠ Execution error: " + err.message);
+      setFeedback("⚠ Error: " + err.message);
     } finally {
       setRunning(false); setVerifying(false);
     }
