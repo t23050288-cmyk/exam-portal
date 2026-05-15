@@ -787,7 +787,7 @@ function JumblePart({
   onPartComplete: (arg?: string) => void;
   onWrong: () => void;
 }) {
-  const correct = problem.lines;
+  const correct = problem.lines.filter(l => l.trim() !== "");
   const [lines, setLines] = useState<string[]>(() => shuffle(correct));
   const [dragging, setDragging] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
