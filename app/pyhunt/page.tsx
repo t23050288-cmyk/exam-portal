@@ -913,13 +913,24 @@ function JumblePart({
 function RoundJumble({ problem, onComplete, onWrong }: { problem: JumbleProblem; onComplete: () => void; onWrong: () => void }) {
   const { ready, runCode } = usePyodide();
   const handleComplete = async () => {
+    // Fire-and-forget rank sync for round 2 via Next.js route
     try {
       const examToken = sessionStorage.getItem("exam_token") || "";
-      await fetch("/api/exam/pyhunt/complete-round", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
-        body: JSON.stringify({ round_id: 2 })
-      });
+      let userId = "";
+      try { const p = JSON.parse(atob(examToken.split(".")[1])); userId = p.sub || p.user_id || p.id || ""; } catch {}
+      if (userId) {
+        fetch("/api/ai/complete-round", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ round_id: 2, user_id: userId, total_clues: 4 })
+        }).then(r => r.json()).then(d => {
+          if (d.rank) {
+            const stored = JSON.parse(localStorage.getItem("pyhunt_per_round_ranks") || "{}");
+            stored[2] = d.rank;
+            localStorage.setItem("pyhunt_per_round_ranks", JSON.stringify(stored));
+          }
+        }).catch(() => {});
+      }
     } catch {}
     onComplete();
   };
@@ -1203,7 +1214,12 @@ export default function PyHuntPage() {
   const [mcqStartTime] = useState(Date.now());
   const [finishStats, setFinishStats] = useState({ minutes: 0, wrongs: 0, warnings: 0, round1Score: "", round1Time: "" });
   const [scoreText, setScoreText] = useState("");
-  const [perRoundRanks, setPerRoundRanks] = useState<Record<number, number>>({});
+  const [perRoundRanks, setPerRoundRanks] = useState<Record<number, number>>(() => {
+    try {
+      const cached = localStorage.getItem("pyhunt_per_round_ranks");
+      return cached ? JSON.parse(cached) : {};
+    } catch { return {}; }
+  });
 
   // CODE STORAGE FOR ADMIN VISIBILITY
   const [round3Code, setRound3Code] = useState("");
@@ -1297,18 +1313,39 @@ export default function PyHuntPage() {
     
     const currentRoundId = round + 1; // 1-based round ID
     
-    // Sync rank with server immediately — per-round rank assignment
+    // Get the clue count for this round so server can calc index
+    const cluesForRound = [cfg.round1Clues, cfg.round2Clues, cfg.round3Clues, cfg.round4Clues][round] || [];
+    const totalClues = cluesForRound.length || 1;
+    
+    // Sync rank with server — use Next.js route (reliable, not Python)
     try {
       const examToken = sessionStorage.getItem("exam_token") || "";
-      const resp = await fetch("/api/exam/pyhunt/complete-round", {
+      // Get user_id from JWT payload (base64 decode middle part)
+      let userId = "";
+      try {
+        const payload = JSON.parse(atob(examToken.split(".")[1]));
+        userId = payload.sub || payload.user_id || payload.id || "";
+      } catch {}
+      
+      if (!userId) {
+        console.warn("[PyHunt] No user_id in token, skipping rank sync");
+        setShowingClue(true);
+        return;
+      }
+
+      const resp = await fetch("/api/ai/complete-round", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${examToken}`
-        },
-        body: JSON.stringify({ round_id: currentRoundId })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          round_id: currentRoundId,
+          user_id: userId,
+          total_clues: totalClues
+        })
       });
+      
       const data = await resp.json();
+      console.log(`[PyHunt] Round ${currentRoundId} complete — rank=${data.rank}, clue_index=${data.clue_index}`);
+      
       if (data.rank) {
         setPerRoundRanks(prev => {
           const updated = { ...prev, [currentRoundId]: data.rank };
@@ -1317,7 +1354,7 @@ export default function PyHuntPage() {
         });
       }
     } catch (e) {
-      console.error("Failed to sync round completion:", e);
+      console.error("[PyHunt] Failed to sync round completion:", e);
     }
 
     setShowingClue(true);
