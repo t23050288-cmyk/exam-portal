@@ -930,19 +930,28 @@ function QuestionsTab() {
   const [activeExamTitles, setActiveExamTitles] = useState<string[]>([]);
 
 
+  // loadConfig: re-fetches exam active state from server — always call after activate/deactivate
+  const loadConfig = useCallback(async () => {
+    try {
+      const configRes = await fetch(`/api/admin/exam/config/public?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
+      }).then(r => r.json());
+      const activeTitles = (configRes || []).filter((c: any) => c.is_active).map((c: any) => c.exam_title);
+      setActiveExamTitles(activeTitles);
+    } catch (e) { console.error("[loadConfig]", e); }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try { 
       const data = await fetchAdminQuestions(); 
       setQuestions(data.questions); 
-      
-      const configRes = await fetch('/api/admin/exam/config/public').then(r => r.json());
-      const activeTitles = (configRes || []).filter((c: any) => c.is_active).map((c: any) => c.exam_title);
-      setActiveExamTitles(activeTitles);
+      await loadConfig();
     }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, []);
+  }, [loadConfig]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1042,7 +1051,8 @@ function QuestionsTab() {
     try {
       setLoading(true);
       await updateExamConfig({ exam_title: folderName, is_active: true });
-      setActiveExamTitles(prev => prev.includes(folderName) ? prev : [...prev, folderName]);
+      // Re-fetch from server so the button state reflects the actual DB value
+      await loadConfig();
       alert(`Successfully activated exam: ${folderName}`);
     } catch (error: any) {
       alert(`Failed to activate exam: ${error.message}`);
@@ -1056,7 +1066,8 @@ function QuestionsTab() {
     try {
       setLoading(true);
       await updateExamConfig({ exam_title: folderName, is_active: false });
-      setActiveExamTitles(prev => prev.filter(t => t !== folderName));
+      // Re-fetch from server so the button state reflects the actual DB value
+      await loadConfig();
       alert(`Exam "${folderName}" has been deactivated.`);
     } catch (error: any) {
       alert(`Failed to deactivate exam: ${error.message}`);
