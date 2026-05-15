@@ -278,8 +278,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
   const [shaking, setShaking] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [attempts, setAttempts] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const MAX_ATTEMPTS = 5;
 
   // If no unlock code needed (last round), auto-show unlock button
   if (!clue || !clue.unlockCode) {
@@ -295,38 +294,31 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
   }
 
   const handleSubmit = async () => {
-    if (!input.trim() || loading) return;
-    setLoading(true);
-    setErrorMsg("");
+    if (!input.trim() || unlocked) return;
 
-    try {
-      const examToken = sessionStorage.getItem("exam_token") || "";
-      const resp = await fetch("/api/exam/pyhunt/unlock", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${examToken}`
-        },
-        body: JSON.stringify({
-          round_id: roundId,
-          submitted_pass_code: input.trim()
-        })
-      });
+    // CLIENT-SIDE validation — compare directly against the clue being displayed
+    // Both sides are cast to string, trimmed, and uppercased for safe comparison
+    const submitted = String(input).trim().toUpperCase();
+    const expected  = String(clue.unlockCode).trim().toUpperCase();
 
-      const data = await resp.json();
-      if (data.status === "Pass") {
-        setUnlocked(true);
-        setTimeout(onUnlock, 1200);
-      } else {
-        setAttempts(a => a + 1);
-        setShaking(true);
-        setErrorMsg(data.message || "Wrong code!");
-        setTimeout(() => setShaking(false), 600);
-      }
-    } catch (err) {
-      setErrorMsg("Connection error. Try again.");
-    } finally {
-      setLoading(false);
+    console.log("[ClueScreen] Comparing:", { submitted, expected, roundId });
+
+    if (submitted === expected) {
+      setUnlocked(true);
+      // Also fire-and-forget log to backend (non-blocking)
+      try {
+        const examToken = sessionStorage.getItem("exam_token") || "";
+        fetch("/api/exam/pyhunt/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": \`Bearer \${examToken}\` },
+          body: JSON.stringify({ round_id: roundId, submitted_pass_code: submitted })
+        }).catch(() => {}); // silent — just for logging
+      } catch {}
+      setTimeout(onUnlock, 1200);
+    } else {
+      setAttempts(a => a + 1);
+      setShaking(true);
+      setTimeout(() => setShaking(false), 600);
     }
   };
 
@@ -354,9 +346,9 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
               autoFocus
               autoComplete="off"
             />
-            {errorMsg && (
+            {attempts > 0 && !unlocked && (
               <div className={styles.clueWrongMsg}>
-                ❌ {errorMsg}
+                ❌ Wrong code! ({MAX_ATTEMPTS - attempts} remaining)
               </div>
             )}
             <button className={styles.primaryBtn} onClick={handleSubmit} disabled={loading}>
