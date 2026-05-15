@@ -1532,7 +1532,7 @@ export default function PyHuntPage() {
               </div>
             </header>
 
-            <main className={styles.content}>
+            <main className={(round >= 2 && !showingClue && entryUnlocked) ? styles.contentWide : styles.content}>
               {!entryUnlocked && round === 0 && (
                 <EntryGate correctCode={cfg.entryAccessCode} onUnlock={() => setEntryUnlocked(true)} />
               )}
