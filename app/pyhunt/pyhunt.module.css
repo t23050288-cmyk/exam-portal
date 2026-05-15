@@ -233,17 +233,17 @@
 .jumbleBoard  { display: flex; flex-direction: column; gap: 8px; }
 .jumbleLine {
   display: flex; align-items: center; gap: 12px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,220,255,0.04); border: 1px solid rgba(0,220,255,0.1);
   border-radius: 10px; padding: 12px 14px; cursor: grab;
-  transition: all 0.2s; color: #f1f5f9;
+  transition: all 0.2s; color: #90c0e0;
 }
-.jumbleLine:hover { background: rgba(0,220,255,0.12); border-color: rgba(0,220,255,0.4); }
+.jumbleLine:hover { background: rgba(0,220,255,0.09); border-color: rgba(0,220,255,0.25); }
 .jumbleDragging { opacity: 0.5; transform: scale(0.97); }
 .lineNum {
   width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
-  background: rgba(0,180,255,0.25); border: 1px solid rgba(0,220,255,0.4);
+  background: rgba(0,150,255,0.15); border: 1px solid rgba(0,180,255,0.2);
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; color: #fff;
+  font-size: 11px; font-weight: 700; color: #4a9fd4;
 }
 .jumbleLine code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; flex: 1; }
 .dragHandle { color: #2a4060; font-size: 16px; margin-left: auto; }
@@ -703,11 +703,11 @@
 .jumbleSide {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
 }
 
 .compilerSide {
