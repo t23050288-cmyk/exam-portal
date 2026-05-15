@@ -280,6 +280,7 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
   const [attempts, setAttempts] = useState(0);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const MAX_ATTEMPTS = 5;
 
   // If no unlock code needed (last round), auto-show unlock button
   if (!clue || !clue.unlockCode) {
@@ -295,39 +296,31 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
   }
 
   const handleClueSubmit = async () => {
-    if (!input.trim() || isUnlocking) return;
+    if (!input.trim() || isUnlocking || unlocked) return;
     setIsUnlocking(true);
     setErrorMsg("");
 
-    try {
-      const examToken = sessionStorage.getItem("exam_token") || "";
-      const resp = await fetch("/api/exam/pyhunt/unlock", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${examToken}`
-        },
-        body: JSON.stringify({
-          round_id: roundId,
-          submitted_pass_code: input.trim()
-        })
-      });
+    const submitted = String(input).trim().toUpperCase();
+    const expected  = String(clue.unlockCode).trim().toUpperCase();
 
-      const data = await resp.json();
-      if (data.status === "Pass") {
-        setUnlocked(true);
-        setTimeout(onUnlock, 1200);
-      } else {
-        setAttempts(a => a + 1);
-        setShaking(true);
-        setErrorMsg(data.message || "Wrong code!");
-        setTimeout(() => setShaking(false), 600);
-      }
-    } catch (err) {
-      setErrorMsg("Connection error. Try again.");
-    } finally {
-      setIsUnlocking(false);
+    if (submitted === expected) {
+      setUnlocked(true);
+      try {
+        const examToken = sessionStorage.getItem("exam_token") || "";
+        await fetch("/api/exam/pyhunt/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${examToken}` },
+          body: JSON.stringify({ round_id: roundId, submitted_pass_code: submitted })
+        });
+      } catch {}
+      setTimeout(onUnlock, 1200);
+    } else {
+      setAttempts(a => a + 1);
+      setShaking(true);
+      setErrorMsg("Wrong code!");
+      setTimeout(() => setShaking(false), 600);
     }
+    setIsUnlocking(false);
   };
 
   return (
@@ -354,9 +347,9 @@ function ClueScreen({ roundId, clue, onUnlock }: { roundId: number; clue: ClueCo
               autoFocus
               autoComplete="off"
             />
-            {errorMsg && (
+            {attempts > 0 && !unlocked && (
               <div className={styles.clueWrongMsg}>
-                ❌ {errorMsg}
+                ❌ Wrong code! ({MAX_ATTEMPTS - attempts} remaining)
               </div>
             )}
             <button className={styles.primaryBtn} onClick={handleClueSubmit} disabled={isUnlocking}>
